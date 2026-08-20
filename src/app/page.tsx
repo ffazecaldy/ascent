@@ -15,6 +15,8 @@ import { MissingTodayCard } from "@/components/home/MissingTodayCard";
 import { QuickSummary } from "@/components/home/QuickSummary";
 import { BestWorstCard } from "@/components/home/BestWorstCard";
 import { BadgesWall } from "@/components/home/BadgesWall";
+import { QuoteRotator } from "@/components/home/QuoteRotator";
+import { DeadlinesCard } from "@/components/home/DeadlinesCard";
 
 export default function HomePage() {
   const db = useDB();
@@ -26,6 +28,10 @@ export default function HomePage() {
         title="Oggi conta."
         subtitle="Sistema operativo per la crescita personale — tutto quello che conta, in un colpo d'occhio."
       />
+
+      <Reveal>
+        <QuoteRotator />
+      </Reveal>
 
       <Reveal>
         <div className="grid gap-4 lg:grid-cols-3">
@@ -41,9 +47,14 @@ export default function HomePage() {
       </Reveal>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Reveal delay={0}>
-          <MissingTodayCard db={db} />
-        </Reveal>
+        <div className="flex flex-col gap-4">
+          <Reveal delay={0}>
+            <MissingTodayCard db={db} />
+          </Reveal>
+          <Reveal delay={40}>
+            <DeadlinesCard db={db} />
+          </Reveal>
+        </div>
         <Reveal delay={80}>
           <BestWorstCard db={db} />
         </Reveal>

@@ -11,6 +11,7 @@ import { useDB } from "@/lib/storage";
 import { todayKey } from "@/lib/dates";
 import { SectionHeader } from "@/components/ui/Misc";
 import { Reveal } from "@/components/ui/Reveal";
+import { BalanceOverview } from "@/components/finanze/BalanceOverview";
 import { TransactionForm } from "@/components/finanze/TransactionForm";
 import { CategoryManager } from "@/components/finanze/CategoryManager";
 import { MonthOverview } from "@/components/finanze/MonthOverview";
@@ -28,6 +29,10 @@ export default function FinanzePage() {
         subtitle="Registra transazioni, gestisci categorie e controlla il saldo mensile."
         kicker="Area contabile"
       />
+
+      <Reveal delay={0}>
+        <BalanceOverview />
+      </Reveal>
 
       <Reveal delay={0}>
         <div className="grid gap-4 lg:grid-cols-3">

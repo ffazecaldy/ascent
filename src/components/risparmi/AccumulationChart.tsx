@@ -1,0 +1,84 @@
+"use client";
+// ============================================================
+// ASCEND — Risparmi · Curva di accumulo
+// LineChart da savingsSeries (cumulativa per data di versamento),
+// linea + area in ACCENT blue. Empty state dedicato.
+// ============================================================
+
+import { useDB } from "@/lib/storage";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/Misc";
+import { LineChart, ACCENT } from "@/components/charts";
+import { formatMoney } from "@/lib/format";
+import { moneyMasked, maskMoney } from "@/lib/privacy";
+import type { LinePoint } from "@/components/charts";
+
+function shortDay(date: string, locale: string): string {
+  const { y, m, d } = {
+    y: date.slice(0, 4),
+    m: Number(date.slice(5, 7)),
+    d: Number(date.slice(8, 10)),
+  };
+  return new Date(Number(y), m - 1, d).toLocaleDateString(locale, {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+export function AccumulationChart({
+  series,
+  onNewDeposit,
+}: {
+  series: { date: string; value: number }[];
+  onNewDeposit: () => void;
+}) {
+  const db = useDB();
+  const base = db.settings.baseCurrency;
+  const locale = db.settings.locale;
+  const hidden = moneyMasked(db.settings.privacyMode);
+
+  const total = series.length ? series[series.length - 1].value : 0;
+  const data: LinePoint[] = series.map((p) => ({ x: shortDay(p.date, locale), y: p.value }));
+
+  return (
+    <Card hairline="accent">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Curva di accumulo</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Totale versato nel tempo, aggiornato a ogni versamento.
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Totale accumulato
+          </div>
+          <div className="tnum text-lg font-semibold text-accent">
+            {hidden ? maskMoney() : formatMoney(total, base, locale)}
+          </div>
+        </div>
+      </div>
+
+      {data.length > 1 ? (
+        <LineChart
+          data={data}
+          color={ACCENT}
+          height={200}
+          yFormatter={(n) => (hidden ? maskMoney() : formatMoney(n, base, locale))}
+        />
+      ) : (
+        <EmptyState
+          icon="📈"
+          title="Ancora nessun versamento"
+          description="Registra almeno due versamenti per vedere la tua parabola di accumulo."
+          action={
+            <Button variant="outline" size="sm" onClick={onNewDeposit}>
+              ＋ Primo versamento
+            </Button>
+          }
+        />
+      )}
+    </Card>
+  );
+}

@@ -17,6 +17,9 @@ import {
   AccountsList,
   RecentTrades,
   QuickLinks,
+  MonthlyPnl,
+  StreakChip,
+  LiveFeed,
 } from "@/components/trading/overview";
 
 export default function TradingOverviewPage() {
@@ -43,11 +46,20 @@ export default function TradingOverviewPage() {
           <Reveal delay={0}>
             <KpiCards db={db} />
           </Reveal>
+          <Reveal delay={20}>
+            <MonthlyPnl db={db} />
+          </Reveal>
           <Reveal delay={80}>
             <AccountsList db={db} />
           </Reveal>
           <Reveal delay={40}>
             <RecentTrades db={db} />
+          </Reveal>
+          <Reveal delay={90}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <StreakChip db={db} />
+              <LiveFeed db={db} />
+            </div>
           </Reveal>
         </>
       ) : (

@@ -33,7 +33,8 @@ import { BarsChart } from "@/components/charts";
 const PRESET_TYPES = [
   "Cardio",
   "Forza",
-  "Calisthenics",
+  "Palestra",
+  "Calistenics",
   "Yoga",
   "Corsa",
   "Padel",
@@ -72,6 +73,9 @@ function typeColor(type: string): string {
 const TYPE_EMOJI: Record<string, string> = {
   Cardio: "🏃",
   Forza: "🏋️",
+  Palestra: "💪",
+  Calistenics: "🤸",
+  // alias di compatibilità: workout storici salvati con la vecchia grafia
   Calisthenics: "🤸",
   Yoga: "🧘",
   Corsa: "🏃",

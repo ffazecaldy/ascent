@@ -10,7 +10,14 @@
 
 import React, { useEffect, useState } from "react";
 import { useDB, updateDB, uid, removeById } from "@/lib/storage";
-import { ascordDay, GOAL_LABELS, pcMinutesInWeek, workoutsInWeek } from "@/lib/compute";
+import {
+  ascordDay,
+  GOAL_LABELS,
+  pcMinutesInWeek,
+  workoutsInWeek,
+  upcomingDeadlines,
+} from "@/lib/compute";
+import type { DeadlineItem } from "@/lib/compute";
 import {
   todayKey,
   weekStartKey,
@@ -24,8 +31,8 @@ import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button";
 import { ProgressBar, EmptyState, SectionHeader } from "@/components/ui/Misc";
 import { Badge, StatusDot } from "@/components/ui/Badge";
-import { ConfirmDialog } from "@/components/ui/Modal";
-import { Input, Select } from "@/components/ui/Field";
+import { ConfirmDialog, Modal } from "@/components/ui/Modal";
+import { Input, Select, Field } from "@/components/ui/Field";
 import { Reveal } from "@/components/ui/Reveal";
 
 // ------------------------------------------------------------
@@ -255,6 +262,84 @@ function NumEditor({
 }
 
 // ------------------------------------------------------------
+// Scadenza (deadline opzionale) — giorni rimanenti, badge, campo inline
+// ------------------------------------------------------------
+
+/** Giorni rimanenti rispetto a oggi (negativo se la scadenza è passata). */
+function daysUntil(today: string, deadline: string): number {
+  const t = new Date(today + "T00:00:00").getTime();
+  const d = new Date(deadline + "T00:00:00").getTime();
+  return Math.round((d - t) / 86400000);
+}
+
+/** "yyyy-MM-dd" → "12/09" */
+function shortDate(deadline: string): string {
+  const [, m, d] = deadline.split("-");
+  return `${Number(d)}/${String(Number(m)).padStart(2, "0")}`;
+}
+
+/** Badge compatto con la scadenza della riga: warning ≤ 3 gg, danger se passata e non fatta. */
+function DeadlineBadge({ deadline, today, met }: { deadline: string; today: string; met?: boolean }) {
+  const dl = daysUntil(today, deadline);
+  const passed = dl < 0;
+  const tone = passed ? (met ? "default" : "danger") : dl <= 3 ? "warning" : "default";
+  let text: string;
+  if (passed) {
+    text = `scad. ${shortDate(deadline)}${met ? " · fatto" : ""}`;
+  } else if (dl === 0) {
+    text = "scade oggi";
+  } else if (dl <= 3) {
+    text = `tra ${dl} gg`;
+  } else {
+    text = `scad. ${shortDate(deadline)}`;
+  }
+  return (
+    <Badge tone={tone}>
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M8 3v4M16 3v4M3 10h18" />
+      </svg>
+      {text}
+    </Badge>
+  );
+}
+
+/** Input type=date inline: imposta la scadenza (upsert del goal), bottone ✕ per toglierla. */
+function DeadlineField({
+  value,
+  onCommit,
+}: {
+  value: string | null | undefined;
+  onCommit: (v: string | null) => void;
+}) {
+  return (
+    <span className="flex items-center gap-1">
+      <input
+        type="date"
+        value={value ?? ""}
+        onChange={(e) => onCommit(e.target.value || null)}
+        aria-label="Scadenza (opzionale)"
+        title="Scadenza (opzionale)"
+        className="h-7 w-[8.6rem] rounded-lg border border-border-strong bg-muted px-2 text-[11px] text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onCommit(null)}
+          aria-label="Togli scadenza"
+          title="Togli scadenza"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border-strong bg-elevated text-muted-foreground transition-colors hover:border-danger/40 hover:text-danger"
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+    </span>
+  );
+}
+
+// ------------------------------------------------------------
 // Riga DailyGoal (gate Ascend Day)
 // ------------------------------------------------------------
 
@@ -364,6 +449,12 @@ function DailyGoalRow({
         </div>
       </div>
 
+      {/* Scadenza opzionale — input date inline + badge urgenza */}
+      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        <DeadlineField value={goal.deadline} onCommit={(v) => patchGoal({ deadline: v })} />
+        {goal.deadline && <DeadlineBadge deadline={goal.deadline} today={today} met={met} />}
+      </div>
+
       <ConfirmDialog
         open={confirmDel}
         onClose={() => setConfirmDel(false)}
@@ -385,6 +476,7 @@ function DailyGoalRow({
 function WeeklyGoalRow({ goal }: { goal: WeeklyGoal }) {
   const [confirmDel, setConfirmDel] = useState(false);
   const db = useDB();
+  const today = todayKey(db.settings.timezone);
 
   const patchGoal = (patch: Partial<WeeklyGoal>) =>
     updateDB((d) => ({
@@ -488,6 +580,12 @@ function WeeklyGoalRow({ goal }: { goal: WeeklyGoal }) {
         </div>
       )}
 
+      {/* Scadenza opzionale — input date inline + badge urgenza */}
+      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        <DeadlineField value={goal.deadline} onCommit={(v) => patchGoal({ deadline: v })} />
+        {goal.deadline && <DeadlineBadge deadline={goal.deadline} today={today} met={met} />}
+      </div>
+
       <ConfirmDialog
         open={confirmDel}
         onClose={() => setConfirmDel(false)}
@@ -503,6 +601,180 @@ function WeeklyGoalRow({ goal }: { goal: WeeklyGoal }) {
 }
 
 // ------------------------------------------------------------
+// Riga compatta per la sezione "In scadenza" (upcomingDeadlines)
+// ------------------------------------------------------------
+
+function DeadlineRow({ item }: { item: DeadlineItem }) {
+  const t: "danger" | "warning" | "accent" =
+    item.daysLeft <= 1 ? "danger" : item.daysLeft <= 3 ? "warning" : "accent";
+  const fill = Math.min(100, Math.max(14, Math.round(((14 - item.daysLeft) / 14) * 100)));
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 px-3 py-2 transition-colors hover:border-border-strong">
+      {/* giorni mancanti — numerone tnum */}
+      <div
+        className={cn(
+          "flex h-10 w-14 shrink-0 flex-col items-center justify-center rounded-lg border",
+          t === "danger"
+            ? "border-danger/30 bg-danger/10"
+            : t === "warning"
+              ? "border-warning/30 bg-warning/10"
+              : "border-accent/30 bg-accent/10"
+        )}
+      >
+        <span
+          className={cn(
+            "tnum text-xl font-semibold leading-none",
+            t === "danger" ? "text-danger" : t === "warning" ? "text-warning" : "text-accent"
+          )}
+        >
+          {item.daysLeft}
+        </span>
+        <span className="mt-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">gg</span>
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className="truncate text-[13px] font-medium text-foreground">{item.label}</p>
+          <Badge tone={item.kind === "daily" ? "info" : "default"} className="hidden sm:inline-flex">
+            {item.kind === "daily" ? "giornaliero" : "settimanale"}
+          </Badge>
+          <span className="tnum ml-auto shrink-0 text-[11px] text-muted-foreground">
+            scad. {shortDate(item.deadline)}
+          </span>
+        </div>
+        {/* barra di urgenza colorata */}
+        <div className="mt-1.5">
+          <ProgressBar className="h-1.5" value={fill} max={100} tone={t} shimmer={false} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------
+// Form creazione goal — include la scadenza opzionale
+// ------------------------------------------------------------
+
+function CreateGoalModal({
+  kind,
+  open,
+  onClose,
+}: {
+  kind: "daily" | "weekly";
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [type, setType] = useState<string>(kind === "daily" ? "finanze_check" : "workout_count");
+  const [targetVal, setTargetVal] = useState<string>(kind === "daily" ? "0" : "1");
+  const [period, setPeriod] = useState<"week" | "month">("week");
+  const [deadline, setDeadline] = useState("");
+
+  const n = Number(targetVal);
+  const target = Number.isFinite(n) && n >= 0 ? n : kind === "daily" ? 0 : 1;
+
+  const create = () => {
+    const dl = deadline || null;
+    if (kind === "daily") {
+      updateDB((d) => ({
+        ...d,
+        dailyGoals: [
+          ...d.dailyGoals,
+          { id: uid(), type: type as GoalType, targetValue: target, active: true, deadline: dl },
+        ],
+      }));
+    } else {
+      updateDB((d) => ({
+        ...d,
+        weeklyGoals: [
+          ...d.weeklyGoals,
+          {
+            id: uid(),
+            type: type as WeeklyGoalType,
+            targetValue: target,
+            period,
+            active: true,
+            deadline: dl,
+          },
+        ],
+      }));
+    }
+    onClose();
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={kind === "daily" ? "Nuovo goal giornaliero" : "Nuovo obiettivo di periodo"}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Annulla
+          </Button>
+          <Button onClick={create}>Crea obiettivo</Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <Field label="Tipo">
+          <Select value={type} onChange={(e) => setType(e.target.value)}>
+            {(kind === "daily" ? DAILY_OPTIONS : WEEKLY_OPTIONS).map(([k, label]) => (
+              <option key={k} value={k}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        {kind === "weekly" ? (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Obiettivo">
+              <Input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step="any"
+                value={targetVal}
+                onChange={(e) => setTargetVal(e.target.value)}
+              />
+            </Field>
+            <Field label="Periodo">
+              <Select value={period} onChange={(e) => setPeriod(e.target.value as "week" | "month")}>
+                {PERIOD_OPTIONS.map(([k, label]) => (
+                  <option key={k} value={k}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+        ) : (
+          <Field label="Soglia (0 = presenza)">
+            <Input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="any"
+              value={targetVal}
+              onChange={(e) => setTargetVal(e.target.value)}
+            />
+          </Field>
+        )}
+
+        <Field label="Scadenza (opzionale)">
+          <Input
+            type="date"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            title="Scadenza (opzionale)"
+          />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
+
+// ------------------------------------------------------------
 // Pagina
 // ------------------------------------------------------------
 
@@ -511,24 +783,9 @@ export default function ObiettiviPage() {
   const today = todayKey(db.settings.timezone);
   const todayRes = ascordDay(db, today);
 
-  const addDaily = () =>
-    updateDB((d) => ({
-      ...d,
-      dailyGoals: [
-        ...d.dailyGoals,
-        { id: uid(), type: "finanze_check" as GoalType, targetValue: 0, active: true },
-      ],
-    }));
+  const [createKind, setCreateKind] = useState<"daily" | "weekly" | null>(null);
 
-  const addWeekly = () =>
-    updateDB((d) => ({
-      ...d,
-      weeklyGoals: [
-        ...d.weeklyGoals,
-        { id: uid(), type: "workout_count" as WeeklyGoalType, targetValue: 1, period: "week" as const, active: true },
-      ],
-    }));
-
+  const deadlines = upcomingDeadlines(db);
   const hasAny = db.dailyGoals.length > 0 || db.weeklyGoals.length > 0;
 
   return (
@@ -538,6 +795,33 @@ export default function ObiettiviPage() {
         title="Obiettivi"
         subtitle="Gate giornalieri (Ascend Day) e obiettivi di periodo con progresso in tempo reale."
       />
+
+      {/* — In scadenza: obiettivi con deadline (upcomingDeadlines) — */}
+      {deadlines.length > 0 && (
+        <Reveal>
+          <Card hairline="danger" className="space-y-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-danger/30 bg-danger/10 text-base">
+                ⏳
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold tracking-tight text-foreground">In scadenza</p>
+                <p className="text-xs text-muted-foreground">
+                  {deadlines.length === 1
+                    ? "1 obiettivo con scadenza da rispettare"
+                    : `${deadlines.length} obiettivi con scadenza da rispettare`}
+                  .
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {deadlines.map((d) => (
+                <DeadlineRow key={`${d.kind}-${d.id}`} item={d} />
+              ))}
+            </div>
+          </Card>
+        </Reveal>
+      )}
 
       {/* Spiegazione — separazione formale Daily/Weekly */}
       <div className="relative overflow-hidden rounded-xl border border-accent/25 bg-accent-dim px-4 py-3">
@@ -562,8 +846,8 @@ export default function ObiettiviPage() {
           description="I DailyGoal decidono se vinci l'Ascend Day ogni giorno; i WeeklyGoal tracciano il progresso su settimana o mese."
           action={
             <div className="flex gap-2">
-              <Button onClick={addDaily}>Aggiungi goal giornaliero</Button>
-              <Button variant="outline" onClick={addWeekly}>
+              <Button onClick={() => setCreateKind("daily")}>Aggiungi goal giornaliero</Button>
+              <Button variant="outline" onClick={() => setCreateKind("weekly")}>
                 Aggiungi goal settimanale
               </Button>
             </div>
@@ -591,7 +875,7 @@ export default function ObiettiviPage() {
                       </span>
                     </span>
                   )}
-                  <Button onClick={addDaily} size="sm">
+                  <Button onClick={() => setCreateKind("daily")} size="sm">
                     + Aggiungi
                   </Button>
                 </div>
@@ -623,7 +907,7 @@ export default function ObiettiviPage() {
                     tuoi dati.
                   </CardSubtitle>
                 </div>
-                <Button onClick={addWeekly} size="sm">
+                <Button onClick={() => setCreateKind("weekly")} size="sm">
                   + Aggiungi obiettivo
                 </Button>
               </CardHeader>
@@ -644,6 +928,14 @@ export default function ObiettiviPage() {
           </Reveal>
         </div>
       )}
+
+      {/* Form creazione (include la scadenza opzionale) */}
+      <CreateGoalModal
+        key={createKind ?? "closed"}
+        kind={createKind ?? "daily"}
+        open={createKind !== null}
+        onClose={() => setCreateKind(null)}
+      />
     </div>
   );
 }

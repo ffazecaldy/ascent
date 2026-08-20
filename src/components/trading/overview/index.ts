@@ -3,3 +3,6 @@ export { KpiCards } from "./KpiCards";
 export { AccountsList } from "./AccountsList";
 export { RecentTrades } from "./RecentTrades";
 export { QuickLinks } from "./QuickLinks";
+export { MonthlyPnl } from "./MonthlyPnl";
+export { StreakChip } from "./StreakChip";
+export { LiveFeed } from "./LiveFeed";

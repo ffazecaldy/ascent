@@ -10,7 +10,7 @@
 // kicker, badge 'corrente', banner "Settimana perfetta ✨" con glow).
 // ============================================================
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { useDB, updateDB, upsert, uid, nowISO } from "@/lib/storage";
 import {
@@ -35,7 +35,7 @@ import {
   minutiToOre,
 } from "@/lib/format";
 import { moneyMasked, kpiMasked, maskMoney, maskKpi } from "@/lib/privacy";
-import type { WeeklyReview } from "@/lib/types";
+import type { DB, WeeklyReview } from "@/lib/types";
 import { Card, CardHeader, CardSubtitle, CardTitle } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
 import { Button } from "@/components/ui/Button";
@@ -84,6 +84,53 @@ interface WeekStats {
   breakeven: number;
 }
 
+/**
+ * Statistiche LIVE della settimana — ricalcolate a OGNI render direttamente da
+ * `db` (derivato da useDB()), mai lette dallo snapshot salvato nella WeeklyReview.
+ * Funzione pura chiamata nel body del componente: nessun memo di cache che congela,
+ * quindi aggiungi/elimina un trade, una transazione, un allenamento o minuti PC
+ * della settimana → il valore si aggiorna immediatamente senza refresh.
+ */
+function computeWeekStats(db: DB, week: string): WeekStats {
+  const tz = db.settings.timezone;
+  const today = todayKey(tz);
+  const weekEnd = addDaysKey(week, 6);
+  const raw = weeklyReviewStats(db, week) as unknown as Omit<
+    WeekStats,
+    "totalBase" | "ascordWon" | "ascordTotal" | "wins" | "losses" | "breakeven"
+  >;
+
+  // P&L in valuta base (native → base) per i trade chiusi nella settimana.
+  const tradesOfWeek = db.trades.filter((t) => {
+    const dk = isoToDayKey(t.closeDate, tz);
+    return dk >= week && dk <= weekEnd;
+  });
+  let totalBase = 0,
+    wins = 0,
+    losses = 0,
+    breakeven = 0;
+  for (const t of tradesOfWeek) {
+    const acc = db.accounts.find((a) => a.id === t.accountId);
+    totalBase += t.resultNative * (acc ? accountBaseRate(acc, db.settings.baseCurrency) : 1);
+    if (t.resultR > 0) wins++;
+    else if (t.resultR < 0) losses++;
+    else breakeven++;
+  }
+
+  // Ascend Day di QUESTA settimana (weeklyReviewStats usa la settimana corrente):
+  // conta i giorni già trascorsi della settimana selezionata.
+  let ascordWon = 0,
+    ascordTotal = 0;
+  for (let i = 0; i < 7; i++) {
+    const dk = addDaysKey(week, i);
+    if (dk > today) break;
+    ascordTotal++;
+    if (ascordDay(db, dk).met) ascordWon++;
+  }
+
+  return { ...raw, totalBase, ascordWon, ascordTotal, wins, losses, breakeven };
+}
+
 export default function WeeklyReviewPage() {
   const db = useDB();
   const tz = db.settings.timezone;
@@ -91,49 +138,26 @@ export default function WeeklyReviewPage() {
   const today = todayKey(tz);
   const currentWeekStart = weekStartKey(today, db.settings.weekStart);
   const [week, setWeek] = useState<string>(currentWeekStart);
+  // Segnale per aprire la riflessione da "Completa oggi" (setWeek + scroll al form).
+  const [openSignal, setOpenSignal] = useState(0);
   const weekEnd = addDaysKey(week, 6);
   const minWeek = addDaysKey(currentWeekStart, -728); // max ~2 anni indietro
   const isCurrent = week === currentWeekStart;
 
-  // Statistiche della settimana selezionata, auto-calcolate a ogni render.
-  const stats = useMemo<WeekStats>(() => {
-    const raw = weeklyReviewStats(db, week) as unknown as Omit<
-      WeekStats,
-      "totalBase" | "ascordWon" | "ascordTotal" | "wins" | "losses" | "breakeven"
-    >;
+  // "Completa oggi": porta la selezione sulla settimana corrente e scroll alle domande.
+  const handleCompletaOggi = () => {
+    setWeek(currentWeekStart);
+    setOpenSignal((n) => n + 1);
+  };
 
-    // P&L in valuta base (native → base) per i trade chiusi nella settimana.
-    const tradesOfWeek = db.trades.filter((t) => {
-      const dk = isoToDayKey(t.closeDate, tz);
-      return dk >= week && dk <= weekEnd;
-    });
-    let totalBase = 0,
-      wins = 0,
-      losses = 0,
-      breakeven = 0;
-    for (const t of tradesOfWeek) {
-      const acc = db.accounts.find((a) => a.id === t.accountId);
-      totalBase += t.resultNative * (acc ? accountBaseRate(acc, db.settings.baseCurrency) : 1);
-      if (t.resultR > 0) wins++;
-      else if (t.resultR < 0) losses++;
-      else breakeven++;
-    }
-
-    // Ascend Day di QUESTA settimana (weeklyReviewStats usa la settimana corrente):
-    // conta i giorni già trascorsi della settimana selezionata.
-    let ascordWon = 0,
-      ascordTotal = 0;
-    for (let i = 0; i < 7; i++) {
-      const dk = addDaysKey(week, i);
-      if (dk > today) break;
-      ascordTotal++;
-      if (ascordDay(db, dk).met) ascordWon++;
-    }
-
-    return { ...raw, totalBase, ascordWon, ascordTotal, wins, losses, breakeven };
-  }, [db, week, tz, weekEnd, today]);
+  // Statistiche della settimana selezionata: RICALCOLO LIVE a ogni render,
+  // direttamente da db (useDB) tramite weeklyReviewStats(db, week) + integrazioni.
+  // Nessuno snapshot della WeeklyReview, nessun memo di cache congelato: il
+  // valore riflette subito ogni aggiunta/eliminazione di dati della settimana.
+  const stats = computeWeekStats(db, week);
 
   // Sparkline giornaliere (solo giorni trascorsi) per win rate, P&L, disciplina e Ascend.
+  // Ricalcolate quando db cambia (deps: db) — quindi sempre allineate, mai congelate.
   const daily = useMemo(() => {
     const pnl: number[] = [];
     const winRate: number[] = [];
@@ -474,7 +498,14 @@ export default function WeeklyReviewPage() {
       </Reveal>
 
       {/* Riflessione */}
-      <ReflectionForm key={week} week={week} existing={existing} stats={stats} />
+      <ReflectionForm
+        key={week}
+        week={week}
+        existing={existing}
+        stats={stats}
+        openSignal={openSignal}
+        onCompletaOggi={handleCompletaOggi}
+      />
     </div>
   );
 }
@@ -524,10 +555,14 @@ function ReflectionForm({
   week,
   existing,
   stats,
+  openSignal,
+  onCompletaOggi,
 }: {
   week: string;
   existing: WeeklyReview | null;
   stats: WeekStats;
+  openSignal: number;
+  onCompletaOggi: () => void;
 }) {
   const db = useDB();
 
@@ -539,15 +574,21 @@ function ReflectionForm({
   const formRef = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // "Completa oggi" dal parent: apri la riflessione (anche se la settimana è
+  // cambiata) e scroll alle domande.
+  useEffect(() => {
+    if (openSignal > 0) {
+      setShowForm(true);
+      requestAnimationFrame(() =>
+        formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+      );
+    }
+  }, [openSignal]);
+
   const showMsg = (text: string) => {
     setMsg(text);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setMsg(null), 5000);
-  };
-
-  const startForm = () => {
-    setShowForm(true);
-    requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
 
   const save = () => {
@@ -579,7 +620,7 @@ function ReflectionForm({
             title="Nessuna review per questa settimana"
             description="Prenditi dieci minuti: cosa è andato bene, cosa no, e cosa cambierai. Le statistiche sopra sono già pronte."
             action={
-              <Button glow onClick={startForm}>
+              <Button glow onClick={onCompletaOggi}>
                 Completa oggi ✨
               </Button>
             }

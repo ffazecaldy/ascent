@@ -24,7 +24,10 @@ import { cn } from "@/lib/cn";
 import {
   accountBaseRate,
   consecutiveWinsLosses,
+  drawdownSeries,
   equityCurve,
+  monthlyWinRate,
+  rByMonth,
   tradingStats,
   tradesBetween,
 } from "@/lib/compute";
@@ -52,6 +55,11 @@ const PERIODS: { id: PeriodId; label: string }[] = [
 const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"] as const;
 
 const HOUR_BANDS = 12; // fasce da 2h: 00-02 … 22-24
+
+/** Formato label mesile degli helper (x = "yy-mm") → "mm/aa". */
+function monthLabel(x: string): string {
+  return `${x.slice(3, 5)}/${x.slice(0, 2)}`;
+}
 
 // Hex coerenti con i token CSS (--accent / --success / --danger)
 // per sparkline e occlusioni inline: verdi/blu/rossi SOLO per P&L.
@@ -126,6 +134,47 @@ function ZeroBaseline({ data, height }: { data: { y: number }[]; height: number 
   return (
     <div aria-hidden className="pointer-events-none absolute inset-x-1" style={{ top: y, height: 1 }}>
       <div className="h-px w-full bg-gradient-to-r from-transparent via-border-strong to-transparent shadow-[0_0_6px_0_rgba(245,245,247,0.06)]" />
+    </div>
+  );
+}
+
+/**
+ * Linea di riferimento orizzontale per LineChart — replica la geometria
+ * esatta del chart condiviso (viewBox 600×H, padT=12, padB=22) così la
+ * linea (es. cut al 50% del win rate) si allinea al dominio reale.
+ * Solo presentazionale; non tocca la libreria chart condivisa.
+ */
+function LineAt({
+  data,
+  height,
+  value,
+  label,
+  hex = SUCCESS_HEX,
+}: {
+  data: { y: number }[];
+  height: number;
+  value: number;
+  label: string;
+  hex?: string;
+}) {
+  const padT = 12;
+  const padB = 22;
+  const ih = height - padT - padB;
+  const ys = data.map((d) => d.y);
+  const min = Math.min(...ys);
+  const max = Math.max(...ys);
+  const span = max - min || 1;
+  const v = Math.min(max, Math.max(min, value));
+  const y = padT + ((max - v) / span) * ih;
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-x-1" style={{ top: y, height: 1 }}>
+      <div className="h-px w-full border-t border-dashed" style={{ borderColor: `${hex}55` }} />
+      <span
+        className="absolute -top-4 right-0 rounded bg-card px-1 text-[9px] font-medium"
+        style={{ color: hex }}
+      >
+        {label}
+      </span>
     </div>
   );
 }
@@ -211,6 +260,25 @@ export default function TradingStatsPage() {
       }))
       .filter((r) => r.y !== 0); // solo fasce con attività
   })();
+
+  // (8) R per mese — ultimi 12 mesi. Dati reali dagli helper: si mostrano
+  // solo i mesi con chiusura corretta (count > 0), niente mesi a zero.
+  const rMonths = rByMonth(db, 12).filter((m) => m.count > 0);
+  const rBarData = rMonths.map((m) => ({ x: monthLabel(m.x), y: m.r }));
+  const rTotal = rMonths.reduce((s, m) => s + m.r, 0); // segno per hairline
+
+  // (9) Drawdown — dall'equity cumulativa dei trade FILTRATI (valori ≤ 0).
+  const ddDates = drawdownSeries(trades).map((p) => ({
+    x: shortDay(isoToDayKey(p.date, tz)),
+    y: p.value,
+  }));
+  const maxDD = ddDates.length ? Math.min(...ddDates.map((p) => p.y)) : 0;
+
+  // (10) Win rate mensile — ultimi 12 mesi, solo mesi con chiusura corretta.
+  const wrMonths = monthlyWinRate(db, 12).filter((m) => m.count > 0);
+  const wrData = wrMonths.map((m) => ({ x: monthLabel(m.x), y: m.winRate }));
+  const wrTotalCount = wrMonths.reduce((s, m) => s + m.count, 0);
+  const avgWR = wrTotalCount > 0 ? wrMonths.reduce((s, m) => s + m.winRate * m.count, 0) / wrTotalCount : 0;
 
   // ---- Riepilogo derivato SOLO per la presentazione (non tocca i calcoli sopra) ----
   // Win rate per mese (spark della card "Win rate").
@@ -645,6 +713,136 @@ export default function TradingStatsPage() {
               </Card>
             </Reveal>
           </div>
+
+          {/* Panoramica mensile: R per mese + Win rate mensile (dati reali, chiusure corrette) */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <Reveal delay={160}>
+              <Card
+                hairline={rTotal > 0 ? "success" : rTotal < 0 ? "danger" : "accent"}
+                texture
+                className="relative"
+              >
+                <CardHeader>
+                  <div>
+                    <CardTitle>R per mese</CardTitle>
+                    <CardSubtitle>
+                      Ultimi 12 mesi · tutti gli account · solo mesi con chiusura corretta
+                    </CardSubtitle>
+                  </div>
+                  <span
+                    className={cn(
+                      "tnum rounded-lg bg-elevated px-2 py-1 text-[11px]",
+                      rTotal > 0 ? "text-success" : rTotal < 0 ? "text-danger" : "text-secondary-text"
+                    )}
+                  >
+                    {kpiHidden ? maskKpi() : formatR(rTotal)}
+                  </span>
+                </CardHeader>
+                <div className="relative">
+                  <BarsChart
+                    data={rBarData}
+                    color={SUCCESS_HEX}
+                    negativeColor={DANGER_HEX}
+                    showValue={false}
+                    height={CHART_H}
+                  />
+                  <ZeroBaseline data={rBarData} height={CHART_H} />
+                </div>
+                {/* dettaglio per mese: wins/count (dati del tooltip) */}
+                <div className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                  {rMonths.map((m) => (
+                    <div key={m.x} className="rounded-lg bg-elevated px-2.5 py-1.5">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-[10px] font-medium text-muted-foreground">
+                          {monthLabel(m.x)}
+                        </span>
+                        <span
+                          className={cn(
+                            "tnum text-[12px] font-semibold",
+                            m.r > 0 ? "text-success" : m.r < 0 ? "text-danger" : "text-secondary-text"
+                          )}
+                        >
+                          {kpiHidden ? maskKpi() : formatR(m.r)}
+                        </span>
+                      </div>
+                      <div className="tnum text-[10px] text-secondary-text">
+                        {m.wins} V · {m.count - m.wins} P · su {m.count}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </Reveal>
+
+            <Reveal delay={200}>
+              <Card hairline="success" texture>
+                <CardHeader>
+                  <div>
+                    <CardTitle>Win rate mensile</CardTitle>
+                    <CardSubtitle>
+                      Ultimi 12 mesi · tutti gli account · solo mesi con chiusura corretta
+                    </CardSubtitle>
+                  </div>
+                  <span
+                    className={cn(
+                      "tnum rounded-lg bg-elevated px-2 py-1 text-[11px] font-semibold",
+                      avgWR >= 50 ? "text-success" : "text-danger"
+                    )}
+                  >
+                    {kpiHidden ? maskKpi() : formatPercent(avgWR, 0)}
+                  </span>
+                </CardHeader>
+                <div className="relative">
+                  <LineChart
+                    data={wrData}
+                    color={SUCCESS_HEX}
+                    height={CHART_H}
+                    yFormatter={kpiHidden ? () => maskKpi() : (n) => formatPercent(n, 0)}
+                  />
+                  <LineAt data={wrData} height={CHART_H} value={50} label="50% breakeven" />
+                </div>
+              </Card>
+            </Reveal>
+          </div>
+
+          {/* Drawdown — equity cumulativa sotto il picco (valori ≤ 0) */}
+          <Reveal delay={240}>
+            <Card hairline="danger" texture className="relative">
+              <CardHeader>
+                <div>
+                  <CardTitle>Drawdown</CardTitle>
+                  <CardSubtitle>
+                    Equity cumulativa sotto il picco · trade filtrati · valori ≤ 0
+                  </CardSubtitle>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                    Max
+                  </span>
+                  <span
+                    className={cn(
+                      "tnum rounded-lg bg-elevated px-2 py-1 text-[11px] font-semibold",
+                      maxDD < 0 ? "text-danger" : "text-secondary-text"
+                    )}
+                  >
+                    {moneyHidden ? maskMoney() : formatSignedMoney(maxDD, moneyCurrency)}
+                  </span>
+                </div>
+              </CardHeader>
+              <LineChart
+                data={ddDates}
+                color={DANGER_HEX}
+                height={CHART_H}
+                yFormatter={moneyHidden ? () => maskMoney() : undefined}
+              />
+              <div className="mt-1 flex items-center gap-4 text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-danger" /> drawdown (≤ 0)
+                </span>
+                <span className="tnum">{ddDates.length} chiusure</span>
+              </div>
+            </Card>
+          </Reveal>
         </>
       )}
     </div>
