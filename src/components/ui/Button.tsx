@@ -44,7 +44,7 @@ export function Button({
       type={type}
       disabled={disabled}
       className={cn(
-        "relative inline-flex select-none items-center justify-center whitespace-nowrap font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed",
+        "relative inline-flex select-none items-center justify-center whitespace-nowrap font-medium transition-[color,background-color,border-color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed",
         variantCls[variant],
         sizeCls[size],
         glow && variant === "primary" && "animate-glow",

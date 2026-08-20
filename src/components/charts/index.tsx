@@ -291,7 +291,7 @@ export function ActivityHeatmap({
   const cols = weeks.length;
   return (
     <div className="flex gap-1 overflow-x-auto">
-      <div className="flex flex-col justify-between py-0.5 pr-1 text-[9px] text-muted-foreground">
+      <div className="flex flex-col justify-between py-0.5 pr-1 text-[10px] text-muted-foreground">
         {weekLabels.map((l, i) => (
           <span key={i} className="h-3 leading-3" style={{ height: 14 }}>
             {l}
@@ -385,11 +385,11 @@ export function PnlCalendar({
                 isToday ? "outline outline-1 outline-accent" : ""
               }`}
             >
-              <span className="text-[9px] text-black/70">{key.slice(8)}</span>
+              <span className="text-[10px] text-black/70">{key.slice(8)}</span>
               {pnl != null && !neutral && (
-                <span className="text-[9px] font-semibold text-black/85">{fmt(pnl)}</span>
+                <span className="text-[10px] font-semibold text-black/85">{fmt(pnl)}</span>
               )}
-              {pnl != null && neutral && <span className="text-[9px] text-black/40">••</span>}
+              {pnl != null && neutral && <span className="text-[10px] text-black/40">••</span>}
             </div>
           );
         })}

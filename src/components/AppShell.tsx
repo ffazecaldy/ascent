@@ -76,7 +76,7 @@ function StreakPill() {
       href="/"
       title="Activity Streak — calcolato a runtime"
       className={cn(
-        "group flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold transition-all",
+        "group flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors",
         streak.days > 0
           ? "border-accent/40 bg-accent/10 text-accent hover:bg-accent/20"
           : "border-border-strong bg-elevated text-muted-foreground hover:text-foreground"
@@ -109,7 +109,7 @@ function PrivacyToggle() {
       onClick={cycle}
       title="Privacy: Off (tutto visibile) · Standard (cifre nascoste) · Completa (anche KPI e calendario)"
       className={cn(
-        "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
+        "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
         mode === "complete"
           ? "border-danger/30 bg-danger/10 text-danger"
           : mode === "standard"
@@ -270,7 +270,7 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
         {NAV.map((group, gi) => (
           <div key={gi}>
             {group.group && (
-              <p className="mb-1 px-2 text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+              <p className="mb-1 px-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                 {group.group}
               </p>
             )}
@@ -293,7 +293,7 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
                     href={item.href}
                     onClick={onNavigate}
                     className={cn(
-                      "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-all duration-150",
+                      "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors duration-150",
                       active
                         ? "bg-accent/15 text-accent"
                         : "text-secondary-text hover:bg-elevated hover:text-foreground"

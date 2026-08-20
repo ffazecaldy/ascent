@@ -58,7 +58,7 @@ export function ProgressBar({
   return (
     <div className={cn("relative h-2 w-full overflow-hidden rounded-full bg-elevated", className)}>
       <div
-        className={cn("relative h-full rounded-full transition-all duration-700 ease-out", toneCls)}
+        className={cn("relative h-full rounded-full transition-[background-color,box-shadow] duration-700 ease-out", toneCls)}
         style={{ width: `${pct}%` }}
       >
         {shimmer && pct > 4 && <div className="shimmer absolute inset-0" />}
