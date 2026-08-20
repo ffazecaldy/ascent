@@ -13,6 +13,8 @@ export interface UserSettings {
   locale: string; // es. "it-IT"
   privacyMode: PrivacyMode;
   onboardingDone: boolean;
+  /** saldo iniziale finanze (valuta base) — punto di partenza del conto personale */
+  initialBalance?: number;
   lastFreezeMonth?: string; // "yyyy-MM" — streak freeze usato
   updatedAt: string;
 }
@@ -158,6 +160,7 @@ export interface DailyGoal {
   type: GoalType;
   targetValue: number; // 0 = presenza generica ("almeno un'azione"); altrimenti soglia
   active: boolean;
+  deadline?: string | null; // "yyyy-MM-dd" — scadenza opzionale (visibile in Home)
 }
 
 export interface WeeklyGoal {
@@ -166,6 +169,7 @@ export interface WeeklyGoal {
   targetValue: number;
   period: "week" | "month";
   active: boolean;
+  deadline?: string | null; // "yyyy-MM-dd" — scadenza opzionale
 }
 
 // Cache ricalcolabile — NON fonte di verità. Ricalcolata a runtime.
@@ -219,6 +223,25 @@ export interface Workout {
   createdAt: string;
 }
 
+/** Risparmi — conto di accumulo progressivo per investimenti futuri */
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  target: number; // obiettivo (valuta base)
+  deadline?: string | null; // "yyyy-MM-dd"
+  active: boolean;
+  createdAt: string;
+}
+
+export interface SavingsDeposit {
+  id: string;
+  goalId?: string | null; // opzionale: a quale obiettivo è allocato
+  amount: number; // versamento (valuta base)
+  date: string; // "yyyy-MM-dd"
+  note?: string;
+  createdAt: string;
+}
+
 export interface Badge {
   key: string;
   unlockedAt: string;
@@ -246,7 +269,9 @@ export interface DB {
   pcAppCategoryMap: PCAppCategoryMap[];
   books: Book[];
   workouts: Workout[];
+  savingsGoals: SavingsGoal[];
+  savingsDeposits: SavingsDeposit[];
   badges: Badge[];
 }
 
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;

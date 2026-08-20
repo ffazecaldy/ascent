@@ -61,6 +61,8 @@ export function seedDB(): DB {
     pcAppCategoryMap: [],
     books: [],
     workouts: [],
+    savingsGoals: [],
+    savingsDeposits: [],
     badges: [],
   };
 }

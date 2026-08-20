@@ -23,7 +23,10 @@ const NAV: { group: string; items: NavItem[] }[] = [
   { group: "", items: [{ href: "/", label: "Home", icon: "🏠" }] },
   {
     group: "Finanze",
-    items: [{ href: "/finanze", label: "Finanze", icon: "💶" }],
+    items: [
+      { href: "/finanze", label: "Finanze", icon: "💶" },
+      { href: "/risparmi", label: "Risparmi", icon: "💰" },
+    ],
   },
   {
     group: "Trading",
@@ -210,8 +213,17 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
             )}
             <div className="space-y-0.5">
               {group.items.map((item) => {
+                // BUG FIX: un item "padre" (es. /trading) resta attivo anche sulle sue
+                // sotto-rotte. Un item è padre se un altro item inizia con il suo path.
+                const isParent = group.items.some(
+                  (i) => i.href !== item.href && i.href.startsWith(item.href + "/")
+                );
                 const active =
-                  item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(item.href + "/");
+                  item.href === "/"
+                    ? pathname === "/"
+                    : isParent
+                      ? pathname === item.href
+                      : pathname === item.href || pathname.startsWith(item.href + "/");
                 return (
                   <Link
                     key={item.href}

@@ -660,8 +660,180 @@ export function bestWorstWeek(db: DB) {
 }
 
 // ------------------------------------------------------------
-// Weekly review snapshot (statistiche auto-calcolate)
+// Finanze — saldo complessivo (con saldo iniziale) + scadenze obiettivi
 // ------------------------------------------------------------
+
+/** Saldo totale del conto personale = saldoIniziale + Σ(entrate−uscite) di sempre (valuta base). */
+export function financesToDate(db: DB): { start: number; income: number; expense: number; net: number } {
+  let income = 0;
+  let expense = 0;
+  for (const t of db.transactions) {
+    const amt = convertToBase(t.amount, t.exchangeRate);
+    if (t.type === "income") income += amt;
+    else expense += amt;
+  }
+  const start = db.settings.initialBalance ?? 0;
+  return { start, income, expense, net: start + income - expense };
+}
+
+export interface DeadlineItem {
+  id: string;
+  kind: "daily" | "weekly";
+  type: string;
+  label: string;
+  targetValue: number;
+  deadline: string; // yyyy-MM-dd
+  daysLeft: number;
+}
+
+/** Obiettivi con scadenza (non passata) — usati in Home. */
+export function upcomingDeadlines(db: DB): DeadlineItem[] {
+  const tz = db.settings.timezone;
+  const today = todayKey(tz);
+  const todayMs = new Date(today + "T00:00:00").getTime();
+  const daysLeftOf = (deadline: string) =>
+    Math.max(0, Math.round((new Date(deadline + "T00:00:00").getTime() - todayMs) / 86400000));
+
+  const out: DeadlineItem[] = [];
+  for (const g of db.dailyGoals) {
+    if (g.active && g.deadline && g.deadline >= today) {
+      out.push({
+        id: g.id,
+        kind: "daily",
+        type: g.type,
+        label: GOAL_LABELS[g.type] ?? g.type,
+        targetValue: g.targetValue,
+        deadline: g.deadline,
+        daysLeft: daysLeftOf(g.deadline),
+      });
+    }
+  }
+  for (const g of db.weeklyGoals) {
+    if (g.active && g.deadline && g.deadline >= today) {
+      out.push({
+        id: g.id,
+        kind: "weekly",
+        type: g.type,
+        label: WEEKLY_GOAL_LABELS[g.type] ?? g.type,
+        targetValue: g.targetValue,
+        deadline: g.deadline,
+        daysLeft: daysLeftOf(g.deadline),
+      });
+    }
+  }
+  return out.sort((a, b) => a.deadline.localeCompare(b.deadline));
+}
+
+export const WEEKLY_GOAL_LABELS: Record<string, string> = {
+  workout_count: "Allenamenti",
+  book_pages: "Pagine lette",
+  pc_hours: "Ore al PC",
+  finanze_check: "Check finanze",
+  trade_log: "Trade loggati",
+  lettura_minuti: "Minuti di lettura",
+  allenamento: "Allenamenti",
+  ore_produttive: "Ore produttive",
+  disciplina_ok: "Disciplina",
+};
+
+// ------------------------------------------------------------
+// Risparmi — conto di accumulo progressivo
+// ------------------------------------------------------------
+export interface SavingsTotals {
+  deposited: number;
+  committed: number; // versamenti allocati ai goal attivi
+  target: number; // somma target dei goal attivi
+  goals: {
+    goal: import("./types").SavingsGoal;
+    deposited: number;
+    progressPct: number;
+  }[];
+}
+
+export function savingsTotals(db: DB): SavingsTotals {
+  const activeGoals = db.savingsGoals.filter((g) => g.active);
+  const byGoal = new Map<string, number>();
+  let unallocated = 0;
+  for (const d of db.savingsDeposits) {
+    if (d.goalId && activeGoals.some((g) => g.id === d.goalId)) {
+      byGoal.set(d.goalId, (byGoal.get(d.goalId) ?? 0) + d.amount);
+    } else {
+      unallocated += d.amount;
+    }
+  }
+  const deposited = db.savingsDeposits.reduce((s, d) => s + d.amount, 0);
+  return {
+    deposited,
+    committed: activeGoals.reduce((s, g) => s + (byGoal.get(g.id) ?? 0), 0),
+    target: activeGoals.reduce((s, g) => s + g.target, 0),
+    goals: activeGoals.map((g) => {
+      const dep = byGoal.get(g.id) ?? 0;
+      return { goal: g, deposited: dep, progressPct: g.target > 0 ? Math.min(100, (dep / g.target) * 100) : dep > 0 ? 100 : 0 };
+    }),
+  };
+}
+
+/** Serie cumulativa dei versamenti (per la curva di accumulo). */
+export function savingsSeries(db: DB): { date: string; value: number }[] {
+  const sorted = [...db.savingsDeposits].sort((a, b) => a.date.localeCompare(b.date));
+  let cum = 0;
+  return sorted.map((d) => {
+    cum += d.amount;
+    return { date: d.date, value: cum };
+  });
+}
+
+// ------------------------------------------------------------
+// Serie per i nuovi grafici (trading & personale)
+// ------------------------------------------------------------
+export function rByMonth(db: DB, months: number = 12) {
+  const tz = db.settings.timezone;
+  const today = todayKey(tz);
+  const out: { x: string; r: number; wins: number; count: number }[] = [];
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(today + "T00:00:00");
+    d.setDate(1);
+    d.setMonth(d.getMonth() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const trades = db.trades.filter((t) => monthKeyOf(isoToDayKey(t.closeDate, tz)) === key);
+    out.push({
+      x: key.slice(2),
+      r: trades.reduce((s, t) => s + t.resultR, 0),
+      wins: trades.filter((t) => t.resultR > 0).length,
+      count: trades.length,
+    });
+  }
+  return out;
+}
+
+export function monthlyWinRate(db: DB, months: number = 12) {
+  const tz = db.settings.timezone;
+  const today = todayKey(tz);
+  const out: { x: string; winRate: number; count: number }[] = [];
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(today + "T00:00:00");
+    d.setDate(1);
+    d.setMonth(d.getMonth() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const trades = db.trades.filter((t) => monthKeyOf(isoToDayKey(t.closeDate, tz)) === key);
+    const wins = trades.filter((t) => t.resultR > 0).length;
+    out.push({ x: key.slice(2), winRate: trades.length ? (wins / trades.length) * 100 : 0, count: trades.length });
+  }
+  return out;
+}
+
+/** Drawdown della curva equity cumulativa (per area chart). */
+export function drawdownSeries(trades: Trade[]): { date: string; value: number }[] {
+  const sorted = [...trades].sort((a, b) => a.closeDate.localeCompare(b.closeDate));
+  let cum = 0;
+  let peak = 0;
+  return sorted.map((t) => {
+    cum += t.resultNative;
+    if (cum > peak) peak = cum;
+    return { date: t.closeDate, value: Math.min(0, cum - peak) };
+  });
+}
+
 export function weeklyReviewStats(db: DB, weekStart: string): Record<string, unknown> {
   const weekEnd = addDaysKey(weekStart, 6);
   const trades = tradesBetween(db, weekStart, weekEnd);
