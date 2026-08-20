@@ -169,7 +169,9 @@ type LimitUtil = { used: number; limit: number; distance: number } | null;
 /** Decimali della percentuale di utilizzo (0 = intero, 1 se <10%). */
 const dtype = (pct: number) => (pct > 0 && pct < 10 ? 1 : 0);
 
-/** Componentino limite con mini progress: mostra "—" se l'account non ha trade o limite assente. */
+/** Componentino limite con mini progress: mostra il limite impostato con
+ * utilizzo, progress e distanza rimanente (anche a 0 trade chiusi → 0%).
+ * Se il limite è assente (null) mostra "—". */
 function LimitChip({
   label,
   util,
@@ -200,7 +202,8 @@ function LimitChip({
           </div>
           <ProgressBar value={util.used} max={util.limit} tone={tone} className="mt-1.5 h-1.5" />
           <p className="mt-1 truncate text-[10px] text-muted-foreground">
-            dist. <Amount value={util.distance} currency={currency} masked={masked} />
+            dist. <Amount value={util.distance} currency={currency} masked={masked} /> · lim.{" "}
+            <Amount value={util.limit} currency={currency} masked={masked} />
           </p>
         </>
       )}
@@ -859,7 +862,9 @@ export default function AccountsPage() {
       const monthTrades = accTrades.filter((t) => monthKeyOf(isoToDayKey(t.closeDate, tz)) === monthKey);
       const monthPnl = monthTrades.reduce((s, t) => s + t.resultNative, 0);
 
-      // Utilizzo limiti (solo se l'account ha trade chiusi; altrimenti null → "—")
+      // Utilizzo limiti. Con trade chiusi: utilizzo reale. Senza trade chiusi ma
+      // con limite impostato: used=0, distance=limit → le chip devono comunque
+      // comparire (0% di utilizzo, distanza = limite). Limite assente → null → "—".
       let daily: LimitUtil = null;
       let maxUtil: LimitUtil = null;
       if (closed > 0) {
@@ -875,6 +880,9 @@ export default function AccountsPage() {
           const used = Math.max(0, a.capital - live);
           maxUtil = { used, limit: a.maxLossLimit, distance: Math.max(0, a.maxLossLimit - used) };
         }
+      } else {
+        if (a.dailyLossLimit != null) daily = { used: 0, limit: a.dailyLossLimit, distance: a.dailyLossLimit };
+        if (a.maxLossLimit != null) maxUtil = { used: 0, limit: a.maxLossLimit, distance: a.maxLossLimit };
       }
 
       return {

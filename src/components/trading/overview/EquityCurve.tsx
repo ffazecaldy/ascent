@@ -115,12 +115,12 @@ export function EquityCurve({ db }: { db: DB }) {
       <CardHeader>
         <div className="min-w-0">
           <CardTitle>Andamento cumulato</CardTitle>
-          <CardSubtitle>
+          <CardSubtitle className="text-secondary-text">
             Equity in {baseCurrency} (base) · {rangeLabel}
           </CardSubtitle>
         </div>
         <div className="shrink-0 text-right">
-          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-secondary-text">
             Totale del mese
           </p>
           <p
@@ -142,7 +142,7 @@ export function EquityCurve({ db }: { db: DB }) {
             <p
               className={cn(
                 "inline-flex items-center justify-end gap-1 text-[11px] tnum",
-                moneyHide ? "text-muted-foreground" : deltaTone
+                moneyHide ? "text-secondary-text" : deltaTone
               )}
             >
               <TrendArrow value={delta} size={11} />
@@ -151,7 +151,7 @@ export function EquityCurve({ db }: { db: DB }) {
               ) : (
                 formatSignedMoney(delta, baseCurrency, locale)
               )}
-              <span className="text-muted-foreground">vs mese prec.</span>
+              <span className="text-secondary-text">vs mese prec.</span>
             </p>
           )}
         </div>

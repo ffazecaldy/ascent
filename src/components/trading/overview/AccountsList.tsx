@@ -101,7 +101,7 @@ export function AccountsList({ db }: { db: DB }) {
       <CardHeader>
         <div>
           <CardTitle>Account</CardTitle>
-          <CardSubtitle>{subtitle}</CardSubtitle>
+          <CardSubtitle className="text-secondary-text">{subtitle}</CardSubtitle>
         </div>
         <Link
           href="/trading/accounts"
@@ -181,7 +181,7 @@ export function AccountsList({ db }: { db: DB }) {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-secondary-text">
                     Saldo
                   </p>
                   <p className="inline-flex items-center justify-end gap-1">

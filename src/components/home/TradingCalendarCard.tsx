@@ -119,12 +119,25 @@ export function TradingCalendarCard({ db }: { db: DB }) {
                   : dk
               }
               className={cn(
-                "relative flex aspect-[0.86] flex-col rounded-lg border border-border bg-elevated/40 p-1 transition-all duration-300",
-                hasPnl && (positive ? "border-success/25 hover:border-success/60" : "border-danger/25 hover:border-danger/60"),
+                "relative flex aspect-[0.86] min-h-12 flex-col rounded-lg border p-1.5 transition-all duration-300",
+                hasPnl
+                  ? positive
+                    ? "border-success/70 bg-success/10 hover:border-success"
+                    : "border-danger/70 bg-danger/10 hover:border-danger"
+                  : "border-border/50 bg-elevated/15 hover:border-border",
                 isToday && "ring-2 ring-accent/80 shadow-[0_0_14px_-2px_var(--accent-glow)]"
               )}
+              style={
+                hasPnl
+                  ? {
+                      backgroundImage: `radial-gradient(circle at 50% 40%, ${
+                        positive ? "rgba(45, 223, 158, 0.16)" : "rgba(255, 92, 92, 0.16)"
+                      } 0%, transparent 68%)`,
+                    }
+                  : undefined
+              }
             >
-              {/* giorno + freccia di direzione */}
+              {/* giorno + freccia di direzione (poco invasiva) */}
               <div className="flex items-start justify-between leading-none">
                 <span
                   className={cn(
@@ -134,27 +147,25 @@ export function TradingCalendarCard({ db }: { db: DB }) {
                 >
                   {d}
                 </span>
-                {hasPnl && <TrendArrow value={agg!.pnlBase} size={9} />}
+                {hasPnl && <TrendArrow value={agg!.pnlBase} size={10} className="opacity-80" />}
               </div>
 
-              {/* P&L del giorno + quantità */}
+              {/* P&L del giorno (cifra principale grande) + n. trade (secondario sotto) */}
               {hasPnl ? (
-                <div className="flex flex-1 flex-col items-center justify-center gap-0.5">
+                <div className="flex flex-1 flex-col items-center justify-center gap-1 px-0.5">
                   <span
                     className={cn(
-                      "tnum text-[11px] font-bold leading-none",
+                      "tnum text-[15px] font-semibold leading-none",
                       masked ? "text-secondary-text" : positive ? "text-success" : "text-danger"
                     )}
                   >
                     {masked ? maskMoney() : compactMoney(agg!.pnlBase)}
                   </span>
-                  <span className="text-[8px] uppercase tracking-wide text-muted-foreground">
-                    {agg!.count} trade
+                  <span className="tnum text-[10px] font-medium leading-none text-secondary-text">
+                    {agg!.count} tr
                   </span>
                 </div>
-              ) : (
-                <span className="flex-1" />
-              )}
+              ) : null}
             </div>
           );
         })}

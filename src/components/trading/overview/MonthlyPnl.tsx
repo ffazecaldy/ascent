@@ -54,12 +54,12 @@ export function MonthlyPnl({ db }: { db: DB }) {
       <CardHeader>
         <div>
           <CardTitle>Andamento mensile</CardTitle>
-          <CardSubtitle>
+          <CardSubtitle className="text-secondary-text">
             P&L trading in {baseCurrency} · ultimi 6 mesi
           </CardSubtitle>
         </div>
         <div className="text-right">
-          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-secondary-text">
             Totale semestre
           </p>
           <p
@@ -85,7 +85,7 @@ export function MonthlyPnl({ db }: { db: DB }) {
             negativeColor={NEG}
             showValue={!moneyHide}
           />
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-secondary-text">
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: POS }} />
               profitto

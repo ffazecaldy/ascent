@@ -19,7 +19,10 @@
   --border-strong: #3a3a44;
   --text-1: #f5f5f7;
   --text-2: #a3a3ab;
-  --text-3: #6f6f78;
+  --text-3: #8a8a94;
+  /* token grafici: etichette/assi (usato da charts) */
+  --text-muted: #9898a2;
+  --text-primary: #f5f5f7;
   --accent: #4c7eff;
   --accent-2: #8a6bff;
   --accent-3: #2fd4ff;
