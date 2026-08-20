@@ -12,7 +12,6 @@ import { activityStreak, evalProgress } from "@/lib/compute";
 import { cn } from "@/lib/cn";
 import type { PrivacyMode } from "@/lib/types";
 import { PRIVACY_ORDER } from "@/lib/privacy";
-import { QuickLogButton } from "@/components/QuickLog";
 
 interface NavItem {
   href: string;
@@ -220,7 +219,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <QuickLogButton size="sm" />
             <StreakPill />
             <PrivacyToggle />
           </div>

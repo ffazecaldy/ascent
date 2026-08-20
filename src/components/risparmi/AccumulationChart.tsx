@@ -39,7 +39,14 @@ export function AccumulationChart({
   const hidden = moneyMasked(db.settings.privacyMode);
 
   const total = series.length ? series[series.length - 1].value : 0;
-  const data: LinePoint[] = series.map((p) => ({ x: shortDay(p.date, locale), y: p.value }));
+  // Con un solo versamento (1 punto) la LineChart non disegna nulla:
+  // prependiamo una baseline a 0 dalla data del primo versamento così la
+  // curva di accumulo compare SUBITO al primo deposito e si aggiorna live.
+  let display = series.map((p) => ({ date: p.date, value: p.value }));
+  if (display.length === 1) {
+    display = [{ date: display[0].date, value: 0 }, ...display];
+  }
+  const data: LinePoint[] = display.map((p) => ({ x: shortDay(p.date, locale), y: p.value }));
 
   return (
     <Card hairline="accent">
