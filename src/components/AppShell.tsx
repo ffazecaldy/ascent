@@ -14,6 +14,7 @@ import { useDB, updateDB } from "@/lib/storage";
 import { activityStreak } from "@/lib/compute";
 import { cn } from "@/lib/cn";
 import type { PrivacyMode } from "@/lib/types";
+import { QuickLogButton } from "@/components/QuickLog";
 
 interface NavItem {
   href: string;
@@ -169,6 +170,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <p className="truncate text-sm font-semibold tracking-tight">Ascend</p>
           </div>
           <div className="flex items-center gap-2">
+            <QuickLogButton size="sm" />
             <StreakPill />
             <PrivacyToggle />
           </div>

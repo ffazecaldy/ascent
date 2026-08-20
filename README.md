@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ascend
 
-## Getting Started
+> **Sistema operativo per la crescita personale**: un solo posto per finanze, trading, tempo, corpo e mente. Streak quotidiano, Ascend Day, trading journal completo e obiettivi — con i tuoi dati che vivono sul tuo dispositivo.
 
-First, run the development server:
+PWA single-user **local-first**: Next.js 16 (App Router) + TypeScript + Tailwind v4, persistenza in `localStorage` dietro una data layer a repository (adapter Supabase sostituibile in futuro senza toccare le pagine). UI interamente in italiano.
+
+## Stack
+
+| Strato | Tecnologia |
+|---|---|
+| Framework | Next.js 16 (App Router, `src/`) |
+| Linguaggio | TypeScript 5 |
+| Styling | Tailwind CSS v4 (design system dark, accento blu `#4C7EFF`) |
+| Persistenza | `localStorage` (`ascend:db`), architettura local-first — **zero backend** |
+| PWA | `public/manifest.json` + `public/sw.js` (installabile, offline base) |
+| Grafici | SVG puro, zero dipendenze |
+
+Le pagine usano `"use client"` e accedono ai dati esclusivamente via hook (`useDB()` / `updateDB()`) — mai `localStorage` diretto.
+
+## Avvio
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install        # installa le dipendenze
+npm run dev        # dev server → http://localhost:3000
+npm run build      # build di produzione
+npm start          # serve la build (dopo npm run build)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Script disponibili: `dev`, `build`, `start`, `lint`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Struttura delle cartelle
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+ASCEBT/
+├─ src/
+│  ├─ app/            # rotte (App Router)
+│  ├─ components/
+│  │  ├─ ui/          # design system: Button, Card, StatCard, Badge, Modal, Field…
+│  │  ├─ charts/      # chart SVG condivise: LineChart, BarsChart, DonutChart…
+│  │  └─ AppShell.tsx # sidebar + header globali (streak pill, privacy toggle, onboarding gate)
+│  └─ lib/            # foundation: types, storage, compute, dates, fx, privacy, format, db, cn
+├─ public/            # manifest PWA, service worker, icone
+├─ PHASE_1.md         # contratto per i subagent
+└─ docs/              # documentazione (ARCHITECTURE.md, DECISIONS.md)
+```
 
-## Learn More
+### Rotte (`src/app`)
 
-To learn more about Next.js, take a look at the following resources:
+| Rotta | Pagina |
+|---|---|
+| `/` | **Home** — dashboard: streak, Ascend Day, "cosa manca oggi", P&L del periodo, best/worst week |
+| `/onboarding` | **Onboarding** — primo accesso: valuta base, timezone, obiettivi iniziali |
+| `/finanze` | **Finanze** — transazioni entrate/uscite, saldo mensile, categorie |
+| `/trading` | **Trading — Panoramica** — P&L aggregato multi-account |
+| `/trading/accounts` | **Account** — account prop/personal, stato, capital, limiti, timezone trading day |
+| `/trading/trades` | **Trade log** — CRUD trade (entry/exit, R, setup, emozione, screenshot) |
+| `/trading/setups` | **Playbook & Disciplina** — setup e regole del playbook, rispetto per trade |
+| `/trading/import` | **Import storico** — import CSV dei trade |
+| `/trading/stats` | **Statistiche** — win rate, avgR, profit factor, consecutive, equity |
+| `/trading/calendar` | **Calendario P&L** — heatmap per trading day |
+| `/trading/risk` | **Risk Dashboard** — drawdown, limiti daily/max, rischio per trade |
+| `/trading/payouts` | **Payout & Certificati** — payout con generazione automatica in Finanze |
+| `/trading/review` | **Weekly Review** — snapshot settimanale + risposte libere |
+| `/usopc` | **Uso del PC** — minuti per categoria (manuale / CSV / ActivityWatch) |
+| `/libri` | **Libri** — stato, pagine, citazioni, minuti di lettura |
+| `/sport` | **Sport** — workout, streak sportivo |
+| `/obiettivi` | **Obiettivi** — daily/weekly goal, badge sbloccati |
+| `/impostazioni` | **Impostazioni** — valuta base, timezone, privacy mode, reset dati |
+| `/export` | **Backup / Export** — esporta e ripristina il DB |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Data model
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Il modello dati (specifica v3, sezione 5) vive in **`src/lib/types.ts`** — fonte unica di verità per tutti i moduli, nessuna entità è definita altrove.
 
-## Deploy on Vercel
+- **Un solo oggetto `DB`** persistito sotto `ascend:db`, con `version` e 17 collezioni: settings, categories, transactions, accounts, trades, setups, setupRules, tradeSetupRules, firmExpenses, payouts, weeklyReviews, dailyGoals, weeklyGoals, pcUsageLogs, pcAppCategoryMap, books, workouts, badges.
+- **Settings di sistema**: `baseCurrency`, `timezone` IANA, `weekStart`, `locale`, `privacyMode`, `lastFreezeMonth`, `onboardingDone`.
+- **Dati immutabili per riga**: ogni transazione/payout/firm expense salva `currency` + `exchangeRate` al momento dell'inserimento (lo storico non ricalcola con tassi correnti); ogni account può avere `baseRate` per aggregare i trade in valuta base.
+- **Derivato ≠ persistito**: streak, Ascend Day, disciplina, risk e statistiche sono ricalcolati a runtime da `compute.ts` (funzioni pure) — nulla di derivato è fonte di verità.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Decisioni chiave
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Streak freeze 1/mese automatico** — se oggi è inattivo ma l'activity streak era vivo ieri, il giorno si "congela" (una volta al mese, tracciato in `settings.lastFreezeMonth`). Niente UI extra: automatico.
+- **Payout → transazione auto-generata** — ogni payout trading crea in automatico una transazione income in Finanze (`autoGenerated: true`, `sourcePayoutId`), così i conti tornano.
+- **Trading day per account** — ogni account ha `tradingDayTimezone` + `tradingDayRolloverTime` (es. 17:00) + `dailyLossLimit`/`maxLossLimit`: il confine del giorno di trading è per account, non globale.
+- **SetupRule a ID stabili** — le regole del playbook sono entità (`SetupRule`) collegate ai trade via `TradeSetupRule`; modificare una regola non invalida lo storico dei trade già loggati.
+- **Privacy a due livelli** — *standard* maschera le cifre monetarie, *completa* maschera anche KPI/percentuali e neutralizza il calendario P&L. Toggle in alto a destra.
+- **Valuta base con tassi salvati per riga** — conversione in valuta base al tasso *congelato* al momento dell'inserimento; il tasso corrente (API FX gratuita) serve solo per precompilare, mai per riscrivere la storia.
+
+## Documentazione
+
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — architettura, flusso dati, responsabilità di `src/lib/*`, motore di calcolo, come passare a Supabase.
+- [`docs/DECISIONS.md`](docs/DECISIONS.md) — le 10 decisioni chiave e come sono implementate.
+- `PHASE_1.md` — contratto di sviluppo per i subagent (non modificare i file condivisi).

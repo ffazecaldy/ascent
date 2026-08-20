@@ -1,27 +1,45 @@
 "use client";
 
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import Link from "next/link";
+// ============================================================
+// ASCEND — Home dashboard (spec v3 §4.1)
+// Hero streak · Ascend Day · heatmap · cosa manca oggi ·
+// riepilogo rapido · best/worst settimana · muro traguardi.
+// ============================================================
+
+import { useDB } from "@/lib/storage";
+import { SectionHeader } from "@/components/ui/Misc";
+import { StreakHero } from "@/components/home/StreakHero";
+import { AscendDayCard } from "@/components/home/AscendDayCard";
+import { ActivityHeatmapCard } from "@/components/home/ActivityHeatmapCard";
+import { MissingTodayCard } from "@/components/home/MissingTodayCard";
+import { QuickSummary } from "@/components/home/QuickSummary";
+import { BestWorstCard } from "@/components/home/BestWorstCard";
+import { BadgesWall } from "@/components/home/BadgesWall";
 
 export default function HomePage() {
+  const db = useDB();
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Data is the truth.</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Streak, Ascend Day, trading, finanze, tempo, corpo e mente — un solo posto.
-        </p>
-      </div>
-      <Card className="flex flex-col items-center justify-center gap-3 py-14 text-center">
-        <p className="text-2xl">🚧</p>
-        <p className="text-sm text-secondary-text">La dashboard Home è in costruzione da parte dei subagent.</p>
-        <div className="flex gap-2">
-          <Link href="/finanze"><Button variant="outline" size="sm">Finanze</Button></Link>
-          <Link href="/trading/trades"><Button variant="outline" size="sm">Trade log</Button></Link>
-          <Link href="/impostazioni"><Button variant="outline" size="sm">Impostazioni</Button></Link>
+      <SectionHeader title="Home" subtitle="Tutto quello che conta oggi, in un colpo d'occhio." />
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <StreakHero />
         </div>
-      </Card>
+        <AscendDayCard db={db} />
+      </div>
+
+      <ActivityHeatmapCard db={db} />
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <MissingTodayCard db={db} />
+        <BestWorstCard db={db} />
+      </div>
+
+      <QuickSummary db={db} />
+
+      <BadgesWall db={db} />
     </div>
   );
 }

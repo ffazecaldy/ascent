@@ -1,0 +1,87 @@
+"use client";
+
+// ============================================================
+// ASCEND — Home · "Cosa manca oggi"
+// Checklist dinamica dai DailyGoal attivi (missingToday).
+// ============================================================
+
+import { missingToday, GOAL_LABELS } from "@/lib/compute";
+import type { DB, GoalType } from "@/lib/types";
+import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
+import { ProgressBar, EmptyState } from "@/components/ui/Misc";
+import { cn } from "@/lib/cn";
+
+function valueText(type: GoalType, value: number, target: number): string {
+  if (target <= 0) return value > 0 ? String(value) : "";
+  switch (type) {
+    case "ore_produttive":
+    case "lettura_minuti":
+      return `${value}/${target} min`;
+    default:
+      return `${value}/${target}`;
+  }
+}
+
+export function MissingTodayCard({ db }: { db: DB }) {
+  const items = missingToday(db);
+  const done = items.filter((i) => i.done).length;
+
+  return (
+    <Card className="flex flex-col gap-3">
+      <CardHeader>
+        <div>
+          <CardTitle>Cosa manca oggi</CardTitle>
+          <CardSubtitle>
+            {items.length > 0
+              ? `${done} di ${items.length} completati`
+              : "Obiettivi quotidiani"}
+          </CardSubtitle>
+        </div>
+      </CardHeader>
+
+      {items.length === 0 ? (
+        <EmptyState
+          icon="🎯"
+          title="Nessun obiettivo quotidiano attivo"
+          description="Aggiungi i tuoi DailyGoal nella sezione Obiettivi: qui vedrai cosa resta da fare oggi."
+        />
+      ) : (
+        <ul className="space-y-2">
+          {items.map(({ goal, done: isDone, value, target }) => (
+            <li
+              key={goal.id}
+              className="flex items-center gap-3 rounded-lg border border-border bg-elevated/40 p-2.5"
+            >
+              <span
+                className={cn(
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
+                  isDone
+                    ? "bg-accent text-white"
+                    : "border border-border-strong text-transparent"
+                )}
+              >
+                ✓
+              </span>
+              <div className="min-w-0 flex-1">
+                <p
+                  className={cn(
+                    "text-sm font-medium",
+                    isDone ? "text-muted-foreground line-through" : "text-foreground"
+                  )}
+                >
+                  {GOAL_LABELS[goal.type] ?? goal.type}
+                </p>
+                {!isDone && target > 0 && (
+                  <ProgressBar value={Math.min(value, target)} max={target} className="mt-1.5 h-1.5" />
+                )}
+              </div>
+              <span className="shrink-0 text-xs tnum text-secondary-text">
+                {valueText(goal.type, value, target)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
