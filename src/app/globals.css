@@ -1,26 +1,85 @@
 @import "tailwindcss";
 
+/* ============================================================
+   ASCEND — Design System (specifica v3 §3)
+   dark #0B0B0C · card #151517 · accento BLU #4C7EFF (mai verde per CTA)
+   verde/rosso SOLO per P&L / entrate-uscite / win-loss
+   ============================================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-primary: #0b0b0c;
+  --bg-card: #151517;
+  --bg-elevated: #1b1b1e;
+  --bg-input: #101012;
+  --border: #232327;
+  --border-strong: #303034;
+  --text-primary: #ededef;
+  --text-secondary: #a0a0a8;
+  --text-muted: #6b6b72;
+  --accent: #4c7eff;
+  --accent-hover: #3b6beb;
+  --accent-dim: rgba(76, 126, 255, 0.12);
+  --success: #22c55e;
+  --danger: #ef4444;
+  --radius: 0.625rem;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--bg-card);
+  --color-card-foreground: var(--text-primary);
+  --color-elevated: var(--bg-elevated);
+  --color-muted: var(--bg-input);
+  --color-muted-foreground: var(--text-muted);
+  --color-secondary-text: var(--text-secondary);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-dim: var(--accent-dim);
+  --color-border: var(--border);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", monospace;
+  --radius: 0.625rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--border);
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01" on;
+}
+
+/* Numeri allineati ovunque */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+input,
+select,
+textarea {
+  color-scheme: dark;
 }

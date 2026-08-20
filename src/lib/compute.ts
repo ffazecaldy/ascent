@@ -454,7 +454,7 @@ export function riskStats(db: DB, account: TradingAccount): RiskStats {
     ? losses.reduce((s, t) => s + Math.abs(t.resultNative), 0) / losses.length
     : 0;
 
-  const today = todayKey(account.tradingDayTimezone || db.settings.timezone);
+  const todayLocal = todayKey(account.tradingDayTimezone || db.settings.timezone);
   const todayKeyLocal = tradingDayKey(new Date().toISOString(), account);
   const cumulativeRiskToday = losses
     .filter((t) => tradingDayKey(t.closeDate, account) === todayKeyLocal)
@@ -476,7 +476,7 @@ export function riskStats(db: DB, account: TradingAccount): RiskStats {
     bestDay,
     worstDay,
     consecutive: consecutiveWinsLosses(trades),
-    todayKey,
+    todayKey: todayLocal,
   };
 }
 

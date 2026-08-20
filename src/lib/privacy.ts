@@ -1,9 +1,9 @@
 // ============================================================
-// ASCEND — Privacy mode
-// Standard: maschera le cifre monetarie (€2.430 → •••)
-// Completa: maschera anche KPI finanziari (win rate %, Disciplina %,
-//           +R) e neutralizza il calendario P&L.
-// Niente verde/rosso per il P&L quando "complete" è attivo.
+// ASCEND — Privacy mode (due livelli)
+// Standard:  maschera le CIFRE monetarie (€2.430 → •••)
+// Completa:  maschera anche KPI finanziari (win rate, Disciplina %,
+//            +R, percentuali) e neutralizza il calendario P&L.
+// In entrambe le modalità le cifre monetarie sono mascherate.
 // ============================================================
 
 import type { PrivacyMode } from "./types";
@@ -16,27 +16,21 @@ export function maskKpi(): string {
   return "••%";
 }
 
-export function maskShort(): string {
+export function maskCompact(): string {
   return "••";
 }
 
-/** Il valore monetario mascherabile o il valore reale. */
-export function applyPrivacyMoney<T>(mode: PrivacyMode, real: () => T, masked: () => string): string {
-  return mode === "standard" || mode === "complete" ? masked() : String(real());
+/** true se le cifre monetarie vanno mascherate (entrambe le modalità). */
+export function moneyMasked(_mode: PrivacyMode): boolean {
+  return true;
 }
 
-/** KPI (win rate, Disciplina %, +R, percentuali) — mascherati solo in "complete". */
-export function applyPrivacyKpi(mode: PrivacyMode, masked: string): boolean {
+/** true se i KPI/percentuali vanno mascherati (solo "complete"). */
+export function kpiMasked(mode: PrivacyMode): boolean {
   return mode === "complete";
 }
 
-export function formatWithPrivacyMoney(
-  mode: PrivacyMode,
-  amount: number,
-  currency: string,
-  locale: string
-): string {
-  if (mode !== "off") return maskMoney();
-  const { formatMoney } = require("./format");
-  return formatMoney(amount, currency, locale);
+/** true se il calendario P&L va neutralizzato (solo "complete"). */
+export function calendarNeutral(mode: PrivacyMode): boolean {
+  return mode === "complete";
 }
