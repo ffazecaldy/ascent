@@ -20,6 +20,7 @@ import {
   MonthlyPnl,
   StreakChip,
   LiveFeed,
+  EquityCurve,
 } from "@/components/trading/overview";
 
 export default function TradingOverviewPage() {
@@ -45,6 +46,9 @@ export default function TradingOverviewPage() {
         <>
           <Reveal delay={0}>
             <KpiCards db={db} />
+          </Reveal>
+          <Reveal delay={10}>
+            <EquityCurve db={db} />
           </Reveal>
           <Reveal delay={20}>
             <MonthlyPnl db={db} />

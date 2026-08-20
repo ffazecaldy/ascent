@@ -12,11 +12,15 @@ import { StreakHero } from "@/components/home/StreakHero";
 import { AscendDayCard } from "@/components/home/AscendDayCard";
 import { ActivityHeatmapCard } from "@/components/home/ActivityHeatmapCard";
 import { MissingTodayCard } from "@/components/home/MissingTodayCard";
+import { DeadlinesCard } from "@/components/home/DeadlinesCard";
 import { QuickSummary } from "@/components/home/QuickSummary";
 import { BestWorstCard } from "@/components/home/BestWorstCard";
 import { BadgesWall } from "@/components/home/BadgesWall";
 import { QuoteRotator } from "@/components/home/QuoteRotator";
-import { DeadlinesCard } from "@/components/home/DeadlinesCard";
+import { TradingCalendarCard } from "@/components/home/TradingCalendarCard";
+import { EquityCurveCard } from "@/components/home/EquityCurveCard";
+import { SavingsSummaryCard } from "@/components/home/SavingsSummaryCard";
+import { GoalsOverviewCard } from "@/components/home/GoalsOverviewCard";
 
 export default function HomePage() {
   const db = useDB();
@@ -44,6 +48,29 @@ export default function HomePage() {
 
       <Reveal delay={80}>
         <ActivityHeatmapCard db={db} />
+      </Reveal>
+
+      {/* ——— Panoramica: tutta l'app in un colpo d'occhio ——— */}
+      <Reveal delay={40}>
+        <SectionHeader
+          kicker="Panoramica"
+          title="Tutta l'app, in un colpo d'occhio."
+          subtitle="Trading, risparmi e obiettivi: lo stato reale, aggiornato dal vivo."
+        />
+      </Reveal>
+
+      <Reveal delay={60}>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <TradingCalendarCard db={db} />
+          <EquityCurveCard db={db} />
+        </div>
+      </Reveal>
+
+      <Reveal delay={100}>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <GoalsOverviewCard db={db} />
+          <SavingsSummaryCard db={db} />
+        </div>
       </Reveal>
 
       <div className="grid gap-4 lg:grid-cols-2">
