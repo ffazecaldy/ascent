@@ -1,14 +1,17 @@
 "use client";
 
 // ============================================================
-// ASCEND — Trading overview: KPI del mese corrente
-// P&L trading (valuta base) + win rate + Disciplina % sui trade
-// del mese. Rispetta la privacy (moneyMasked / kpiMasked).
+// ASCEND — Trading overview: KPI del mese corrente (StatCard)
+// P&L trading in valuta base con sparkline degli ultimi 6 mesi,
+// hairline success/danger e count-up (AnimatedNumber); win rate
+// e Disciplina % mascherati in privacy "complete" (kpiMasked).
+// Cifre mascherate in modalità privacy (moneyMasked).
 // ============================================================
 
 import { cn } from "@/lib/cn";
 import type { DB } from "@/lib/types";
 import { StatCard } from "@/components/ui/StatCard";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import {
   monthPnlTrades,
   tradingStats,
@@ -28,6 +31,13 @@ function monthLabel(monthKey: string, locale: string): string {
   });
 }
 
+/** month key spostata di `offset` mesi (negativo = indietro nel tempo). */
+function monthOffsetKey(monthKey: string, offset: number): string {
+  const { y, m } = parseDateKey(monthKey + "-01");
+  const d = new Date(y, m - 1 + offset, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export function KpiCards({ db }: { db: DB }) {
   const tz = db.settings.timezone;
   const locale = db.settings.locale;
@@ -44,9 +54,12 @@ export function KpiCards({ db }: { db: DB }) {
   const kpiHide = kpiMasked(mode);
   const baseCurrency = db.settings.baseCurrency;
 
-  const pnl = moneyHide
-    ? maskMoney()
-    : formatSignedMoney(pnlBase, baseCurrency, locale);
+  // Serie P&L degli ultimi 6 mesi (valuta base) per la sparkline.
+  const pnlSeries = Array.from(
+    { length: 6 },
+    (_, i) => monthPnlTrades(db, monthOffsetKey(monthKey, i - 5)).base
+  );
+  const pnlPos = pnlBase >= 0;
   const pnlTone =
     pnlBase > 0 ? "text-success" : pnlBase < 0 ? "text-danger" : "text-foreground";
   const pnlNote =
@@ -54,19 +67,27 @@ export function KpiCards({ db }: { db: DB }) {
       ? `${st.count} ${st.count === 1 ? "trade" : "trade"} chiusi nel mese`
       : "nessun trade nel mese";
 
-  const winRate = kpiHide
-    ? maskKpi()
-    : st.winRate == null
-      ? "—"
-      : formatPercent(st.winRate);
+  const winRateBody = kpiHide ? (
+    maskKpi()
+  ) : st.winRate == null ? (
+    "—"
+  ) : (
+    <AnimatedNumber value={st.winRate} fmt={formatPercent} className="tnum" />
+  );
   const winNote =
     st.count > 0 ? `${st.wins} vinti · ${st.losses} persi` : "—";
 
-  const discPct = kpiHide
-    ? maskKpi()
-    : disc.disciplinePct == null
-      ? "—"
-      : formatPercent(disc.disciplinePct);
+  const discBody = kpiHide ? (
+    maskKpi()
+  ) : disc.disciplinePct == null ? (
+    "—"
+  ) : (
+    <AnimatedNumber
+      value={disc.disciplinePct}
+      fmt={formatPercent}
+      className="tnum"
+    />
+  );
   const discNote =
     disc.count > 0
       ? `${disc.respected}/${disc.count} setup rispettati`
@@ -78,22 +99,32 @@ export function KpiCards({ db }: { db: DB }) {
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <StatCard
         label={`P&L trading · ${monthLabel(monthKey, locale)}`}
-        value={pnl}
-        valueClassName={cn("tnum", moneyHide ? "text-secondary-text" : pnlTone)}
+        value={
+          moneyHide ? (
+            <span className="tnum text-secondary-text">{maskMoney()}</span>
+          ) : (
+            <AnimatedNumber
+              value={pnlBase}
+              className={cn("tnum", pnlTone)}
+              fmt={(n) => formatSignedMoney(n, baseCurrency, locale)}
+            />
+          )
+        }
         delta={pnlNote}
         icon={<span className="text-base leading-none">📈</span>}
+        spark={moneyHide ? undefined : pnlSeries}
+        sparkColor={pnlPos ? "var(--success)" : "var(--danger)"}
+        hairline={moneyHide ? "none" : pnlPos ? "success" : "danger"}
       />
       <StatCard
         label="Win rate del mese"
-        value={winRate}
-        valueClassName="tnum"
+        value={winRateBody}
         delta={winNote}
         icon={<span className="text-base leading-none">🎯</span>}
       />
       <StatCard
         label="Disciplina del mese"
-        value={discPct}
-        valueClassName="tnum"
+        value={discBody}
         delta={discNote}
         icon={<span className="text-base leading-none">📋</span>}
       />

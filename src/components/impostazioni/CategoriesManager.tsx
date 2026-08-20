@@ -83,9 +83,9 @@ export function CategoriesManager() {
     setDeleting(null);
   };
 
-  const groups: { type: TransactionType; label: string }[] = [
-    { type: "income", label: "Entrate" },
-    { type: "expense", label: "Uscite" },
+  const groups: { type: TransactionType; label: string; icon: string }[] = [
+    { type: "income", label: "Entrate", icon: "📈" },
+    { type: "expense", label: "Uscite", icon: "📉" },
   ];
 
   return (
@@ -113,7 +113,8 @@ export function CategoriesManager() {
             return (
               <div key={g.type}>
                 <div className="mb-2 flex items-center justify-between">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-secondary-text">
+                  <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-secondary-text">
+                    <span>{g.icon}</span>
                     {g.label}
                   </h4>
                   <Badge tone={g.type === "income" ? "default" : "warning"}>{list.length}</Badge>
@@ -127,14 +128,26 @@ export function CategoriesManager() {
                     list.map((cat) => (
                       <div
                         key={cat.id}
-                        className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-2"
+                        className="group flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-2.5 py-2 transition-all duration-200 hover:border-accent/40 hover:bg-muted/60 hover:shadow-[0_0_18px_-8px_var(--accent-glow)]"
                       >
-                        <span className="text-lg leading-none">{cat.icon}</span>
+                        <span className="text-lg leading-none transition-transform duration-200 group-hover:scale-110">
+                          {cat.icon}
+                        </span>
                         <span className="min-w-0 flex-1 truncate text-sm font-medium">{cat.name}</span>
                         <span className="hidden text-[11px] text-muted-foreground sm:inline tnum">
                           {txCountByCategory(cat.id)} trans
                         </span>
-                        <StatusDot color={cat.color} />
+                        {/* dot colore — si accende all'hover */}
+                        <span
+                          className="flex h-3.5 w-3.5 items-center justify-center rounded-full transition-all duration-200 group-hover:scale-125"
+                          style={{ boxShadow: `0 0 0 1px ${cat.color}55` }}
+                          title={`Colore: ${cat.color}`}
+                        >
+                          <StatusDot
+                            color={cat.color}
+                            className="group-hover:shadow-[0_0_8px_1px_var(--accent-glow)]"
+                          />
+                        </span>
                         <Button variant="ghost" size="icon" onClick={() => openEdit(cat)} aria-label="Modifica">
                           ✏️
                         </Button>
@@ -143,7 +156,7 @@ export function CategoriesManager() {
                           size="icon"
                           onClick={() => setDeleting(cat)}
                           aria-label="Elimina"
-                          className="text-danger hover:text-danger"
+                          className="text-muted-foreground hover:text-danger"
                         >
                           🗑
                         </Button>
@@ -157,11 +170,14 @@ export function CategoriesManager() {
         </div>
       )}
 
-      <div className="mt-4 rounded-lg border border-border-strong bg-muted/40 px-3 py-2.5 text-xs leading-relaxed text-secondary-text">
-        <span className="font-semibold text-foreground">⚠️ I vecchi dati restano com&apos;erano.</span>{" "}
-        Modificare nome, icona o colore non ri-classifica le transazioni esistenti: ognuna conserva la
-        categoria originale con cui è stata salvata. Eliminare una categoria lascia i vecchi riferimenti
-        orfani.
+      <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-border-strong bg-muted/40 px-3 py-2.5 text-xs leading-relaxed text-secondary-text">
+        <span className="mt-0.5 text-base">⚠️</span>
+        <div>
+          <span className="font-semibold text-foreground">I vecchi dati restano com&apos;erano.</span>{" "}
+          Modificare nome, icona o colore non ri-classifica le transazioni esistenti: ognuna conserva la
+          categoria originale con cui è stata salvata. Eliminare una categoria lascia i vecchi riferimenti
+          orfani.
+        </div>
       </div>
 
       {/* ---- Modal create/edit ---- */}
@@ -217,9 +233,9 @@ export function CategoriesManager() {
                   type="button"
                   onClick={() => setIcon(em)}
                   className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-md text-base transition-colors",
+                    "flex h-8 w-8 items-center justify-center rounded-md text-base transition-all duration-150 hover:scale-110",
                     icon === em
-                      ? "bg-accent/20 ring-2 ring-accent"
+                      ? "bg-accent/20 ring-2 ring-accent shadow-[0_0_10px_-2px_var(--accent-glow)]"
                       : "bg-elevated hover:bg-border-strong"
                   )}
                   aria-label={`Icona ${em}`}
@@ -238,8 +254,8 @@ export function CategoriesManager() {
                   type="button"
                   onClick={() => setColor(c)}
                   className={cn(
-                    "aspect-square w-full rounded-full transition-transform",
-                    color === c && "ring-2 ring-white/80 scale-110"
+                    "aspect-square w-full rounded-full transition-all duration-150 hover:scale-110",
+                    color === c && "ring-2 ring-white/80 scale-110 shadow-[0_0_10px_1px_var(--accent-glow)]"
                   )}
                   style={{ backgroundColor: c }}
                   aria-label={`Colore ${c}`}

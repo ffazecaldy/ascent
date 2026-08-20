@@ -1,12 +1,12 @@
 "use client";
 // ============================================================
-// ASCEND — Backup / Export (spec 7)
+// ASCEND — Backup / Export (spec 7) · v2 rich
 // - Backup completo JSON (download anchor, no librerie)
 // - Export CSV per sezione (separatore ;, virgola decimale)
-// - Restore da file .json con conferma di sovrascrittura
+// - Restore da file .json con drag & drop + conferma sovrascrittura
 // ============================================================
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useDB, updateDB } from "@/lib/storage";
 import { seedDB, getAccount, getCategory, setupName } from "@/lib/db";
 import { todayKey } from "@/lib/dates";
@@ -18,6 +18,7 @@ import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ConfirmDialog } from "@/components/ui/Modal";
+import { Reveal } from "@/components/ui/Reveal";
 
 const LAST_BACKUP_KEY = "ascend:lastbackup";
 
@@ -88,6 +89,8 @@ export default function ExportPage() {
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [pending, setPending] = useState<DB | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const stamp = todayKey(db.settings.timezone);
 
@@ -97,7 +100,7 @@ export default function ExportPage() {
     const iso = new Date().toISOString();
     writeLastBackup(iso);
     setLastBackup(iso);
-    setMsg({ type: "ok", text: "Backup JSON scaricato." });
+    setMsg({ type: "ok", text: "Backup JSON scaricato. Conservalo in un posto sicuro." });
   };
 
   // --- Export CSV ------------------------------------------------------
@@ -190,11 +193,8 @@ export default function ExportPage() {
     { key: "usopc", label: "Log uso PC", icon: "💻", count: db.pcUsageLogs.length, run: () => downloadCsv("ascend-usopc", exportCollectionCsv(db.pcUsageLogs, pcMapping)) },
   ];
 
-  // --- Restore ----------------------------------------------------------
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // consente di ri-selezionare lo stesso file
-    if (!file) return;
+  // --- Restore (file input + drag & drop) ------------------------------
+  const handleFileObject = async (file: File) => {
     setSelectedName(file.name);
     setMsg(null);
     setPending(null);
@@ -211,6 +211,13 @@ export default function ExportPage() {
     } catch {
       setMsg({ type: "error", text: "File non valido: JSON malformato o non leggibile." });
     }
+  };
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // consente di ri-selezionare lo stesso file
+    if (!file) return;
+    void handleFileObject(file);
   };
 
   const doRestore = () => {
@@ -238,86 +245,193 @@ export default function ExportPage() {
     db.pcUsageLogs.length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <SectionHeader
+        kicker="Backup"
         title="Backup / Export"
         subtitle="I tuoi dati vivono su questo dispositivo: scarica una copia o ripristinala in qualsiasi momento."
       />
 
       {msg && (
-        <p className={cn("text-sm font-medium", msg.type === "ok" ? "text-success" : "text-danger")}>{msg.text}</p>
+        <div
+          className={cn(
+            "flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-medium animate-pop",
+            msg.type === "ok"
+              ? "border-success/30 bg-success/10 text-success"
+              : "border-danger/30 bg-danger/10 text-danger"
+          )}
+        >
+          <span className="text-base">{msg.type === "ok" ? "✅" : "⚠️"}</span>
+          {msg.text}
+        </div>
       )}
 
       {/* ---- Backup completo ---- */}
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>Backup completo</CardTitle>
-            <CardSubtitle>
-              Un file JSON con l'intero database ({totalRows} righe totali). Perfetto per archiviare o migrare i dati.
-            </CardSubtitle>
+      <Reveal>
+        <Card hairline="accent" scan>
+          <CardHeader>
+            <div>
+              <CardTitle>Backup completo</CardTitle>
+              <CardSubtitle>
+                Un file JSON con l&apos;intero database ({totalRows} righe totali). Perfetto per archiviare o migrare i dati.
+              </CardSubtitle>
+            </div>
+            <Badge tone="info">JSON</Badge>
+          </CardHeader>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button size="lg" glow onClick={handleBackup}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+              </svg>
+              Scarica backup JSON
+            </Button>
+            {lastBackup ? (
+              <Badge tone="success" pulse>
+                ● Ultimo backup · {formatLastBackup(lastBackup)}
+              </Badge>
+            ) : (
+              <Badge>mai fatto</Badge>
+            )}
           </div>
-          <Badge tone="info">JSON</Badge>
-        </CardHeader>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button onClick={handleBackup}>⬇ Scarica backup JSON</Button>
-          <span className="text-sm text-muted-foreground">
-            Ultimo backup: <span className="tnum text-secondary-text">{lastBackup ? formatLastBackup(lastBackup) : "mai"}</span>
-          </span>
-        </div>
-      </Card>
+        </Card>
+      </Reveal>
 
       {/* ---- Export CSV per sezione ---- */}
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>Export CSV per sezione</CardTitle>
-            <CardSubtitle>
-              File .csv (separatore ; , virgola decimale) apribili in Excel, Sheets e Numbers.
-            </CardSubtitle>
+      <Reveal delay={80}>
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Export CSV per sezione</CardTitle>
+              <CardSubtitle>
+                File .csv (separatore ; , virgola decimale) apribili in Excel, Sheets e Numbers.
+              </CardSubtitle>
+            </div>
+            <Badge>CSV</Badge>
+          </CardHeader>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {csvSections.map((s) => (
+              <Button
+                key={s.key}
+                variant="subtle"
+                className="justify-between rounded-xl border border-border-strong/60 hover:border-accent/40 hover:shadow-[0_0_22px_-6px_var(--accent-glow)]"
+                onClick={s.run}
+              >
+                <span className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-elevated text-sm">
+                    {s.icon}
+                  </span>
+                  {s.label}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="rounded-full bg-elevated px-2 py-0.5 text-[11px] tnum text-muted-foreground">
+                    {s.count}
+                  </span>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-accent"
+                  >
+                    <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                  </svg>
+                </span>
+              </Button>
+            ))}
           </div>
-          <Badge>CSV</Badge>
-        </CardHeader>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {csvSections.map((s) => (
-            <Button key={s.key} variant="outline" className="justify-between" onClick={s.run}>
-              <span className="flex items-center gap-2">
-                <span>{s.icon}</span>
-                {s.label}
-              </span>
-              <span className="rounded-full bg-elevated px-2 py-0.5 text-[11px] tnum text-muted-foreground">{s.count}</span>
-            </Button>
-          ))}
-        </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Sezioni vuote generano comunque il file con la sola intestazione.
-        </p>
-      </Card>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Sezioni vuote generano comunque il file con la sola intestazione.
+          </p>
+        </Card>
+      </Reveal>
 
       {/* ---- Restore backup ---- */}
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>Restore backup</CardTitle>
-            <CardSubtitle>
-              Ripristina un file .json esportato da Ascend. L'operazione sovrascrive tutti i dati attuali.
-            </CardSubtitle>
+      <Reveal delay={140}>
+        <Card hairline="danger">
+          <CardHeader>
+            <div>
+              <CardTitle>Restore backup</CardTitle>
+              <CardSubtitle>
+                Ripristina un file .json esportato da Ascend. L&apos;operazione sovrascrive tutti i dati attuali.
+              </CardSubtitle>
+            </div>
+            <Badge tone="danger">sovrascrive</Badge>
+          </CardHeader>
+
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Scegli o trascina un file di backup JSON"
+            onClick={() => fileInputRef.current?.click()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                fileInputRef.current?.click();
+              }
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              const file = e.dataTransfer.files?.[0];
+              if (file) void handleFileObject(file);
+            }}
+            className={cn(
+              "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-all duration-300",
+              dragOver
+                ? "border-accent bg-accent-dim shadow-[0_0_30px_-8px_var(--accent-glow)]"
+                : "border-border-strong bg-muted/30 hover:border-accent/40 hover:bg-accent-dim/40"
+            )}
+          >
+            <span
+              className={cn(
+                "flex h-11 w-11 items-center justify-center rounded-xl text-xl transition-all duration-300",
+                dragOver ? "scale-110 bg-accent/20" : "bg-elevated"
+              )}
+            >
+              {dragOver ? "📂" : "📁"}
+            </span>
+            <p className="text-sm font-medium text-secondary-text">
+              {dragOver ? "Rilascia il file qui" : "Trascina il file .json qui o clicca per sceglierlo"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Solo backup esportati da Ascend (formato JSON).
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json,application/json"
+              className="hidden"
+              onChange={handleFile}
+            />
           </div>
-          <Badge tone="danger">sovrascrive</Badge>
-        </CardHeader>
-        <div className="flex flex-col items-start gap-3">
-          <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border-strong px-3.5 text-sm font-medium transition-colors hover:bg-elevated">
-            📁 Scegli file .json
-            <input type="file" accept=".json,application/json" className="hidden" onChange={handleFile} />
-          </label>
-          {selectedName && <p className="text-sm text-secondary-text">Selezionato: {selectedName}</p>}
-        </div>
-        {db.transactions.length + db.trades.length > 0 && (
-          <p className="mt-3 text-xs text-danger/90">
-            ⚠️ Attenzione: hai dati già salvati. Il restore li sostituirà completamente.
-          </p>
-        )}
-      </Card>
+
+          {selectedName && (
+            <div className="mt-3 flex items-center gap-2 animate-pop">
+              <Badge tone="info" pulse>
+                📄 {selectedName}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                in attesa di conferma…
+              </span>
+            </div>
+          )}
+
+          {db.transactions.length + db.trades.length > 0 && (
+            <p className="mt-3 text-xs text-danger/90">
+              ⚠️ Attenzione: hai dati già salvati. Il restore li sostituirà completamente.
+            </p>
+          )}
+        </Card>
+      </Reveal>
 
       <ConfirmDialog
         open={confirmOpen}

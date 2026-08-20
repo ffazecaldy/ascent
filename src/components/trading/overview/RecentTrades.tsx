@@ -1,9 +1,10 @@
 "use client";
 
 // ============================================================
-// ASCEND — Trading overview: ultimi 10 trade chiusi (tabella)
-// Data · strumento · direzione · risultato R · P&L nativo
-// colorato · setup. Rispetta la privacy (moneyMasked/kpiMasked).
+// ASCEND — Trading overview: ultimi 10 trade chiusi (tabella densa)
+// Data · strumento · direzione · risultato R · P&L nativo colorato
+// · setup · dot disciplina (verde=rispettato, rossa=non rispettato).
+// Righe con hover, numeri in tnum. Rispetta la privacy.
 // ============================================================
 
 import Link from "next/link";
@@ -14,6 +15,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/Misc";
 import { setupName } from "@/lib/db";
+import { tradeRespected } from "@/lib/compute";
 import { formatR, formatSignedMoney } from "@/lib/format";
 import { moneyMasked, kpiMasked, maskMoney, maskKpi } from "@/lib/privacy";
 
@@ -33,6 +35,29 @@ function formatClose(iso: string, tz: string, locale: string): string {
   return `${day} · ${time}`;
 }
 
+/** Dot disciplina: vero=verde, falso=rossa, null=grigia (non valutabile). */
+function DisciplineDot({ respected }: { respected: boolean | null }) {
+  if (respected == null) {
+    return (
+      <span
+        className="inline-block h-2 w-2 rounded-full bg-border"
+        title="Nessun setup valutabile"
+      />
+    );
+  }
+  return respected ? (
+    <span
+      className="inline-block h-2 w-2 rounded-full bg-success shadow-[0_0_6px_rgba(45,223,158,0.6)]"
+      title="Setup rispettato"
+    />
+  ) : (
+    <span
+      className="inline-block h-2 w-2 rounded-full bg-danger shadow-[0_0_6px_rgba(255,92,92,0.6)]"
+      title="Setup non rispettato"
+    />
+  );
+}
+
 export function RecentTrades({ db }: { db: DB }) {
   const tz = db.settings.timezone;
   const locale = db.settings.locale;
@@ -45,7 +70,7 @@ export function RecentTrades({ db }: { db: DB }) {
     .slice(0, 10);
 
   return (
-    <Card>
+    <Card texture>
       <CardHeader>
         <div>
           <CardTitle>Ultimi trade</CardTitle>
@@ -79,40 +104,42 @@ export function RecentTrades({ db }: { db: DB }) {
         />
       ) : (
         <div className="-mx-4 overflow-x-auto px-4">
-          <table className="w-full min-w-[600px] text-sm">
+          <table className="w-full min-w-[640px] text-xs">
             <thead>
-              <tr className="border-b border-border text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              <tr className="border-b border-border text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <th className="pb-2 pr-3">Data</th>
                 <th className="pb-2 pr-3">Strumento</th>
                 <th className="pb-2 pr-3">Direzione</th>
                 <th className="pb-2 pr-3 text-right">Risultato</th>
                 <th className="pb-2 pr-3 text-right">P&L</th>
-                <th className="pb-2">Setup</th>
+                <th className="pb-2 pr-3">Setup</th>
+                <th className="pb-2 text-right">Disciplina</th>
               </tr>
             </thead>
             <tbody>
               {recent.map((t) => {
                 const acc = db.accounts.find((a) => a.id === t.accountId);
                 const currency = acc?.nativeCurrency ?? baseCurrency;
+                const respected = tradeRespected(db, t.id);
                 return (
                   <tr
                     key={t.id}
-                    className="border-b border-border/60 last:border-0 hover:bg-elevated/40"
+                    className="group border-b border-border/60 transition-colors last:border-0 hover:bg-elevated/50"
                   >
-                    <td className="py-2.5 pr-3 whitespace-nowrap text-muted-foreground tnum">
+                    <td className="py-1.5 pr-3 whitespace-nowrap text-muted-foreground tnum">
                       {formatClose(t.closeDate, tz, locale)}
                     </td>
-                    <td className="py-2.5 pr-3 whitespace-nowrap font-medium">
+                    <td className="py-1.5 pr-3 whitespace-nowrap font-medium">
                       {t.instrument}
                     </td>
-                    <td className="py-2.5 pr-3 whitespace-nowrap">
+                    <td className="py-1.5 pr-3 whitespace-nowrap">
                       <Badge tone={t.direction === "long" ? "info" : "default"}>
                         {t.direction === "long" ? "▲ Long" : "▼ Short"}
                       </Badge>
                     </td>
                     <td
                       className={cn(
-                        "py-2.5 pr-3 text-right whitespace-nowrap font-medium tnum",
+                        "py-1.5 pr-3 text-right whitespace-nowrap font-medium tnum",
                         kpiHide
                           ? "text-muted-foreground"
                           : t.resultR > 0
@@ -126,7 +153,7 @@ export function RecentTrades({ db }: { db: DB }) {
                     </td>
                     <td
                       className={cn(
-                        "py-2.5 pr-3 text-right whitespace-nowrap font-semibold tnum",
+                        "py-1.5 pr-3 text-right whitespace-nowrap font-semibold tnum",
                         moneyHide
                           ? "text-secondary-text"
                           : t.resultNative > 0
@@ -140,8 +167,11 @@ export function RecentTrades({ db }: { db: DB }) {
                         ? maskMoney()
                         : formatSignedMoney(t.resultNative, currency, locale)}
                     </td>
-                    <td className="py-2.5 whitespace-nowrap text-secondary-text">
+                    <td className="py-1.5 pr-3 whitespace-nowrap text-secondary-text">
                       {setupName(db, t.setupId)}
+                    </td>
+                    <td className="py-1.5 text-right whitespace-nowrap">
+                      <DisciplineDot respected={respected} />
                     </td>
                   </tr>
                 );

@@ -2,14 +2,20 @@
 
 // ============================================================
 // ASCEND — Trading overview: lista account non-archiviati
-// Nome + badge tipo (prop/personale) e stato + saldo live
-// (= capitale + somma trade chiusi, in valuta nativa) → link
-// alla pagina account. Rispetta la privacy (moneyMasked).
+// Righe-link con avatar-iniziale in gradiente, badge tipo/stato
+// (pulse su "Finanziato"/"In valutazione"), saldo live in tnum
+// colorato e hairline accent per gli account attivi. Card con
+// texture "carta trading" (grid-texture). Rispetta la privacy.
 // ============================================================
 
 import Link from "next/link";
 import { cn } from "@/lib/cn";
-import type { DB, TradingAccount, AccountStatus, AccountType } from "@/lib/types";
+import type {
+  DB,
+  TradingAccount,
+  AccountStatus,
+  AccountType,
+} from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -21,10 +27,6 @@ const TYPE_LABEL: Record<AccountType, string> = {
   prop: "Prop",
   personal: "Personale",
 };
-const TYPE_TONE: Record<AccountType, "info" | "default"> = {
-  prop: "info",
-  personal: "default",
-};
 
 const STATUS_LABEL: Record<AccountStatus, string> = {
   eval: "In valutazione",
@@ -32,12 +34,29 @@ const STATUS_LABEL: Record<AccountStatus, string> = {
   finanziato: "Finanziato",
   bruciato: "Bruciato",
 };
-const STATUS_TONE: Record<AccountStatus, "warning" | "success" | "info" | "danger"> = {
+const STATUS_TONE: Record<AccountStatus, "success" | "info" | "warning" | "danger"> = {
   eval: "warning",
-  superato: "success",
-  finanziato: "info",
+  superato: "info",
+  finanziato: "success",
   bruciato: "danger",
 };
+
+/** Account considerati "attivi" (hairline accent): non bruciati. */
+const ACTIVE: AccountStatus[] = ["eval", "superato", "finanziato"];
+
+// Gradienti avatar — variano in base a un hash del nome account.
+const AVATAR_GRADIENTS = [
+  "from-accent to-accent-2",
+  "from-accent-2 to-accent-3",
+  "from-accent-3 to-accent",
+  "from-accent to-accent-3",
+  "from-accent-2 to-accent",
+];
+function avatarGradient(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_GRADIENTS[h % AVATAR_GRADIENTS.length];
+}
 
 function closedNative(db: DB, accountId: string): number {
   return db.trades
@@ -56,7 +75,7 @@ export function AccountsList({ db }: { db: DB }) {
       : `${accounts.length} account attiv${accounts.length === 1 ? "o" : "i"}`;
 
   return (
-    <Card>
+    <Card texture>
       <CardHeader>
         <div>
           <CardTitle>Account</CardTitle>
@@ -87,17 +106,41 @@ export function AccountsList({ db }: { db: DB }) {
           {accounts.map((acc: TradingAccount) => {
             const closed = closedNative(db, acc.id);
             const saldo = acc.capital + closed;
+            const active = ACTIVE.includes(acc.status);
+            const saldoTone = moneyHide
+              ? "text-secondary-text"
+              : closed > 0
+                ? "text-success"
+                : closed < 0
+                  ? "text-danger"
+                  : "text-foreground";
             return (
               <Link
                 key={acc.id}
                 href="/trading/accounts"
-                className="group flex items-center justify-between gap-3 rounded-lg border border-border bg-elevated/40 p-3 transition-colors hover:border-accent/40 hover:bg-elevated"
+                className="group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-card/70 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[0_12px_30px_-14px_rgba(0,0,0,0.7)]"
               >
-                <div className="min-w-0">
+                {active && (
+                  <span className="pointer-events-none absolute inset-y-0 left-0 w-[2px] bg-gradient-to-b from-accent via-accent-2 to-transparent" />
+                )}
+                <div
+                  className={cn(
+                    "relative grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gradient-to-br text-sm font-bold text-white shadow-[0_4px_14px_-4px_var(--accent-glow)]",
+                    avatarGradient(acc.name)
+                  )}
+                >
+                  {acc.name.trim().charAt(0).toUpperCase() || "•"}
+                </div>
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{acc.name}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                    <Badge tone={TYPE_TONE[acc.type]}>{TYPE_LABEL[acc.type]}</Badge>
-                    <Badge tone={STATUS_TONE[acc.status]}>
+                    <Badge tone="default">{TYPE_LABEL[acc.type]}</Badge>
+                    <Badge
+                      tone={STATUS_TONE[acc.status]}
+                      pulse={
+                        acc.status === "finanziato" || acc.status === "eval"
+                      }
+                    >
                       {STATUS_LABEL[acc.status]}
                     </Badge>
                   </div>
@@ -109,7 +152,7 @@ export function AccountsList({ db }: { db: DB }) {
                   <p
                     className={cn(
                       "text-base font-semibold tnum leading-tight",
-                      moneyHide ? "text-secondary-text" : "text-foreground"
+                      saldoTone
                     )}
                   >
                     {moneyHide

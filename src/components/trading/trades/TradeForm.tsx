@@ -2,8 +2,9 @@
 
 // ============================================================
 // ASCEND — Trade log: form nuovo/modifica trade (Modal)
-// + regole del setup (se selezionato) con checkbox "rispettata"
+// + regole del setup (se selezionato) in pill con glow quando rispettate
 // + caricamento screenshot (ScreenshotUploader)
+// CTA "Salva trade" con gradiente animato.
 // ============================================================
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -14,6 +15,7 @@ import { Input, TextArea, Select, Field } from "@/components/ui/Field";
 import { rulesOfSetup } from "@/lib/compute";
 import { getAccount } from "@/lib/db";
 import { currencySymbol } from "@/lib/format";
+import { cn } from "@/lib/cn";
 import { ScreenshotUploader } from "./ScreenshotUploader";
 import {
   isoToLocalInput,
@@ -43,6 +45,19 @@ export interface TradePayload {
   setupId?: string | null;
   emotion?: string;
   createdAt?: string;
+}
+
+/** Divisore di sezione del form: etichetta + lineetta. */
+function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-3">
+      <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        <span className="h-px w-4 bg-border-strong" />
+        {title}
+      </p>
+      {children}
+    </section>
+  );
 }
 
 export function TradeForm({
@@ -167,6 +182,8 @@ export function TradeForm({
     setRespects((prev) => ({ ...prev, [ruleId]: !(prev[ruleId] ?? true) }));
   };
 
+  const respectedCount = activeRules.reduce((n, r) => n + (respects[r.id] ?? true ? 1 : 0), 0);
+
   // ---- validazione ----
   const rn = parseFloat(resultNative.replace(",", "."));
   const rr = parseFloat(resultR.replace(",", "."));
@@ -206,166 +223,207 @@ export function TradeForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={isEdit ? "Modifica trade" : "Nuovo trade"}
+      title={
+        <span className="flex items-center gap-2">
+          {isEdit ? "Modifica trade" : "Nuovo trade"}
+          <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+            {isEdit ? "modifica" : "registrazione"}
+          </span>
+        </span>
+      }
       width="max-w-2xl"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
             Annulla
           </Button>
-          <Button onClick={handleSubmit} disabled={!valid}>
-            {isEdit ? "Salva modifiche" : "Aggiungi trade"}
+          <Button onClick={handleSubmit} disabled={!valid} glow className="grad-animated">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            Salva trade
           </Button>
         </>
       }
     >
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Account">
-            <Select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-              <option value="" disabled>
-                Seleziona account
-              </option>
-              {activeAccounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                  {a.archived ? " (archiviato)" : ""}
+      <div className="space-y-5">
+        <FormSection title="Dettagli">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Account">
+              <Select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+                <option value="" disabled>
+                  Seleziona account
                 </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Strumento">
-            <Input
-              value={instrument}
-              onChange={(e) => setInstrument(e.target.value)}
-              placeholder="es. ES, NQ, EURUSD…"
-            />
-          </Field>
-        </div>
+                {activeAccounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                    {a.archived ? " (archiviato)" : ""}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Strumento">
+              <Input
+                value={instrument}
+                onChange={(e) => setInstrument(e.target.value)}
+                placeholder="es. ES, NQ, EURUSD…"
+              />
+            </Field>
+          </div>
+        </FormSection>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Field label="Direzione">
-            <Select value={direction} onChange={(e) => setDirection(e.target.value as TradeDirection)}>
-              <option value="long">Long ▲</option>
-              <option value="short">Short ▼</option>
-            </Select>
-          </Field>
-          <Field label="Entry">
-            <Input value={entry} onChange={(e) => setEntry(e.target.value)} inputMode="decimal" placeholder="—" />
-          </Field>
-          <Field label="Exit">
-            <Input value={exit} onChange={(e) => setExit(e.target.value)} inputMode="decimal" placeholder="—" />
-          </Field>
-        </div>
+        <FormSection title="Esecuzione">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Field label="Direzione">
+              <Select value={direction} onChange={(e) => setDirection(e.target.value as TradeDirection)}>
+                <option value="long">Long ▲</option>
+                <option value="short">Short ▼</option>
+              </Select>
+            </Field>
+            <Field label="Entry">
+              <Input value={entry} onChange={(e) => setEntry(e.target.value)} inputMode="decimal" placeholder="—" />
+            </Field>
+            <Field label="Exit">
+              <Input value={exit} onChange={(e) => setExit(e.target.value)} inputMode="decimal" placeholder="—" />
+            </Field>
+          </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Field label="Stop">
-            <Input value={stop} onChange={(e) => setStop(e.target.value)} inputMode="decimal" placeholder="—" />
-          </Field>
-          <Field label="Target">
-            <Input value={target} onChange={(e) => setTarget(e.target.value)} inputMode="decimal" placeholder="—" />
-          </Field>
-          <Field label="Size">
-            <Input value={size} onChange={(e) => setSize(e.target.value)} inputMode="decimal" placeholder="—" />
-          </Field>
-        </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Field label="Stop">
+              <Input value={stop} onChange={(e) => setStop(e.target.value)} inputMode="decimal" placeholder="—" />
+            </Field>
+            <Field label="Target">
+              <Input value={target} onChange={(e) => setTarget(e.target.value)} inputMode="decimal" placeholder="—" />
+            </Field>
+            <Field label="Size">
+              <Input value={size} onChange={(e) => setSize(e.target.value)} inputMode="decimal" placeholder="—" />
+            </Field>
+          </div>
+        </FormSection>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label={`Risultato · ${currencySymbol(currency)} (può essere negativo)`}>
-            <Input
-              type="number"
-              step="any"
-              value={resultNative}
-              onChange={(e) => setResultNative(e.target.value)}
-              placeholder="es. 125.50 oppure -80"
-            />
-          </Field>
-          <Field label="Risultato · R">
-            <Input
-              type="number"
-              step="any"
-              value={resultR}
-              onChange={(e) => setResultR(e.target.value)}
-              placeholder="es. 2.5 oppure -1"
-            />
-          </Field>
-        </div>
+        <FormSection title="Risultato">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label={`Risultato · ${currencySymbol(currency)} (può essere negativo)`}>
+              <Input
+                type="number"
+                step="any"
+                value={resultNative}
+                onChange={(e) => setResultNative(e.target.value)}
+                placeholder="es. 125.50 oppure -80"
+              />
+            </Field>
+            <Field label="Risultato · R">
+              <Input
+                type="number"
+                step="any"
+                value={resultR}
+                onChange={(e) => setResultR(e.target.value)}
+                placeholder="es. 2.5 oppure -1"
+              />
+            </Field>
+          </div>
+        </FormSection>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Apertura">
-            <Input type="datetime-local" value={openDate} onChange={(e) => setOpenDate(e.target.value)} />
-          </Field>
-          <Field label="Chiusura">
-            <Input type="datetime-local" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} />
-          </Field>
-        </div>
+        <FormSection title="Timing">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Apertura">
+              <Input type="datetime-local" value={openDate} onChange={(e) => setOpenDate(e.target.value)} />
+            </Field>
+            <Field label="Chiusura">
+              <Input type="datetime-local" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} />
+            </Field>
+          </div>
 
-        <Field label="Descrizione">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Emozione">
+              <Input
+                list="ascend-emotions"
+                value={emotion}
+                onChange={(e) => setEmotion(e.target.value)}
+                placeholder="Calmo, Focus, FOMO…"
+              />
+              <datalist id="ascend-emotions">
+                {EMOTIONS.map((e) => (
+                  <option key={e} value={e} />
+                ))}
+              </datalist>
+            </Field>
+            <Field label="Setup (opzionale)">
+              <Select value={setupId} onChange={(e) => handleSetupChange(e.target.value)}>
+                <option value="">Nessun setup</option>
+                {db.setups.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+        </FormSection>
+
+        <FormSection title="Descrizione">
           <TextArea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Contesto, esecuzione, note…"
           />
-        </Field>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Emozione">
-            <Input
-              list="ascend-emotions"
-              value={emotion}
-              onChange={(e) => setEmotion(e.target.value)}
-              placeholder="Calmo, Focus, FOMO…"
-            />
-            <datalist id="ascend-emotions">
-              {EMOTIONS.map((e) => (
-                <option key={e} value={e} />
-              ))}
-            </datalist>
-          </Field>
-          <Field label="Setup (opzionale)">
-            <Select value={setupId} onChange={(e) => handleSetupChange(e.target.value)}>
-              <option value="">Nessun setup</option>
-              {db.setups.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
+        </FormSection>
 
         {setupId && (
-          <div className="rounded-lg border border-border-strong bg-muted/40 p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Regole del setup — rispettate?
-            </p>
+          <div className="rounded-xl border border-border bg-muted/25 p-3.5">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-secondary-text">
+                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                Regole del setup — rispettate?
+              </p>
+              {activeRules.length > 0 && (
+                <span className="tnum rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
+                  {respectedCount}/{activeRules.length}
+                </span>
+              )}
+            </div>
+
             {activeRules.length === 0 ? (
               <p className="text-xs text-muted-foreground">Nessuna regola attiva per questo setup.</p>
             ) : (
-              <ul className="space-y-2">
-                {activeRules.map((r) => (
-                  <li key={r.id}>
-                    <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={respects[r.id] ?? true}
-                        onChange={() => toggleRespect(r.id)}
-                        className="mt-0.5 h-4 w-4 shrink-0 rounded border-border-strong accent-[#4C7EFF]"
-                      />
-                      <span className={respects[r.id] ?? true ? "text-foreground" : "text-muted-foreground line-through"}>
-                        {r.text}
+              <div className="flex flex-wrap gap-2">
+                {activeRules.map((r) => {
+                  const ok = respects[r.id] ?? true;
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => toggleRespect(r.id)}
+                      aria-pressed={ok}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 active:scale-[0.97]",
+                        ok
+                          ? "border-accent/60 bg-accent/15 text-foreground shadow-[0_0_16px_-2px_var(--accent-glow)]"
+                          : "border-border-strong bg-muted/60 text-muted-foreground hover:border-danger/40 hover:text-secondary-text"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] font-bold transition-colors",
+                          ok
+                            ? "border-accent bg-accent text-white shadow-[0_0_8px_var(--accent-glow)]"
+                            : "border-border-strong bg-elevated text-muted-foreground"
+                        )}
+                      >
+                        {ok ? "✓" : "✗"}
                       </span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
+                      <span className={cn("max-w-[230px] truncate", !ok && "opacity-70 line-through")}>{r.text}</span>
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}
 
-        <Field label="Screenshot">
+        <FormSection title="Screenshot">
           <ScreenshotUploader value={screenshots} onChange={setScreenshots} />
-        </Field>
+        </FormSection>
       </div>
     </Modal>
   );

@@ -170,7 +170,7 @@ export function TransactionForm() {
   }
 
   return (
-    <Card>
+    <Card hairline="accent">
       <CardHeader>
         <div>
           <CardTitle>Nuova transazione</CardTitle>
@@ -180,14 +180,14 @@ export function TransactionForm() {
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <Field label="Tipo">
-            <div className="grid grid-cols-2 gap-1 rounded-lg border border-border-strong bg-muted p-1">
+            <div className="grid grid-cols-2 gap-1 rounded-lg border border-border-strong bg-muted p-1 shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]">
               <button
                 type="button"
                 onClick={() => setType("expense")}
                 className={cn(
                   "rounded-md px-2 py-1.5 text-sm font-medium transition-colors",
                   type === "expense"
-                    ? "bg-danger/15 text-danger"
+                    ? "bg-danger/15 text-danger shadow-[0_0_12px_-4px_var(--danger)]"
                     : "text-muted-foreground hover:text-secondary-text"
                 )}
               >
@@ -199,7 +199,7 @@ export function TransactionForm() {
                 className={cn(
                   "rounded-md px-2 py-1.5 text-sm font-medium transition-colors",
                   type === "income"
-                    ? "bg-success/15 text-success"
+                    ? "bg-success/15 text-success shadow-[0_0_12px_-4px_var(--success)]"
                     : "text-muted-foreground hover:text-secondary-text"
                 )}
               >
@@ -216,13 +216,18 @@ export function TransactionForm() {
               placeholder="0,00"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+              className="[color-scheme:dark] tnum"
             />
           </Field>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Valuta">
-            <Select value={currency} onChange={(e) => setCurrency(e.target.value)}>
+            <Select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="[color-scheme:dark]"
+            >
               {currencyOptions.map((c) => (
                 <option key={c} value={c}>
                   {c} · {currencySymbol(c)}
@@ -232,7 +237,11 @@ export function TransactionForm() {
           </Field>
           <Field label="Categoria">
             {catsForType.length > 0 ? (
-              <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+              <Select
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                className="[color-scheme:dark]"
+              >
                 {catsForType.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.icon} {c.name}
@@ -251,11 +260,16 @@ export function TransactionForm() {
         </div>
 
         <Field label="Data">
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <Input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="[color-scheme:dark]"
+          />
         </Field>
 
         {crossCurrency && (
-          <div className="space-y-2 rounded-lg border border-border bg-elevated p-3">
+          <div className="space-y-2 rounded-lg border border-accent/20 bg-elevated p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
             <div className="flex items-center justify-between gap-2">
               <Label className="mb-0">
                 Tasso di cambio · 1 {currency.toUpperCase()} = ? {base}
@@ -277,6 +291,7 @@ export function TransactionForm() {
               placeholder={fx.state === "down" ? "es. 0.92" : "Quotazione…"}
               value={rate}
               onChange={(e) => setRate(e.target.value)}
+              className="[color-scheme:dark] tnum"
             />
             {fx.text && (
               <p
@@ -303,12 +318,15 @@ export function TransactionForm() {
             placeholder="es. Spesa settimanale, stipendio ottobre…"
             value={note}
             onChange={(e) => setNote(e.target.value)}
+            className="[color-scheme:dark]"
           />
         </Field>
 
         <div className="flex items-center justify-between gap-3">
           <Toggle checked={recurring} onChange={setRecurring} label="Ricorrente" />
-          <Button onClick={submit}>Salva transazione</Button>
+          <Button onClick={submit} glow>
+            Salva transazione
+          </Button>
         </div>
 
         {error && <p className="text-xs text-danger">{error}</p>}

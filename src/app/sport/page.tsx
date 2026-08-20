@@ -1,9 +1,9 @@
 "use client";
 
 // ============================================================
-// ASCEND — Sport (sezione 4.5 della specifica v3)
-// CRUD allenamenti, streak sportivo, totali mese, obiettivo
-// settimanale (WeeklyGoal workout_count) e mini stats 7 giorni.
+// ASCEND — Sport (sezione 4.5 della specifica v3) · art-direct v2
+// Stile myfundedbook: streak con count-up + green, obiettivo con
+// ProgressBar success, log dense con badge tipo, mini bars 7gg.
 // Tutto derivato da db.workouts / db.weeklyGoals (useDB/updateDB).
 // ============================================================
 
@@ -23,9 +23,11 @@ import { Card, CardHeader, CardSubtitle, CardTitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { StatCard } from "@/components/ui/StatCard";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { Field, Input, Label, Select, TextArea } from "@/components/ui/Field";
 import { ConfirmDialog, Modal } from "@/components/ui/Modal";
 import { EmptyState, ProgressBar, SectionHeader } from "@/components/ui/Misc";
+import { Reveal } from "@/components/ui/Reveal";
 import { BarsChart } from "@/components/charts";
 
 const PRESET_TYPES = [
@@ -57,6 +59,28 @@ function weekdayShort(key: string, locale: string): string {
   return wd.charAt(0).toUpperCase() + wd.slice(1);
 }
 
+// ------------------------------------------------------------
+// Badge "tipo" colorato — colore stabile per tipo allenamento
+// ------------------------------------------------------------
+const TYPE_COLORS = ["#4C7EFF", "#8A6BFF", "#2FD4FF", "#22c55e", "#f0b429", "#ec4899", "#06b6d4", "#f97316"];
+function typeColor(type: string): string {
+  let h = 0;
+  for (const c of type) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return TYPE_COLORS[h % TYPE_COLORS.length];
+}
+
+const TYPE_EMOJI: Record<string, string> = {
+  Cardio: "🏃",
+  Forza: "🏋️",
+  Calisthenics: "🤸",
+  Yoga: "🧘",
+  Corsa: "🏃",
+  Padel: "🎾",
+  Calcio: "⚽",
+  Nuoto: "🏊",
+  Altro: "💪",
+};
+
 export default function SportPage() {
   const db = useDB();
   const tz = db.settings.timezone;
@@ -82,6 +106,7 @@ export default function SportPage() {
   const goalTarget = weeklyGoal?.targetValue ?? 0;
   const goalMet = goalTarget > 0 && weekCount >= goalTarget;
   const goalRemaining = Math.max(0, goalTarget - weekCount);
+  const weekPct = goalTarget > 0 ? Math.min(100, Math.round((weekCount / goalTarget) * 100)) : 0;
 
   // Allenamenti per ciascuno degli ultimi 7 giorni (chart)
   const last7 = useMemo(
@@ -95,6 +120,7 @@ export default function SportPage() {
       }),
     [db.workouts, today, locale]
   );
+  const weekTotalBars = last7.reduce((s, d) => s + d.y, 0);
 
   // Log ordinati dal più recente
   const sorted = useMemo(
@@ -106,8 +132,6 @@ export default function SportPage() {
   );
 
   // ---------- tipi personalizzati ----------
-  // Derivo quelli già usati nei workout (persistono nel DB reale) + quelli
-  // aggiunti nella sessione corrente. Zero storage extra.
   const [customTypes, setCustomTypes] = useState<string[]>([]);
   useEffect(() => {
     const derived = Array.from(
@@ -209,154 +233,185 @@ export default function SportPage() {
 
   return (
     <div className="space-y-6">
-      <SectionHeader
-        title="Sport"
-        subtitle="Allenamenti, streak e obiettivo settimanale."
-        action={
-          <Button onClick={openNew} variant="primary">
-            + Aggiungi allenamento
-          </Button>
-        }
-      />
+      <Reveal>
+        <SectionHeader
+          kicker="Sport"
+          title="Muoviti. Ogni giorno."
+          subtitle="Allenamenti, streak e obiettivo settimanale — la costanza batte l'intensità."
+          action={
+            <Button onClick={openNew} variant="primary" glow>
+              + Aggiungi allenamento
+            </Button>
+          }
+        />
+      </Reveal>
 
       {!hasWorkouts ? (
-        <EmptyState
-          icon="💪"
-          title="Nessun allenamento registrato"
-          description="Registra il primo workout per iniziare a costruire lo streak sportivo."
-          action={<Button onClick={openNew}>Aggiungi allenamento</Button>}
-        />
+        <Reveal delay={30}>
+          <EmptyState
+            icon="💪"
+            title="Nessun allenamento registrato"
+            description="Registra il primo workout per iniziare a costruire lo streak sportivo."
+            action={<Button onClick={openNew}>Aggiungi allenamento</Button>}
+          />
+        </Reveal>
       ) : (
         <>
-          {/* KPI: streak separato + totali mese */}
+          {/* KPI: streak + totali mese */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <StatCard
-              label="Streak sportivo"
-              value={<span className="text-accent">🔥 {streak}</span>}
-              delta={streak === 1 ? "1 giorno" : `${streak} giorni consecutivi`}
-            />
-            <StatCard
-              label="Questo mese"
-              value={monthCount}
-              delta={`${fmtDur(monthMin)} totali`}
-            />
-            <StatCard
-              label="Durata media"
-              value={fmtDur(avgDur)}
-              delta="per sessione"
-            />
+            <Reveal delay={0}>
+              <StatCard
+                label="Streak sportivo"
+                value={<AnimatedNumber value={streak} className="text-success" fmt={(n) => String(Math.round(n))} />}
+                icon={<span className="text-lg drop-shadow-[0_0_10px_rgba(45,223,158,0.5)]">🔥</span>}
+                delta={streak === 1 ? "1 giorno" : `${streak} giorni di fila`}
+                deltaTone="positive"
+                hairline="success"
+                valueClassName="text-success"
+                className="h-full"
+              />
+            </Reveal>
+            <Reveal delay={60}>
+              <StatCard
+                label="Questo mese"
+                value={monthCount}
+                icon={<span className="text-lg">📅</span>}
+                delta={`${fmtDur(monthMin)} totali`}
+                deltaTone="neutral"
+                className="h-full"
+              />
+            </Reveal>
+            <Reveal delay={120}>
+              <StatCard
+                label="Durata media"
+                value={fmtDur(avgDur)}
+                icon={<span className="text-lg">⏱</span>}
+                delta="per sessione"
+                deltaTone="neutral"
+                className="h-full"
+              />
+            </Reveal>
           </div>
 
           {/* Obiettivo settimanale (WeeklyGoal workout_count) */}
-          <Card>
-            <CardHeader>
-              <div>
-                <CardTitle>Obiettivo settimanale</CardTitle>
-                <CardSubtitle>
-                  {weeklyGoal
-                    ? `${weekCount} allenamenti su ${goalTarget} · settimana dal ${labelDayKey(
-                        weekStart,
-                        locale
-                      )}`
-                    : "Progressione goal configurata dalla sezione Obiettivi"}
-                </CardSubtitle>
-              </div>
-              {weeklyGoal && (
-                <Badge tone={goalMet ? "success" : "info"}>
-                  <span className="tnum">
-                    {weekCount}/{goalTarget}
-                  </span>
-                </Badge>
-              )}
-            </CardHeader>
-            {weeklyGoal && goalTarget > 0 ? (
-              <>
-                <ProgressBar value={weekCount} max={goalTarget} />
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {goalMet
-                    ? "Obiettivo raggiunto 🎉"
-                    : `Mancano ${goalRemaining} allenamento${goalRemaining === 1 ? "" : "i"} alla meta.`}
+          <Reveal delay={40}>
+            <Card hairline={goalMet ? "success" : "accent"} texture>
+              <CardHeader>
+                <div>
+                  <CardTitle>Obiettivo settimanale</CardTitle>
+                  <CardSubtitle>
+                    {weeklyGoal
+                      ? `${weekCount} allenamenti su ${goalTarget} · settimana dal ${labelDayKey(
+                          weekStart,
+                          locale
+                        )}`
+                      : "Progressione goal configurata dalla sezione Obiettivi"}
+                  </CardSubtitle>
+                </div>
+                {weeklyGoal && (
+                  <Badge tone={goalMet ? "success" : "info"}>
+                    <span className="tnum">
+                      {weekCount}/{goalTarget}
+                    </span>
+                  </Badge>
+                )}
+              </CardHeader>
+              {weeklyGoal && goalTarget > 0 ? (
+                <>
+                  <ProgressBar value={weekCount} max={goalTarget} tone="success" />
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      {goalMet ? (
+                        <span className="font-medium text-success">Obiettivo raggiunto 🎉</span>
+                      ) : (
+                        <>Mancano <span className="tnum text-secondary-text">{goalRemaining}</span> allenamento{goalRemaining === 1 ? "" : "i"} alla meta.</>
+                      )}
+                    </p>
+                    <span className="tnum text-[11px] text-muted-foreground">{weekPct}%</span>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Nessun obiettivo settimanale attivo di tipo “allenamento”. Impostalo dalla sezione{" "}
+                  Obiettivi per vederne i progressi qui.
                 </p>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Nessun obiettivo settimanale attivo di tipo “allenamento”. Impostalo dalla sezione{" "}
-                Obiettivi per vederne i progressi qui.
-              </p>
-            )}
-          </Card>
+              )}
+            </Card>
+          </Reveal>
 
           {/* Mini stats: ultimi 7 giorni */}
-          <Card>
-            <CardHeader>
-              <div>
-                <CardTitle>Ultimi 7 giorni</CardTitle>
-                <CardSubtitle>Allenamenti per giorno</CardSubtitle>
-              </div>
-            </CardHeader>
-            <BarsChart data={last7} height={160} />
-          </Card>
-
-          {/* Log allenamenti */}
-          <Card>
-            <CardHeader>
-              <div>
-                <CardTitle>Log allenamenti</CardTitle>
-                <CardSubtitle>
-                  {db.workouts.length} allenamento{db.workouts.length === 1 ? "" : "i"} registrati
-                </CardSubtitle>
-              </div>
-            </CardHeader>
-            <div className="space-y-2">
-              {sorted.map((w) => (
-                <div
-                  key={w.id}
-                  className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-elevated/60 p-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium text-foreground">{w.type}</span>
-                      {w.pr && (
-                        <>
-                          <Badge tone="info">🏅 PR</Badge>
-                          <span className="max-w-[220px] truncate text-[11px] text-secondary-text">
-                            {w.pr}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    <p className="mt-0.5 text-[11px] tnum text-muted-foreground">
-                      {labelDayKey(w.date, locale)}
-                    </p>
-                    {w.note && (
-                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{w.note}</p>
-                    )}
-                  </div>
-                  <span className="shrink-0 text-sm font-semibold tnum text-accent">
-                    {fmtDur(w.durationMin)}
-                  </span>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openEdit(w)}
-                      aria-label="Modifica allenamento"
-                    >
-                      ✏️
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeleteTarget(w)}
-                      aria-label="Elimina allenamento"
-                    >
-                      🗑️
-                    </Button>
-                  </div>
+          <Reveal delay={80}>
+            <Card hairline="accent">
+              <CardHeader>
+                <div>
+                  <CardTitle>Ultimi 7 giorni</CardTitle>
+                  <CardSubtitle>Allenamenti per giorno · {weekTotalBars} totali</CardSubtitle>
                 </div>
-              ))}
-            </div>
-          </Card>
+                <Badge tone="success">
+                  <span className="tnum">{weekTotalBars}</span>
+                </Badge>
+              </CardHeader>
+              <BarsChart data={last7} height={150} color="#22c55e" />
+            </Card>
+          </Reveal>
+
+          {/* Log allenamenti — denso con badge tipo */}
+          <Reveal delay={60}>
+            <Card>
+              <CardHeader>
+                <div>
+                  <CardTitle>Log allenamenti</CardTitle>
+                  <CardSubtitle>
+                    {db.workouts.length} allenamento{db.workouts.length === 1 ? "" : "i"} registrati
+                  </CardSubtitle>
+                </div>
+                <Badge tone="default">
+                  <span className="tnum">{db.workouts.length}</span>
+                </Badge>
+              </CardHeader>
+              <div className="space-y-1.5">
+                {sorted.map((w) => {
+                  const color = typeColor(w.type);
+                  return (
+                    <div
+                      key={w.id}
+                      className="group flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-elevated/40 px-3 py-2 transition-colors hover:border-border-strong hover:bg-elevated/70"
+                    >
+                      {/* badge tipo colorato */}
+                      <span
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold"
+                        style={{ color, backgroundColor: `${color}14`, borderColor: `${color}40` }}
+                      >
+                        <span>{TYPE_EMOJI[w.type] ?? "💪"}</span>
+                        {w.type}
+                      </span>
+
+                      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-0.5">
+                        {w.pr && (
+                          <>
+                            <Badge tone="info">🏅 PR</Badge>
+                            <span className="max-w-[200px] truncate text-[11px] text-secondary-text">{w.pr}</span>
+                          </>
+                        )}
+                        {w.note && <span className="max-w-[280px] truncate text-[11px] text-muted-foreground">{w.note}</span>}
+                      </div>
+
+                      <span className="text-[11px] tnum text-muted-foreground">{labelDayKey(w.date, locale)}</span>
+                      <span className="shrink-0 text-sm font-semibold tnum text-accent">{fmtDur(w.durationMin)}</span>
+                      <div className="flex shrink-0 items-center gap-0.5 opacity-70 transition-opacity group-hover:opacity-100">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(w)} aria-label="Modifica allenamento">
+                          ✏️
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(w)} aria-label="Elimina allenamento">
+                          🗑️
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          </Reveal>
         </>
       )}
 

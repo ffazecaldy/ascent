@@ -18,6 +18,16 @@
 // - Lista trade del periodo con setup: dot verde/rosso se rispettato/
 //   violato (tradeRespected), grigio se non valutabile.
 // ============================================================
+// ART-DIRECTION (myfundedbook rich/animato):
+//   1) KPI sempre insieme: Performance (spark risultati periodo +
+//      AnimatedNumber, hairline per segno) e Disciplina % (anello
+//      circolare + ProgressBar, tone success/warning/danger su 50/80).
+//   2) "No Setup" come card warning con count/% mascherati da privacy.
+//   3) Setup list: regole come pill numerate (01, 02…), attive con glow,
+//      testo editabile inline, frecce su/giù.
+//   4) Trade row: dot disciplina verde/rossa + badge setup.
+//   5) SectionHeader con kicker + sezioni in <Reveal>.
+// ============================================================
 
 import { useEffect, useState } from "react";
 import { useDB, updateDB, upsert, uid, nowISO } from "@/lib/storage";
@@ -34,14 +44,16 @@ import {
 import { formatSignedMoney, formatPercent, formatR } from "@/lib/format";
 import { moneyMasked, kpiMasked, maskMoney, maskKpi, maskCompact } from "@/lib/privacy";
 import { setupName } from "@/lib/db";
-import type { DB, Setup, SetupRule } from "@/lib/types";
+import type { DB, Setup, SetupRule, Trade } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge, StatusDot } from "@/components/ui/Badge";
 import { StatCard } from "@/components/ui/StatCard";
 import { Field, Input, Select } from "@/components/ui/Field";
 import { Modal, ConfirmDialog } from "@/components/ui/Modal";
-import { EmptyState, SectionHeader, Toggle } from "@/components/ui/Misc";
+import { EmptyState, SectionHeader, Toggle, ProgressBar } from "@/components/ui/Misc";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import { Reveal } from "@/components/ui/Reveal";
 import { cn } from "@/lib/cn";
 
 // ------------------------------------------------------------
@@ -87,7 +99,115 @@ function pnlCls(v: number): string {
 }
 
 // ------------------------------------------------------------
+// Color + tone Disciplina — soglie 50 / 80
+// ------------------------------------------------------------
+type DiscTone = "success" | "warning" | "danger";
+const DISC_COLOR: Record<DiscTone, string> = {
+  success: "#2ddf9e",
+  warning: "#f0b429",
+  danger: "#ff5c5c",
+};
+const DISC_TEXT: Record<DiscTone, string> = {
+  success: "text-success",
+  warning: "text-warning",
+  danger: "text-danger",
+};
+
+function disciplineToneOf(pct: number | null): DiscTone | null {
+  if (pct == null) return null;
+  if (pct >= 80) return "success";
+  if (pct >= 50) return "warning";
+  return "danger";
+}
+
+// ------------------------------------------------------------
+// Spark Serie — cumulata giornaliera del P&L del periodo
+// ------------------------------------------------------------
+function buildPerfSeries(trades: Trade[], db: DB, tz: string, base: string): number[] | null {
+  if (trades.length === 0) return null;
+  const byDay = new Map<string, number>();
+  for (const t of trades) {
+    const acc = db.accounts.find((a) => a.id === t.accountId);
+    const v = t.resultNative * (acc ? accountBaseRate(acc, base) : 1);
+    const dk = isoToDayKey(t.closeDate, tz);
+    byDay.set(dk, (byDay.get(dk) ?? 0) + v);
+  }
+  const days = [...byDay.keys()].sort();
+  let run = 0;
+  const series = days.map((d) => (run += byDay.get(d) ?? 0));
+  // campionamento: evita poligoni giganti su periodi lunghi
+  if (series.length <= 48) return series;
+  const step = series.length / 48;
+  const sampled: number[] = [];
+  for (let i = 0; i < series.length; i += step) sampled.push(series[Math.floor(i)]);
+  if (sampled[sampled.length - 1] !== series[series.length - 1]) sampled.push(series[series.length - 1]);
+  return sampled;
+}
+
+// ------------------------------------------------------------
+// Ring — progress circolare (Disciplina)
+// ------------------------------------------------------------
+function Ring({ pct, size = 46, stroke = 5, color }: { pct: number | null; size?: number; stroke?: number; color: string }) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const p = pct == null ? 0 : Math.min(100, Math.max(0, pct)) / 100;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0 -rotate-90">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeDasharray={c}
+        strokeDashoffset={c * (1 - p)}
+        className="transition-[stroke-dashoffset] duration-700 ease-out"
+      />
+    </svg>
+  );
+}
+
+// ------------------------------------------------------------
+// Icone inline (chevron su/giù)
+// ------------------------------------------------------------
+function ChevronIcon({ dir }: { dir: "up" | "down" }) {
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {dir === "up" ? <path d="M6 15l6-6 6 6" /> : <path d="M6 9l6 6 6-6" />}
+    </svg>
+  );
+}
+
+// ------------------------------------------------------------
+// SectionLabel — titolo di sezione secondario (ricco)
+// ------------------------------------------------------------
+function SectionLabel({ icon, title, hint }: { icon: string; title: string; hint?: string }) {
+  return (
+    <div className="mb-3 flex items-center justify-between gap-2">
+      <h2 className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+        <span className="grid h-6 w-6 place-items-center rounded-md border border-border bg-elevated text-xs">{icon}</span>
+        {title}
+      </h2>
+      {hint && <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{hint}</span>}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------
 // RuleRow — regola singola (ID stabile, mai indice dell'array)
+// Pill numerata (01, 02…) · glow se attiva · testo inline
 // ------------------------------------------------------------
 function RuleRow({
   rule,
@@ -115,33 +235,49 @@ function RuleRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-2 py-1.5",
-        !rule.active && "opacity-55"
+        "group flex items-center gap-2.5 rounded-xl border px-2.5 py-2 transition-all duration-200",
+        rule.active
+          ? "border-accent/25 bg-accent/[0.05] shadow-[0_0_16px_-8px_var(--accent-glow)]"
+          : "border-border bg-muted/40 opacity-60"
       )}
     >
+      {/* Pill numerata */}
+      <span
+        className={cn(
+          "grid h-7 w-8 shrink-0 place-items-center rounded-lg border text-[10px] font-semibold tnum",
+          rule.active
+            ? "border-accent/30 bg-accent/15 text-accent shadow-[0_0_12px_-4px_var(--accent-glow)]"
+            : "border-border bg-elevated text-muted-foreground"
+        )}
+      >
+        {String(index + 1).padStart(2, "0")}
+      </span>
+
       {/* Sposta su / giù */}
-      <div className="flex shrink-0 flex-col">
+      <div className="flex shrink-0 flex-col gap-0.5">
         <button
           type="button"
           disabled={index === 0}
           onClick={() => onMove(-1)}
           aria-label="Sposta regola su"
-          className="flex h-4 w-6 items-center justify-center rounded text-xs text-muted-foreground hover:text-foreground disabled:opacity-30"
+          className="flex h-4 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-elevated hover:text-foreground disabled:opacity-25 disabled:hover:bg-transparent"
         >
-          ↑
+          <ChevronIcon dir="up" />
         </button>
         <button
           type="button"
           disabled={index === total - 1}
           onClick={() => onMove(1)}
           aria-label="Sposta regola giù"
-          className="flex h-4 w-6 items-center justify-center rounded text-xs text-muted-foreground hover:text-foreground disabled:opacity-30"
+          className="flex h-4 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-elevated hover:text-foreground disabled:opacity-25 disabled:hover:bg-transparent"
         >
-          ↓
+          <ChevronIcon dir="down" />
         </button>
       </div>
-      <span className="w-4 shrink-0 text-center text-[10px] tnum text-muted-foreground">{index + 1}</span>
+
       <Toggle checked={rule.active} onChange={onToggle} />
+
+      {/* Testo editabile inline */}
       <input
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -151,15 +287,16 @@ function RuleRow({
         }}
         aria-label="Testo della regola"
         className={cn(
-          "min-w-0 flex-1 rounded bg-transparent px-1 py-0.5 text-sm text-foreground outline-none focus:ring-1 focus:ring-accent/50",
+          "min-w-0 flex-1 rounded bg-transparent px-1 py-0.5 text-sm text-foreground outline-none transition-colors focus:ring-1 focus:ring-accent/50",
           !rule.active && "line-through"
         )}
       />
+
       <button
         type="button"
         onClick={onRemove}
         aria-label="Elimina regola"
-        className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-danger/10 hover:text-danger"
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger"
       >
         ✕
       </button>
@@ -192,8 +329,9 @@ function SetupCard({
   onRuleMove: (ruleId: string, dir: -1 | 1) => void;
 }) {
   const activeCount = rules.filter((r) => r.active).length;
+  const evaluated = activeCount > 0;
   return (
-    <Card className="space-y-3">
+    <Card hairline={evaluated ? "accent" : "none"} className="space-y-3">
       <CardHeader>
         <div className="min-w-0">
           <CardTitle className="truncate">{setup.name}</CardTitle>
@@ -203,7 +341,7 @@ function SetupCard({
               : `${rules.length} regole in totale · ${activeCount} attive`}
           </CardSubtitle>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1.5">
           <Badge tone={activeCount > 0 ? "info" : "default"}>{activeCount} attive</Badge>
           <Button variant="ghost" size="sm" onClick={onRename}>
             Rinomina
@@ -283,6 +421,9 @@ export default function SetupsPage() {
     const acc = db.accounts.find((a) => a.id === t.accountId);
     perfBase += t.resultNative * (acc ? accountBaseRate(acc, baseCurrency) : 1);
   }
+  const perfSeries = buildPerfSeries(periodTrades, db, tz, baseCurrency);
+  const perfSparkColor =
+    perfBase > 0 ? DISC_COLOR.success : perfBase < 0 ? DISC_COLOR.danger : "#4C7EFF";
 
   const setupTrades = periodTrades
     .filter((t) => t.setupId)
@@ -290,6 +431,12 @@ export default function SetupsPage() {
 
   const accountLabel =
     accountId === "all" ? "Tutti gli account" : db.accounts.find((a) => a.id === accountId)?.name ?? "—";
+
+  // ---- Disciplina: tone/colori per anello e barra (soglie 50/80)
+  const discTone = disciplineToneOf(dStats.disciplinePct);
+  const discColor = discTone ? DISC_COLOR[discTone] : "#6f6f78";
+  const discHairline: "success" | "danger" | "accent" =
+    discTone === "success" ? "success" : discTone === "danger" ? "danger" : "accent";
 
   // ---- mutazioni
   const createSetup = () => {
@@ -379,198 +526,272 @@ export default function SetupsPage() {
   // ---- render
   return (
     <div className="space-y-6">
-      <SectionHeader
-        title="Playbook & Disciplina"
-        subtitle="Definisci i tuoi setup e controlla quanto li rispetti."
-        action={
-          <Button onClick={() => setCreateOpen(true)}>+ Nuovo setup</Button>
-        }
-      />
+      <Reveal>
+        <SectionHeader
+          kicker="Trading · Playbook"
+          title="Playbook & Disciplina"
+          subtitle="Definisci i tuoi setup e controlla quanto li rispetti."
+          action={
+            <Button onClick={() => setCreateOpen(true)}>+ Nuovo setup</Button>
+          }
+        />
+      </Reveal>
 
       {/* Selettori */}
-      <Card>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Periodo">
-            <Select value={period} onChange={(e) => setPeriod(e.target.value as PeriodId)}>
-              {PERIOD_OPTIONS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Account">
-            <Select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-              <option value="all">Tutti gli account</option>
-              {db.accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                  {a.archived ? " (archiviato)" : ""}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
-      </Card>
+      <Reveal delay={60}>
+        <Card>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Periodo">
+              <Select value={period} onChange={(e) => setPeriod(e.target.value as PeriodId)}>
+                {PERIOD_OPTIONS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Account">
+              <Select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+                <option value="all">Tutti gli account</option>
+                {db.accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                    {a.archived ? " (archiviato)" : ""}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+        </Card>
+      </Reveal>
 
-      {/* KPI: Performance + Disciplina — sempre insieme */}
+      {/* KPI: Performance + Disciplina — SEMPRE insieme, affiancate */}
       <div className="grid gap-4 sm:grid-cols-2">
-        <StatCard
-          label="Performance"
-          value={
-            <span className={cn("tnum", pnlCls(perfBase))}>
-              {moneyMasked(privacy) ? maskMoney() : formatSignedMoney(perfBase, baseCurrency)}
-            </span>
-          }
-          delta={`${periodTrades.length} trade nel periodo · ${accountLabel}`}
-        />
-        <StatCard
-          label="Disciplina"
-          value={
-            <span className="tnum">
-              {kpiMasked(privacy)
-                ? maskKpi()
-                : dStats.disciplinePct != null
-                  ? formatPercent(dStats.disciplinePct)
-                  : "—"}
-            </span>
-          }
-          delta={`${dStats.respected} / ${dStats.count} trade con setup rispettati`}
-        />
-      </div>
-
-      {/* Metrica separata: No Setup */}
-      <Card className="flex flex-col gap-1">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            No Setup
-          </span>
-          <span className="text-[10px] text-muted-foreground">nel periodo</span>
-        </div>
-        <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-semibold tnum leading-tight">{dStats.noSetupCount}</span>
-          <span className="text-sm tnum text-muted-foreground">
-            {kpiMasked(privacy)
-              ? maskKpi()
-              : dStats.noSetupPct != null
-                ? formatPercent(dStats.noSetupPct)
-                : "—"}
-          </span>
-        </div>
-        <p className="mt-1 rounded-lg border border-yellow-500/25 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-500">
-          ⚠️ Tradare senza piano è indisciplina.
-        </p>
-      </Card>
-
-      {/* Playbook */}
-      <div>
-        <h2 className="mb-2 text-lg font-semibold tracking-tight">Playbook</h2>
-        <p className="mb-3 flex items-start gap-2 rounded-lg border border-accent/20 bg-accent/[0.06] px-3 py-2.5 text-xs text-secondary-text">
-          <span aria-hidden>💡</span>
-          <span>
-            Modificare il playbook non corrompe lo storico: ogni regola ha un ID stabile e i trade
-            restano collegati per ID. Puoi rinominare, riordinare o disattivare le regole quando vuoi.
-          </span>
-        </p>
-        {db.setups.length === 0 ? (
-          <EmptyState
-            icon="📋"
-            title="Nessun setup nel playbook"
-            description="Crea il primo setup con le regole che definiscono il tuo edge."
-            action={
-              <Button size="sm" onClick={() => setCreateOpen(true)}>
-                + Nuovo setup
-              </Button>
+        <Reveal delay={120}>
+          <StatCard
+            label="Performance"
+            hairline={perfBase > 0 ? "success" : perfBase < 0 ? "danger" : "accent"}
+            value={
+              <span className={cn("tnum", pnlCls(perfBase))}>
+                {moneyMasked(privacy) ? (
+                  maskMoney()
+                ) : (
+                  <AnimatedNumber value={perfBase} fmt={(n) => formatSignedMoney(n, baseCurrency)} />
+                )}
+              </span>
+            }
+            delta={`${periodTrades.length} trade nel periodo · ${accountLabel}`}
+            spark={perfSeries ?? undefined}
+            sparkColor={perfSparkColor}
+          />
+        </Reveal>
+        <Reveal delay={180}>
+          <StatCard
+            label="Disciplina"
+            hairline={discHairline}
+            value={
+              <div className="flex items-center gap-3">
+                <Ring pct={dStats.disciplinePct} color={discColor} />
+                <span className={cn("text-[26px] font-semibold leading-none tracking-tight tnum", discTone ? DISC_TEXT[discTone] : "text-muted-foreground")}>
+                  {kpiMasked(privacy) ? (
+                    maskKpi()
+                  ) : (
+                    <AnimatedNumber
+                      value={dStats.disciplinePct ?? 0}
+                      fmt={(n) => (dStats.disciplinePct == null ? "—" : formatPercent(n))}
+                    />
+                  )}
+                </span>
+              </div>
+            }
+            delta={
+              <div className="flex w-full flex-col gap-1.5">
+                <ProgressBar
+                  value={dStats.disciplinePct ?? 0}
+                  tone={discTone ?? "accent"}
+                  shimmer
+                />
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <StatusDot color={kpiMasked(privacy) ? "#6b6b72" : discColor} className={!kpiMasked(privacy) && discTone === "success" ? "animate-pulse-dot" : ""} />
+                  {dStats.respected} / {dStats.count} trade con setup rispettati
+                  {discTone === "danger" && <span className="text-danger">· sotto soglia</span>}
+                </span>
+              </div>
             }
           />
-        ) : (
-          <div className="space-y-4">
-            {db.setups.map((s) => (
-              <SetupCard
-                key={s.id}
-                setup={s}
-                rules={rulesOfSetup(db, s.id)}
-                onRename={() => {
-                  setRenameValue(s.name);
-                  setRenameTarget(s);
-                }}
-                onDelete={() => setDeleteTarget(s)}
-                onAddRule={() => addRule(s.id)}
-                onRuleText={setRuleText}
-                onRuleToggle={toggleRule}
-                onRuleRemove={removeRule}
-                onRuleMove={(ruleId, dir) => moveRule(s.id, ruleId, dir)}
-              />
-            ))}
-          </div>
-        )}
+        </Reveal>
       </div>
 
-      {/* Trade del periodo con setup */}
-      <div>
-        <h2 className="mb-3 text-lg font-semibold tracking-tight">Trade del periodo</h2>
-        <Card>
-          {setupTrades.length === 0 ? (
+      {/* Metrica separata: No Setup — card warning (count/% mascherati da privacy) */}
+      <Reveal delay={240}>
+        <Card className="relative overflow-hidden border-warning/25 bg-warning/[0.04]">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-warning to-transparent" />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-warning/30 bg-warning/10 text-base shadow-[0_0_16px_-6px_rgba(240,180,41,0.5)]">
+                ⚠️
+              </span>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-warning">No Setup</p>
+                <p className="text-xs text-muted-foreground">trade chiusi senza piano nel periodo</p>
+              </div>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="tnum text-2xl font-semibold leading-tight">
+                {kpiMasked(privacy) ? maskKpi() : dStats.noSetupCount}
+              </span>
+              <span className="tnum text-sm font-medium text-warning">
+                {kpiMasked(privacy)
+                  ? maskKpi()
+                  : dStats.noSetupPct != null
+                    ? formatPercent(dStats.noSetupPct)
+                    : "—"}
+              </span>
+            </div>
+          </div>
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-warning/25 bg-warning/[0.07] px-3 py-2 text-xs text-warning">
+            <span aria-hidden>⚠️</span>
+            <span>Tradare senza piano è indisciplina.</span>
+          </div>
+        </Card>
+      </Reveal>
+
+      {/* Playbook */}
+      <Reveal delay={300}>
+        <div>
+          <SectionLabel
+            icon="📋"
+            title="Playbook"
+            hint={db.setups.length > 0 ? `${db.setups.length} setup` : undefined}
+          />
+          <p className="mb-3 flex items-start gap-2 rounded-lg border border-accent/20 bg-accent/[0.06] px-3 py-2.5 text-xs text-secondary-text">
+            <span aria-hidden>💡</span>
+            <span>
+              Modificare il playbook non corrompe lo storico: ogni regola ha un ID stabile e i trade
+              restano collegati per ID. Puoi rinominare, riordinare o disattivare le regole quando vuoi.
+            </span>
+          </p>
+          {db.setups.length === 0 ? (
             <EmptyState
-              icon="🕹️"
-              title="Nessun trade con setup nel periodo"
-              description={
-                periodTrades.length === 0
-                  ? "Non ci sono trade chiusi nel periodo selezionato."
-                  : "I trade del periodo sono stati eseguiti senza setup."
+              icon="📋"
+              title="Nessun setup nel playbook"
+              description="Crea il primo setup con le regole che definiscono il tuo edge."
+              action={
+                <Button size="sm" onClick={() => setCreateOpen(true)}>
+                  + Nuovo setup
+                </Button>
               }
             />
           ) : (
-            <ul className="divide-y divide-border">
-              {setupTrades.map(({ trade: t, respected, name }) => {
-                const acc = db.accounts.find((a) => a.id === t.accountId);
-                const baseAmt = t.resultNative * (acc ? accountBaseRate(acc, baseCurrency) : 1);
-                return (
-                  <li key={t.id} className="flex items-center gap-3 py-2.5">
-                    <StatusDot
-                      color={
-                        respected === true
-                          ? "#22c55e"
-                          : respected === false
-                            ? "#ef4444"
-                            : "#6b6b72"
-                      }
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {t.instrument}
-                        <span className="text-xs font-normal text-muted-foreground"> · {dayLabel(t.closeDate, tz)}</span>
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {name} · {t.direction === "long" ? "long" : "short"}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end">
-                      <span className={cn("text-sm font-semibold tnum", pnlCls(t.resultR))}>
-                        {kpiMasked(privacy) ? maskCompact() : formatR(t.resultR)}
-                      </span>
-                      <span className={cn("text-xs tnum", pnlCls(baseAmt))}>
-                        {moneyMasked(privacy) ? maskMoney() : formatSignedMoney(baseAmt, baseCurrency)}
-                      </span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="space-y-4">
+              {db.setups.map((s) => (
+                <SetupCard
+                  key={s.id}
+                  setup={s}
+                  rules={rulesOfSetup(db, s.id)}
+                  onRename={() => {
+                    setRenameValue(s.name);
+                    setRenameTarget(s);
+                  }}
+                  onDelete={() => setDeleteTarget(s)}
+                  onAddRule={() => addRule(s.id)}
+                  onRuleText={setRuleText}
+                  onRuleToggle={toggleRule}
+                  onRuleRemove={removeRule}
+                  onRuleMove={(ruleId, dir) => moveRule(s.id, ruleId, dir)}
+                />
+              ))}
+            </div>
           )}
-          <div className="mt-3 flex flex-wrap gap-4 border-t border-border pt-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <StatusDot color="#22c55e" /> Rispettato
-            </span>
-            <span className="flex items-center gap-1.5">
-              <StatusDot color="#ef4444" /> Violato
-            </span>
-            <span className="flex items-center gap-1.5">
-              <StatusDot color="#6b6b72" /> Non valutabile (nessuna regola attiva)
-            </span>
-          </div>
-        </Card>
-      </div>
+        </div>
+      </Reveal>
+
+      {/* Trade del periodo con setup */}
+      <Reveal delay={360}>
+        <div>
+          <SectionLabel
+            icon="🕹️"
+            title="Trade del periodo"
+            hint={setupTrades.length > 0 ? `${setupTrades.length} trade con setup` : undefined}
+          />
+          <Card>
+            {setupTrades.length === 0 ? (
+              <EmptyState
+                icon="🕹️"
+                title="Nessun trade con setup nel periodo"
+                description={
+                  periodTrades.length === 0
+                    ? "Non ci sono trade chiusi nel periodo selezionato."
+                    : "I trade del periodo sono stati eseguiti senza setup."
+                }
+              />
+            ) : (
+              <ul className="divide-y divide-border">
+                {setupTrades.map(({ trade: t, respected, name }) => {
+                  const acc = db.accounts.find((a) => a.id === t.accountId);
+                  const baseAmt = t.resultNative * (acc ? accountBaseRate(acc, baseCurrency) : 1);
+                  const dotColor =
+                    respected === true
+                      ? DISC_COLOR.success
+                      : respected === false
+                        ? DISC_COLOR.danger
+                        : "#6b6b72";
+                  return (
+                    <li key={t.id} className="flex items-center gap-3 py-3">
+                      <StatusDot
+                        color={dotColor}
+                        className={respected === true ? "animate-pulse-dot" : ""}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">
+                          {t.instrument}
+                          <span className="text-xs font-normal text-muted-foreground">
+                            {" "}· {dayLabel(t.closeDate, tz)}
+                          </span>
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <Badge
+                            tone={respected === true ? "success" : respected === false ? "danger" : "default"}
+                          >
+                            {respected === true
+                              ? "Rispettato"
+                              : respected === false
+                                ? "Violato"
+                                : "Non valutabile"}
+                          </Badge>
+                          <Badge tone="info">{name}</Badge>
+                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                            {t.direction === "long" ? "long" : "short"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end">
+                        <span className={cn("text-sm font-semibold tnum", pnlCls(t.resultR))}>
+                          {kpiMasked(privacy) ? maskCompact() : formatR(t.resultR)}
+                        </span>
+                        <span className={cn("text-xs tnum", pnlCls(baseAmt))}>
+                          {moneyMasked(privacy) ? maskMoney() : formatSignedMoney(baseAmt, baseCurrency)}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <div className="mt-3 flex flex-wrap gap-4 border-t border-border pt-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <StatusDot color={DISC_COLOR.success} /> Rispettato
+              </span>
+              <span className="flex items-center gap-1.5">
+                <StatusDot color={DISC_COLOR.danger} /> Violato
+              </span>
+              <span className="flex items-center gap-1.5">
+                <StatusDot color="#6b6b72" /> Non valutabile (nessuna regola attiva)
+              </span>
+            </div>
+          </Card>
+        </div>
+      </Reveal>
 
       {/* Modali */}
       <Modal

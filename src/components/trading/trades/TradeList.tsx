@@ -2,20 +2,20 @@
 
 // ============================================================
 // ASCEND — Trade log: lista trade filtrati (account + mese)
-// Riga: data chiusura · strumento · direzione badge · R colorato
-// · resultNative colorato · setup badge · screenshot · stato disciplina · azioni
+// Card per trade con hairline success/danger in base al risultato,
+// riga densa (data · strumento · direzione · R · P&L · setup · dots
+// disciplina per regola · thumbnail con hover zoom) · azioni.
 // ============================================================
 
 import React, { useState } from "react";
 import type { DB, Trade } from "@/lib/types";
-import { Card } from "@/components/ui/Card";
 import { Badge, StatusDot } from "@/components/ui/Badge";
 import { getAccount, setupName } from "@/lib/db";
 import { formatR, formatSignedMoney } from "@/lib/format";
 import { kpiMasked, moneyMasked, maskMoney, maskKpi } from "@/lib/privacy";
 import { tradeRespected, rulesOfSetup } from "@/lib/compute";
 import { cn } from "@/lib/cn";
-import { formatCloseDate } from "./trade-utils";
+import { formatDayTime } from "./trade-utils";
 import { Lightbox } from "./Lightbox";
 
 export function TradeList({
@@ -41,60 +41,151 @@ export function TradeList({
         const acc = getAccount(db, t.accountId);
         const currency = acc?.nativeCurrency ?? db.settings.baseCurrency;
         const disc = tradeRespected(db, t.id); // true | false | null
-        const discColor = disc === true ? "#22c55e" : disc === false ? "#ef4444" : "#6b6b72";
+        const discColor = disc === true ? "#2ddf9e" : disc === false ? "#ff5c5c" : "#6b6b72";
         const discLabel =
           disc === true ? "Disciplina rispettata" : disc === false ? "Regola del setup non rispettata" : "Non valutabile";
         const rn = t.resultNative;
         const pseudo = Boolean(t.screenshots?.length);
+        const hairline: "success" | "danger" | "none" = rn > 0 ? "success" : rn < 0 ? "danger" : "none";
         // stato disciplina PER REGOLA (regole attive del setup selezionato)
         const setupRules = t.setupId ? rulesOfSetup(db, t.setupId).filter((r) => r.active) : [];
         const ruleRespected = (ruleId: string): boolean => {
           const entry = db.tradeSetupRules.find((x) => x.tradeId === t.id && x.ruleId === ruleId);
           return entry ? entry.respected : false;
         };
+        const prices =
+          t.entry != null || t.exit != null || t.stop != null || t.target != null || t.size != null;
 
         return (
-          <Card key={t.id} className="p-3.5">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <div className="flex min-w-0 flex-col">
-                <p className="text-xs text-muted-foreground tnum">{formatCloseDate(t.closeDate, db.settings.locale)}</p>
-                {showAccount && acc && <p className="text-[11px] text-muted-foreground">{acc.name}</p>}
-              </div>
+          <article
+            key={t.id}
+            className={cn(
+              "group relative rounded-[--radius] border border-border bg-card p-3 shadow-[--shadow-card] transition-colors hover:border-border-strong",
+              "hover-lift"
+            )}
+          >
+            {/* Hairline in base al risultato */}
+            {hairline === "success" && (
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-success to-transparent" />
+            )}
+            {hairline === "danger" && (
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-danger to-transparent" />
+            )}
 
-              <div className="flex min-w-0 items-center gap-2">
-                <Badge
-                  tone={t.direction === "long" ? "info" : "default"}
+            <div className="flex items-center gap-3">
+              {/* Thumbnail screenshot con hover zoom */}
+              {pseudo && (
+                <button
+                  type="button"
+                  onClick={() => setView(t.screenshots[0])}
+                  title="Ingrandisci screenshot"
+                  className="group/thumb relative h-12 w-[4.4rem] shrink-0 cursor-zoom-in rounded-md"
                 >
-                  {t.direction === "long" ? "▲ Long" : "▼ Short"}
-                </Badge>
-                <span className="truncate text-sm font-semibold tnum">{t.instrument}</span>
-              </div>
-
-              {t.setupId && (
-                <Badge tone="default" className="max-w-[160px] truncate" >
-                  📋 {setupName(db, t.setupId)}
-                </Badge>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={t.screenshots[0]}
+                    alt={`Screenshot — ${t.instrument}`}
+                    className={cn(
+                      "absolute inset-0 h-full w-full origin-bottom-left rounded-md border border-border-strong bg-elevated object-cover",
+                      "transition-transform duration-200 ease-out group-hover/thumb:z-30 group-hover/thumb:scale-[2.4]",
+                      "group-hover/thumb:border-accent/70 group-hover/thumb:shadow-[0_18px_44px_-12px_rgba(0,0,0,0.9)]"
+                    )}
+                  />
+                  {t.screenshots.length > 1 && (
+                    <span className="absolute -bottom-1 -right-1 rounded bg-black/70 px-1 py-0.5 text-[8px] font-semibold text-secondary-text tnum backdrop-blur">
+                      +{t.screenshots.length - 1}
+                    </span>
+                  )}
+                </button>
               )}
 
-              <div className="ml-auto flex items-center gap-3">
-                <StatusDot color={discColor} />
+              {/* Colonna dati */}
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-[11px] text-muted-foreground tnum">{formatDayTime(t.closeDate, db.settings.locale)}</span>
+                  {showAccount && acc && (
+                    <span className="max-w-28 truncate text-[11px] text-muted-foreground">{acc.name}</span>
+                  )}
+                  <span className="truncate text-sm font-semibold tracking-tight tnum">{t.instrument}</span>
+                  <Badge tone={t.direction === "long" ? "info" : "default"}>
+                    {t.direction === "long" ? "▲ Long" : "▼ Short"}
+                  </Badge>
+                </div>
 
-                {t.setupId && disc !== null && (
-                  <span
-                    title={discLabel}
-                    className={cn(
-                      "text-xs font-medium",
-                      disc === true ? "text-success" : disc === false ? "text-danger" : "text-muted-foreground"
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  {t.setupId && (
+                    <Badge tone="default" className="max-w-[150px] truncate">
+                      📋 {setupName(db, t.setupId)}
+                    </Badge>
+                  )}
+
+                  {t.setupId && (
+                    <span
+                      title={discLabel}
+                      className="inline-flex items-center gap-1"
+                    >
+                      <StatusDot color={discColor} />
+                    </span>
+                  )}
+
+                  {t.setupId && setupRules.length > 0 && (
+                    <span className="flex items-center gap-1.5 pl-1">
+                      {setupRules.map((r) => {
+                        const ok = ruleRespected(r.id);
+                        return (
+                          <span key={r.id} className="group/rule relative">
+                            <span
+                              className={cn(
+                                "block h-1.5 w-1.5 rounded-full transition-transform duration-150 group-hover/rule:scale-150",
+                                !kpiHidden
+                                  ? ok
+                                    ? "bg-success"
+                                    : "bg-danger"
+                                  : "bg-muted-foreground/60"
+                              )}
+                            />
+                            <span className="pointer-events-none absolute bottom-full left-1/2 z-40 mb-1.5 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-border-strong bg-card px-2 py-1 text-[10px] shadow-[--shadow-pop] group-hover/rule:block">
+                              <span className={ok ? "text-success" : "text-danger"}>{ok ? "✓" : "✗"}</span>{" "}
+                              {r.text}
+                            </span>
+                          </span>
+                        );
+                      })}
+                    </span>
+                  )}
+
+                  {t.emotion && (
+                    <Badge tone="default" className="lowercase tracking-normal normal-case">
+                      😐 {t.emotion}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Prezzi + descrizione: sottile, una riga */}
+                {(prices || t.description) && (
+                  <div className="mt-1.5 flex min-w-0 items-center gap-2 text-[10px] text-muted-foreground tnum">
+                    {prices && (
+                      <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        {t.entry != null && <span>E {t.entry}</span>}
+                        {t.exit != null && <span>X {t.exit}</span>}
+                        {t.stop != null && <span>SL {t.stop}</span>}
+                        {t.target != null && <span>TP {t.target}</span>}
+                        {t.size != null && <span>Q {t.size}</span>}
+                      </span>
                     )}
-                  >
-                    {kpiHidden ? maskKpi() : "Disciplina " + (disc ? "✓" : "✗")}
-                  </span>
+                    {t.description && (
+                      <span className="truncate normal-case text-muted-foreground/90">{t.description}</span>
+                    )}
+                  </div>
                 )}
+              </div>
 
+              {/* Metriche */}
+              <div className="flex shrink-0 flex-col items-end gap-1">
                 <span
                   title="Risultato in R"
                   className={cn(
-                    "text-sm font-semibold tnum",
+                    "text-sm font-semibold tracking-tight tnum",
                     kpiHidden
                       ? "text-muted-foreground"
                       : t.resultR > 0
@@ -106,11 +197,10 @@ export function TradeList({
                 >
                   {kpiHidden ? maskKpi() : formatR(t.resultR)}
                 </span>
-
                 <span
                   title={`Risultato · ${currency}`}
                   className={cn(
-                    "text-sm font-semibold tnum",
+                    "text-[13px] font-semibold tnum",
                     moneyHidden
                       ? "text-muted-foreground"
                       : rn > 0
@@ -124,11 +214,12 @@ export function TradeList({
                 </span>
               </div>
 
-              <div className="flex items-center gap-1">
+              {/* Azioni */}
+              <div className="flex shrink-0 flex-col gap-0.5">
                 <button
                   onClick={() => onEdit(t)}
                   title="Modifica"
-                  className="rounded-md p-1.5 text-muted-foreground hover:bg-elevated hover:text-foreground"
+                  className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-elevated hover:text-foreground"
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
@@ -137,7 +228,7 @@ export function TradeList({
                 <button
                   onClick={() => onDelete(t)}
                   title="Elimina"
-                  className="rounded-md p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                  className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger"
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
@@ -145,57 +236,7 @@ export function TradeList({
                 </button>
               </div>
             </div>
-
-            {pseudo && (
-              <div className="mt-2.5 flex flex-wrap gap-1.5">
-                {t.screenshots.map((s, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={i}
-                    src={s}
-                    alt={`Screenshot ${i + 1}`}
-                    onClick={() => setView(s)}
-                    className="h-10 w-14 cursor-zoom-in rounded-md border border-border-strong object-cover"
-                  />
-                ))}
-              </div>
-            )}
-
-            {(t.entry != null ||
-              t.exit != null ||
-              t.stop != null ||
-              t.target != null ||
-              t.size != null) && (
-              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground tnum">
-                {t.entry != null && <span>Entry {t.entry}</span>}
-                {t.exit != null && <span>Exit {t.exit}</span>}
-                {t.stop != null && <span>Stop {t.stop}</span>}
-                {t.target != null && <span>Target {t.target}</span>}
-                {t.size != null && <span>Size {t.size}</span>}
-              </div>
-            )}
-
-            {(t.description || t.emotion) && (
-              <p className="mt-1.5 text-xs text-secondary-text">
-                {t.emotion && <span className="mr-2 rounded bg-elevated px-1.5 py-0.5 text-[11px]">😐 {t.emotion}</span>}
-                {t.description}
-              </p>
-            )}
-
-            {setupRules.length > 0 && (
-              <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-2">
-                {setupRules.map((r) => {
-                  const ok = ruleRespected(r.id);
-                  return (
-                    <span key={r.id} className="inline-flex max-w-full items-center gap-1 text-[11px] text-muted-foreground tnum">
-                      <span className={cn("text-xs font-semibold", !ok && "text-muted-foreground")}>{kpiHidden ? "•" : ok ? "✓" : "✗"}</span>
-                      <span className="truncate">{r.text}</span>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
+          </article>
         );
       })}
 

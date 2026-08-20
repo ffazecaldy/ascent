@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+// ============================================================
+// ASCEND — Onboarding · wizard centrato (v2 rich)
+// Card grande con hairline accent, step dots animati,
+// CTA "Inizia" con gradiente animato.
+// ============================================================
+
+import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDB, updateDB, uid, nowISO } from "@/lib/storage";
 import { Card } from "@/components/ui/Card";
@@ -55,36 +61,84 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-xl flex-col justify-center py-6">
-      <Card className="p-6 sm:p-8">
-        {/* Indicatore di avanzamento */}
-        <div className="mb-7 flex items-center justify-center gap-2" aria-label={`Passo ${step + 1} di ${STEPS.length}`}>
+    <div className="relative mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-2xl flex-col justify-center py-6">
+      {/* bagliore decorativo dietro la card */}
+      <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/10 blur-[110px]" />
+
+      <Card hairline="accent" scan className="animate-rise overflow-hidden p-6 sm:p-8">
+        {/* Indicatore di avanzamento — dots animati + connettori */}
+        <div
+          className="mb-8 flex items-center justify-center gap-2 sm:gap-3"
+          aria-label={`Passo ${step + 1} di ${STEPS.length}`}
+        >
           {STEPS.map((label, i) => (
-            <span
-              key={label}
-              title={`${label} (${i + 1}/3)`}
-              className={cn("h-1 rounded-full transition-all duration-200", i <= step ? "w-8 bg-accent" : "w-4 bg-elevated")}
-            />
+            <Fragment key={label}>
+              {i > 0 && (
+                <span
+                  className={cn(
+                    "h-px w-8 transition-colors duration-500 sm:w-14",
+                    i <= step ? "bg-accent/60" : "bg-border-strong"
+                  )}
+                />
+              )}
+              <div className="flex flex-col items-center gap-1.5">
+                <span
+                  className={cn(
+                    "flex h-5 w-5 items-center justify-center rounded-full border text-[9px] font-semibold transition-all duration-500",
+                    i < step
+                      ? "border-accent bg-accent text-white"
+                      : i === step
+                        ? "animate-glow scale-125 border-accent bg-accent-dim text-accent"
+                        : "border-border-strong bg-elevated text-muted-foreground"
+                  )}
+                >
+                  {i < step ? "✓" : i + 1}
+                </span>
+                <span
+                  className={cn(
+                    "text-[9px] font-medium uppercase tracking-wider transition-colors duration-300",
+                    i === step ? "text-accent" : "text-muted-foreground"
+                  )}
+                >
+                  {label}
+                </span>
+              </div>
+            </Fragment>
           ))}
         </div>
 
-        {step === 0 && <StepWelcome />}
-        {step === 1 && <StepGoals goals={goals} onToggle={toggleGoal} onTarget={setTarget} />}
-        {step === 2 && <StepConfirm goals={goals} />}
+        {/* Contenuto step — re-anima a ogni cambio */}
+        <div key={step} className="animate-rise">
+          {step === 0 && <StepWelcome />}
+          {step === 1 && <StepGoals goals={goals} onToggle={toggleGoal} onTarget={setTarget} />}
+          {step === 2 && <StepConfirm goals={goals} />}
+        </div>
 
         <div className="mt-8 flex items-center gap-3">
           {step > 0 && (
             <Button variant="ghost" size="md" onClick={() => setStep((s) => Math.max(0, s - 1))}>
-              Indietro
+              ← Indietro
             </Button>
           )}
           <div className="flex-1" />
           {step < STEPS.length - 1 ? (
             <Button size="lg" onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}>
               Continua
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M5 12h14m0 0-6-6m6 6-6 6" />
+              </svg>
             </Button>
           ) : (
-            <Button size="lg" onClick={finish}>
+            <Button size="lg" className="grad-animated" onClick={finish}>
               Inizia
             </Button>
           )}

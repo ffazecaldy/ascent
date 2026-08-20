@@ -95,10 +95,23 @@ export function StepGoals({
         {goals.map((g) => {
           const adjustable = g.targetOptions && g.target > 0;
           return (
-            <Card key={g.type} className="p-4">
+            <Card
+              key={g.type}
+              className={cn(
+                "overflow-hidden p-4 transition-all duration-300",
+                g.active
+                  ? "ring-1 ring-accent/40 shadow-[0_0_30px_-10px_var(--accent-glow)]"
+                  : "opacity-90 hover:opacity-100"
+              )}
+            >
+              {g.active && (
+                <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/70 to-transparent" />
+              )}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
-                  <span className="mt-0.5 text-xl leading-none">{g.icon}</span>
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-strong bg-elevated text-lg">
+                    {g.icon}
+                  </span>
                   <div>
                     <p className="text-sm font-semibold text-foreground">{g.label}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">{g.description}</p>
@@ -106,7 +119,9 @@ export function StepGoals({
                       <span
                         className={cn(
                           "mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider",
-                          g.target === 0 ? "bg-elevated text-muted-foreground" : "text-muted-foreground"
+                          g.target === 0
+                            ? "bg-accent/10 text-accent"
+                            : "text-muted-foreground"
                         )}
                       >
                         {g.target === 0 ? "Presenza" : `${g.target} min`}
@@ -114,6 +129,11 @@ export function StepGoals({
                     )}
                   </div>
                 </div>
+                {g.active && (
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/15 text-[10px] text-accent">
+                    ✓
+                  </span>
+                )}
                 <Toggle
                   checked={g.active}
                   onChange={(v) => onToggle(g.type, v)}

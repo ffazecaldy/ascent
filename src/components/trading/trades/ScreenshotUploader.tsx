@@ -4,6 +4,8 @@
 // ASCEND — Trade log: caricamento screenshot (drop + paste + browse)
 // Riceve file/data URL → comprime via canvas (max 1200px, JPEG 0.7)
 // → salva in trade.screenshots[] (max 4). Anteprime con click per ingrandire.
+// Art-direction: dropzone con bordo tratteggiato + hint "Ctrl+V per incollare"
+// + hover con glow, anteprime con hover zoom.
 // ============================================================
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -102,16 +104,28 @@ export function ScreenshotUploader({
           if (e.dataTransfer?.files?.length) void add(Array.from(e.dataTransfer.files));
         }}
         className={cn(
-          "flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed px-4 py-6 text-center transition-colors",
-          dragOver ? "border-accent bg-accent/10" : "border-border-strong bg-muted/40 hover:border-accent/60"
+          "group relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-7 text-center transition-all duration-200",
+          dragOver
+            ? "scale-[1.01] border-accent bg-accent/10 shadow-[0_0_28px_-6px_var(--accent-glow)]"
+            : "border-border-strong bg-muted/30 hover:border-accent/60 hover:bg-accent/[0.05] hover:shadow-[0_0_22px_-8px_var(--accent-glow)]"
         )}
       >
-        <span className="text-xl">📷</span>
-        <p className="text-xs font-medium text-secondary-text">
-          Trascina gli screenshot qui, incolla con Ctrl+V o clicca per selezionare
-        </p>
-        <p className="text-[11px] text-muted-foreground">
-          {value.length}/{MAX} · compresse automaticamente (max 1200px)
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-elevated text-xl shadow-[--shadow-card] transition-transform duration-200 group-hover:scale-110 group-hover:border-accent/40">
+          📷
+        </div>
+        <p className="text-xs font-medium text-secondary-text">Trascina gli screenshot qui</p>
+        <div className="flex items-center gap-1.5">
+          <kbd className="rounded-md border border-border-strong bg-elevated px-1.5 py-0.5 font-mono text-[10px] font-semibold text-accent">
+            Ctrl
+          </kbd>
+          <span className="text-[10px] text-muted-foreground">+</span>
+          <kbd className="rounded-md border border-border-strong bg-elevated px-1.5 py-0.5 font-mono text-[10px] font-semibold text-accent">
+            V
+          </kbd>
+          <span className="text-[10px] text-muted-foreground">per incollare</span>
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          oppure clicca per selezionare · {value.length}/{MAX} · compresse automaticamente
         </p>
       </div>
       <input
@@ -133,18 +147,18 @@ export function ScreenshotUploader({
       {value.length > 0 && (
         <div className="mt-3 grid grid-cols-4 gap-2">
           {value.map((s, i) => (
-            <div key={i} className="group relative">
+            <div key={i} className="group/thumb relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={s}
                 alt={`Screenshot ${i + 1}`}
                 onClick={() => setView(s)}
-                className="h-16 w-full cursor-zoom-in rounded-md border border-border-strong object-cover"
+                className="h-16 w-full cursor-zoom-in rounded-md border border-border-strong object-cover transition-all duration-200 group-hover/thumb:z-10 group-hover/thumb:scale-[1.35] group-hover/thumb:border-accent/60 group-hover/thumb:shadow-[0_12px_28px_-8px_rgba(0,0,0,0.85)]"
               />
               <button
                 onClick={() => remove(i)}
                 aria-label="Rimuovi screenshot"
-                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-border-strong bg-card text-[10px] text-muted-foreground shadow hover:bg-danger/20 hover:text-danger"
+                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-border-strong bg-card text-[10px] text-muted-foreground opacity-0 shadow transition-all hover:bg-danger/20 hover:text-danger group-hover/thumb:opacity-100"
               >
                 ✕
               </button>

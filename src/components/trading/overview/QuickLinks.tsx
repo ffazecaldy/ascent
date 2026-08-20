@@ -2,12 +2,11 @@
 
 // ============================================================
 // ASCEND — Trading overview: link rapidi alle sotto-sezioni
-// di /trading/* (grid responsive di card con Button + descrizione).
+// di /trading/* — grid di card compatte con icona in tile,
+// hover-lift e freccia in evidenza al passaggio.
 // ============================================================
 
 import Link from "next/link";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 
 interface LinkDef {
   href: string;
@@ -76,32 +75,32 @@ const LINKS: LinkDef[] = [
 export function QuickLinks() {
   return (
     <section>
-      <h2 className="mb-3 text-sm font-semibold text-foreground">
-        Esplora le sezioni
-      </h2>
+      <div className="mb-3 flex items-center gap-2">
+        <h2 className="text-sm font-semibold text-foreground">
+          Esplora le sezioni
+        </h2>
+        <span className="h-px flex-1 bg-gradient-to-r from-border to-transparent" />
+      </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {LINKS.map((l) => (
-          <Card
+          <Link
             key={l.href}
-            className="flex flex-col gap-2 transition-colors hover:border-accent/40"
+            href={l.href}
+            className="group flex items-start gap-3 rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[0_14px_34px_-16px_rgba(0,0,0,0.75)]"
           >
-            <div className="flex items-start justify-between">
-              <span className="text-xl leading-none">{l.icon}</span>
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent-dim text-lg leading-none transition-transform duration-200 group-hover:scale-110">
+              {l.icon}
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold">{l.title}</p>
-              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">{l.title}</p>
+              <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
                 {l.desc}
               </p>
             </div>
-            <div>
-              <Link href={l.href}>
-                <Button variant="outline" size="sm" className="w-full">
-                  Apri
-                </Button>
-              </Link>
-            </div>
-          </Card>
+            <span className="mt-1 shrink-0 text-sm text-accent opacity-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:opacity-100">
+              →
+            </span>
+          </Link>
         ))}
       </div>
     </section>

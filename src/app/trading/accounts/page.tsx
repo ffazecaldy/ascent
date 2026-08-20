@@ -7,22 +7,39 @@
 // Cascade delete su trades, firmExpenses, payouts, tradeSetupRules.
 // Toggle archivio: gli archivi sono nascosti e NON contano nei totali.
 // Tasso FX nativo→base: quota con quoteFx() (API) o inserimento manuale.
+//
+// ART-DIRECTION (stile myfundedbook, ricco/animato):
+// - Card con hairline colorata per stato (accent/success/danger),
+//   badge stato con pulse per finanziato/superato;
+// - saldo live grande tnum con AnimatedNumber (count-up) colorato,
+//   delta = P&L dei trade chiusi colorato + contatore;
+// - componentini: capitale, valuta (badge), limiti con mini progress
+//   di utilizzo (distanza dal limite; "—" se account senza trade);
+// - bottone "Quota tasso" con glow;
+// - modal curata a sezioni, [color-scheme:dark], grid 2 colonne;
+// - card "confine trading day" con timezone/rollover in evidenza;
+// - SectionHeader con kicker "Trading · Account".
 // ============================================================
 
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { nowISO, uid, updateDB, upsert, useDB } from "@/lib/storage";
 import type { AccountStatus, AccountType, Trade, TradingAccount } from "@/lib/types";
 import { COMMON_CURRENCIES, quoteFx } from "@/lib/fx";
 import { accountBaseRate } from "@/lib/compute";
-import { formatMoney, formatSignedMoney } from "@/lib/format";
+import { formatMoney, formatPercent, formatSignedMoney } from "@/lib/format";
 import { maskMoney, moneyMasked } from "@/lib/privacy";
+import { labelDayKey, tradingDayKey } from "@/lib/dates";
+import { cn } from "@/lib/cn";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ConfirmDialog, Modal } from "@/components/ui/Modal";
 import { Field, Input, Select } from "@/components/ui/Field";
-import { EmptyState, SectionHeader, Toggle } from "@/components/ui/Misc";
+import { EmptyState, ProgressBar, SectionHeader, Toggle } from "@/components/ui/Misc";
 import { StatCard } from "@/components/ui/StatCard";
+import { Reveal } from "@/components/ui/Reveal";
 
 // ------------------------------------------------------------
 // Costanti & helper di dominio
@@ -39,6 +56,7 @@ const TZ_OPTIONS = [
 ];
 
 type Tone = "default" | "info" | "success" | "danger" | "warning";
+type Hairline = "accent" | "success" | "danger" | "none";
 
 const STATUS_META: Record<AccountStatus, { label: string; tone: Tone }> = {
   eval: { label: "In eval", tone: "warning" },
@@ -51,6 +69,10 @@ const TYPE_META: Record<AccountType, { label: string; tone: Tone }> = {
   prop: { label: "Prop", tone: "info" },
   personal: { label: "Personale", tone: "default" },
 };
+
+/** Hairline della card in base allo stato: attivo → accent, finanziato/superato → success, bruciato → danger. */
+const statusHairline = (s: AccountStatus): Hairline =>
+  s === "bruciato" ? "danger" : s === "finanziato" || s === "superato" ? "success" : "accent";
 
 const parseNum = (s: string): number | null => {
   const v = parseFloat(s.trim().replace(",", "."));
@@ -92,8 +114,100 @@ function Amount({
   );
 }
 
+/**
+ * Saldo "live": count-up animato con AnimatedNumber (grazie al key il
+ * conteggio riparte a ogni variazione sostanziale del valore).
+ */
+function LiveAmount({
+  value,
+  currency,
+  masked,
+  signed = false,
+  className,
+}: {
+  value: number;
+  currency: string;
+  masked: boolean;
+  signed?: boolean;
+  className?: string;
+}) {
+  if (masked) {
+    const sign = signed && value > 0 ? "+" : signed && value < 0 ? "−" : "";
+    return (
+      <span className={cn("tnum", className)}>
+        {sign}
+        {maskMoney()}
+      </span>
+    );
+  }
+  return (
+    <AnimatedNumber
+      key={`${Math.round(value * 100)}-${signed ? "s" : "u"}-${currency}`}
+      value={value}
+      className={cn("tnum", className)}
+      fmt={(n) => (signed ? formatSignedMoney(n, currency) : formatMoney(n, currency))}
+    />
+  );
+}
+
+/** Mini voce stat: etichetta piccola sopra, valore sotto. */
+function MiniStat({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+      <div className="mt-1 font-medium">{value}</div>
+      {sub && <div className="mt-0.5">{sub}</div>}
+    </div>
+  );
+}
+
+/** Utilizzo di un limite: importo usato, limite e distanza restante. */
+type LimitUtil = { used: number; limit: number; distance: number } | null;
+
+/** Decimali della percentuale di utilizzo (0 = intero, 1 se <10%). */
+const dtype = (pct: number) => (pct > 0 && pct < 10 ? 1 : 0);
+
+/** Componentino limite con mini progress: mostra "—" se l'account non ha trade o limite assente. */
+function LimitChip({
+  label,
+  util,
+  currency,
+  masked,
+}: {
+  label: string;
+  util: LimitUtil;
+  currency: string;
+  masked: boolean;
+}) {
+  const pct = util ? Math.min(100, (util.used / util.limit) * 100) : 0;
+  const tone = !util ? "accent" : pct >= 100 ? "danger" : pct >= 75 ? "warning" : "accent";
+  const pctCls = !util ? "text-muted-foreground" : pct >= 100 ? "text-danger" : pct >= 75 ? "text-warning" : "text-accent";
+  return (
+    <div className="min-w-0">
+      {!util && (
+        <>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+          <p className="mt-1 text-sm text-muted-foreground">—</p>
+        </>
+      )}
+      {util && (
+        <>
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+            <span className={cn("tnum text-xs font-semibold", pctCls)}>{formatPercent(pct, dtype(pct))}</span>
+          </div>
+          <ProgressBar value={util.used} max={util.limit} tone={tone} className="mt-1.5 h-1.5" />
+          <p className="mt-1 truncate text-[10px] text-muted-foreground">
+            dist. <Amount value={util.distance} currency={currency} masked={masked} />
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ------------------------------------------------------------
-// Form (creazione/editing) — Modal
+// Form (creazione/editing) — Modal curata a sezioni
 // ------------------------------------------------------------
 
 type FormDraft = {
@@ -202,12 +316,19 @@ function AccountFormModal({
     onClose();
   };
 
+  const GroupLabel = ({ children }: { children: ReactNode }) => (
+    <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-accent sm:col-span-2">
+      <span className="h-1 w-1 rounded-full bg-accent" />
+      {children}
+    </p>
+  );
+
   return (
     <Modal
       open={open}
       onClose={onClose}
       title={account ? "Modifica account" : "Nuovo account"}
-      width="max-w-xl"
+      width="max-w-2xl"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
@@ -217,7 +338,8 @@ function AccountFormModal({
         </>
       }
     >
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 [color-scheme:dark]">
+        <GroupLabel>Identità</GroupLabel>
         <Field label="Nome" className="sm:col-span-2">
           <Input
             value={form.name}
@@ -234,6 +356,20 @@ function AccountFormModal({
           </Select>
         </Field>
 
+        <Field label="Firma">
+          <Input
+            value={form.firm}
+            onChange={(e) => setFirm(e.target.value)}
+            placeholder="es. Apex, Topstep…"
+          />
+          {form.type === "prop" && (
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Per firm futures CME la timezone scatta a America/Chicago.
+            </p>
+          )}
+        </Field>
+
+        <GroupLabel>Valuta &amp; capitale</GroupLabel>
         <Field label="Valuta nativa">
           <Select value={form.nativeCurrency} onChange={(e) => set({ nativeCurrency: e.target.value })}>
             {COMMON_CURRENCIES.map((c) => (
@@ -255,7 +391,7 @@ function AccountFormModal({
           />
         </Field>
 
-        <Field label="Stato">
+        <Field label="Stato" className="sm:col-span-2">
           <Select value={form.status} onChange={(e) => set({ status: e.target.value as AccountStatus })}>
             {(Object.keys(STATUS_META) as AccountStatus[]).map((s) => (
               <option key={s} value={s}>
@@ -265,19 +401,30 @@ function AccountFormModal({
           </Select>
         </Field>
 
-        <Field label="Firma" className="sm:col-span-2">
+        <GroupLabel>Limiti &amp; rischio</GroupLabel>
+        <Field label="Limite loss giornaliero">
           <Input
-            value={form.firm}
-            onChange={(e) => setFirm(e.target.value)}
-            placeholder="es. Apex, Topstep…"
+            type="number"
+            inputMode="decimal"
+            step="any"
+            value={form.dailyLossLimit}
+            placeholder="vuoto = nessun limite"
+            onChange={(e) => set({ dailyLossLimit: e.target.value })}
           />
-          {form.type === "prop" && (
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Suggerimento: per firm futures CME la timezone del trading day scatta a America/Chicago.
-            </p>
-          )}
         </Field>
 
+        <Field label="Limite loss massimo">
+          <Input
+            type="number"
+            inputMode="decimal"
+            step="any"
+            value={form.maxLossLimit}
+            placeholder="vuoto = nessun limite"
+            onChange={(e) => set({ maxLossLimit: e.target.value })}
+          />
+        </Field>
+
+        <GroupLabel>Trading day</GroupLabel>
         <Field label="Timezone trading day">
           <Input
             list="tz-options"
@@ -302,30 +449,8 @@ function AccountFormModal({
             onChange={(e) => set({ tradingDayRolloverTime: e.target.value })}
           />
         </Field>
-
-        <Field label="Limite loss giornaliero">
-          <Input
-            type="number"
-            inputMode="decimal"
-            step="any"
-            value={form.dailyLossLimit}
-            placeholder="vuoto = nessun limite"
-            onChange={(e) => set({ dailyLossLimit: e.target.value })}
-          />
-        </Field>
-
-        <Field label="Limite loss massimo">
-          <Input
-            type="number"
-            inputMode="decimal"
-            step="any"
-            value={form.maxLossLimit}
-            placeholder="vuoto = nessun limite"
-            onChange={(e) => set({ maxLossLimit: e.target.value })}
-          />
-        </Field>
       </div>
-      <p className="mt-2 text-[11px] text-muted-foreground">
+      <p className="mt-3 text-[11px] text-muted-foreground">
         Importi in valuta nativa dell'account ({form.nativeCurrency}).
       </p>
       {error && <p className="mt-3 text-xs font-medium text-danger">{error}</p>}
@@ -403,8 +528,8 @@ function FxRateRow({
               <span className="text-muted-foreground"> · usato negli aggregati</span>
             )}
           </span>
-          <Button size="sm" variant="outline" onClick={onQuote} disabled={quoting}>
-            {quoting ? "Quotazione…" : "Quota tasso"}
+          <Button size="sm" variant="primary" glow onClick={onQuote} disabled={quoting}>
+            {quoting ? "Quotazione…" : "⚡ Quota tasso"}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setEditing(true)} title="Inserisci a mano">
             ✎
@@ -422,13 +547,16 @@ function FxRateRow({
 }
 
 // ------------------------------------------------------------
-// Card account
+// Card account (articolata: saldo live, componentini, trading day)
 // ------------------------------------------------------------
 
 function AccountCard({
   acc,
   pnl,
   live,
+  closed,
+  daily,
+  maxUtil,
   masked,
   base,
   muted,
@@ -442,6 +570,9 @@ function AccountCard({
   acc: TradingAccount;
   pnl: number;
   live: number;
+  closed: number;
+  daily: LimitUtil;
+  maxUtil: LimitUtil;
   masked: boolean;
   base: string;
   muted?: boolean;
@@ -453,25 +584,31 @@ function AccountCard({
   onQuote: () => void;
 }) {
   const needsFx = acc.nativeCurrency.toUpperCase() !== base.toUpperCase();
-  const pnlCls = pnl > 0 ? "text-success" : pnl < 0 ? "text-danger" : "text-foreground";
+  const isFunded = acc.status === "finanziato" || acc.status === "superato";
+  const blown = acc.status === "bruciato";
+  const liveCls = live > acc.capital ? "text-success" : live < acc.capital ? "text-danger" : "text-foreground";
+  const pnlCls = pnl > 0 ? "text-success" : pnl < 0 ? "text-danger" : "text-muted-foreground";
 
   return (
-    <Card className={muted ? "opacity-60" : undefined}>
+    <Card
+      hairline={statusHairline(acc.status)}
+      scan={!muted && !blown}
+      className={cn("flex h-full flex-col", muted && "opacity-60")}
+    >
+      {/* Intestazione */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
-            <h3 className="truncate text-sm font-semibold">{acc.name}</h3>
+            <h3 className="truncate text-sm font-semibold text-foreground">{acc.name}</h3>
             <Badge tone={TYPE_META[acc.type].tone}>{TYPE_META[acc.type].label}</Badge>
-            <Badge tone={STATUS_META[acc.status].tone}>
+            <Badge tone={STATUS_META[acc.status].tone} pulse={isFunded}>
               {STATUS_META[acc.status].label}
               {acc.status === "superato" ? " 🎯" : ""}
             </Badge>
             {acc.archived && <Badge tone="default">Archiviato</Badge>}
           </div>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            {[acc.firm, `${acc.nativeCurrency} · ${acc.type === "prop" ? "capitale firm" : "capitale personale"}`]
-              .filter(Boolean)
-              .join(" · ")}
+            {[acc.firm, acc.type === "prop" ? "account firm" : "account personale"].filter(Boolean).join(" · ")}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -488,57 +625,81 @@ function AccountCard({
       </div>
 
       {/* Saldo live: capitale + Σ risultato dei trade chiusi */}
-      <div className="mt-4">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Saldo live</span>
-        <div className={`text-3xl font-semibold leading-tight ${pnlCls}`}>
-          <Amount value={live} currency={acc.nativeCurrency} masked={masked} />
+      <div className="mt-4 rounded-xl border border-border-strong/60 bg-muted/60 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Saldo live
+          </span>
+          <span className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            <span className={cn("h-1.5 w-1.5 rounded-full", blown ? "bg-danger animate-pulse" : "bg-success animate-pulse-dot")} />
+            {acc.nativeCurrency}
+          </span>
         </div>
-        <div className="mt-0.5 text-xs tnum text-muted-foreground">
-          <span>capitale </span>
-          <Amount value={acc.capital} currency={acc.nativeCurrency} masked={masked} />
-          <span> · P&L </span>
-          <span className={pnlCls}>
-            <Amount value={pnl} currency={acc.nativeCurrency} masked={masked} signed />
+        <LiveAmount
+          value={live}
+          currency={acc.nativeCurrency}
+          masked={masked}
+          className={cn("mt-1 block text-[30px] font-bold leading-none tracking-tight", liveCls)}
+        />
+        {/* Delta: P&L dei trade chiusi, colorato */}
+        <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
+          <span className="text-muted-foreground">P&amp;L trade chiusi</span>
+          <LiveAmount
+            value={pnl}
+            currency={acc.nativeCurrency}
+            masked={masked}
+            signed
+            className={cn("font-semibold", pnlCls)}
+          />
+          <span className="text-muted-foreground">·</span>
+          <span className="tnum text-muted-foreground">
+            {closed === 0 ? "nessun trade" : closed === 1 ? "1 trade chiuso" : `${closed} trade chiusi`}
           </span>
         </div>
       </div>
 
-      {/* Dettagli */}
-      <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2.5 text-xs lg:grid-cols-4">
-        <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Valuta</p>
-          <p className="mt-0.5 font-medium">{acc.nativeCurrency}</p>
+      {/* Componentini: capitale, valuta, limiti con mini progress */}
+      <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-3">
+        <MiniStat
+          label="Capitale iniziale"
+          value={
+            <span className={cn(live < acc.capital ? "text-danger/80" : "text-foreground")}>
+              <Amount value={acc.capital} currency={acc.nativeCurrency} masked={masked} />
+            </span>
+          }
+        />
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Valuta</p>
+          <div className="mt-1.5">
+            <Badge tone="info">{acc.nativeCurrency}</Badge>
+          </div>
         </div>
-        <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Capitale iniziale</p>
-          <p className="mt-0.5">
-            <Amount value={acc.capital} currency={acc.nativeCurrency} masked={masked} />
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Limite daily</p>
-          <p className="mt-0.5">
-            {acc.dailyLossLimit != null ? (
-              <Amount value={acc.dailyLossLimit} currency={acc.nativeCurrency} masked={masked} />
-            ) : (
-              "—"
-            )}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Limite max</p>
-          <p className="mt-0.5">
-            {acc.maxLossLimit != null ? (
-              <Amount value={acc.maxLossLimit} currency={acc.nativeCurrency} masked={masked} />
-            ) : (
-              "—"
-            )}
-          </p>
-        </div>
+        <LimitChip label="Limite daily" util={daily} currency={acc.nativeCurrency} masked={masked} />
+        <LimitChip label="Limite max" util={maxUtil} currency={acc.nativeCurrency} masked={masked} />
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-        <span>🕑 {acc.tradingDayTimezone} · rollover {acc.tradingDayRolloverTime}</span>
+      {/* Confine trading day: timezone + rollover in evidenza */}
+      <div className="mt-4 rounded-xl border border-accent/25 bg-accent-dim/40 p-2.5">
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-secondary-text">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+          </svg>
+          Confine trading day
+        </div>
+        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-xs font-semibold tnum text-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+            {acc.tradingDayTimezone || "UTC"}
+          </span>
+          <span className="rounded-md border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent tnum">
+            rollover {acc.tradingDayRolloverTime}
+          </span>
+        </div>
+        <p className="mt-1.5 text-[10px] text-muted-foreground">
+          Trading day corrente ·{" "}
+          <span className="tnum text-secondary-text">{labelDayKey(tradingDayKey(new Date().toISOString(), acc))}</span>
+        </p>
       </div>
 
       {needsFx && (
@@ -569,10 +730,31 @@ export default function AccountsPage() {
 
   const withData = (list: TradingAccount[], trades: Trade[]) =>
     list.map((a) => {
-      const pnl = trades
-        .filter((t) => t.accountId === a.id)
-        .reduce((s, t) => s + t.resultNative, 0);
-      return { acc: a, pnl, live: a.capital + pnl, rate: accountBaseRate(a, base) };
+      const accTrades = trades.filter((t) => t.accountId === a.id);
+      const pnl = accTrades.reduce((s, t) => s + t.resultNative, 0);
+      const live = a.capital + pnl;
+      const closed = accTrades.length;
+      const rate = accountBaseRate(a, base);
+
+      // Utilizzo limiti (solo se l'account ha trade chiusi; altrimenti null → "—")
+      let daily: LimitUtil = null;
+      let maxUtil: LimitUtil = null;
+      if (closed > 0) {
+        if (a.dailyLossLimit != null) {
+          const tdk = tradingDayKey(new Date().toISOString(), a);
+          const dayPnl = accTrades
+            .filter((t) => tradingDayKey(t.closeDate, a) === tdk)
+            .reduce((s, t) => s + t.resultNative, 0);
+          const used = Math.max(0, -dayPnl);
+          daily = { used, limit: a.dailyLossLimit, distance: Math.max(0, a.dailyLossLimit - used) };
+        }
+        if (a.maxLossLimit != null) {
+          const used = Math.max(0, a.capital - live);
+          maxUtil = { used, limit: a.maxLossLimit, distance: Math.max(0, a.maxLossLimit - used) };
+        }
+      }
+
+      return { acc: a, pnl, live, rate, closed, daily, maxUtil };
     });
 
   const activeRows = useMemo(() => withData(active, db.trades), [active, db.trades, base]);
@@ -674,13 +856,34 @@ export default function AccountsPage() {
   };
 
   // ------------------------------------------------------
+  const renderCard = (r: (typeof activeRows)[number], muted?: boolean) => (
+    <AccountCard
+      acc={r.acc}
+      pnl={r.pnl}
+      live={r.live}
+      closed={r.closed}
+      daily={r.daily}
+      maxUtil={r.maxUtil}
+      masked={masked}
+      base={base}
+      muted={muted}
+      quoting={quotingId === r.acc.id}
+      fxError={fxErrorId === r.acc.id}
+      onEdit={() => openEdit(r.acc)}
+      onDelete={() => setToDelete(r.acc)}
+      onArchive={() => handleArchive(r.acc)}
+      onQuote={() => handleQuote(r.acc)}
+    />
+  );
+
   return (
     <div className="space-y-6">
       <SectionHeader
+        kicker="Trading · Account"
         title="Account di trading"
-        subtitle="Account prop & personali: capitale, saldo live con i trade chiusi, limiti. Un account superato sblocca il badge 🎯 Eval superata (calcolato altrove)."
+        subtitle="Account prop & personali: capitale, saldo live con i trade chiusi, limiti e confine del trading day."
         action={
-          <Button onClick={openNew}>
+          <Button onClick={openNew} glow>
             <span aria-hidden>＋</span> Nuovo account
           </Button>
         }
@@ -688,15 +891,21 @@ export default function AccountsPage() {
 
       {/* Riepilogo (solo account attivi — gli archiviati non contano) */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard label="Account attivi" value={<span className="tnum">{totals.count}</span>} icon="🏦" />
+        <StatCard
+          label="Account attivi"
+          value={
+            <AnimatedNumber value={totals.count} fmt={(n) => String(Math.round(n))} className="tnum" />
+          }
+          icon="🏦"
+        />
         <StatCard
           label={`Capitale${base ? ` (${base})` : ""}`}
-          value={<Amount value={totals.capital} currency={base} masked={masked} />}
+          value={<LiveAmount value={totals.capital} currency={base} masked={masked} />}
         />
         <StatCard
           label={`Saldo live${base ? ` (${base})` : ""}`}
-          value={<Amount value={totals.live} currency={base} masked={masked} />}
-          delta={<Amount value={totals.pnl} currency={base} masked={masked} signed />}
+          value={<LiveAmount value={totals.live} currency={base} masked={masked} />}
+          delta={<LiveAmount value={totals.pnl} currency={base} masked={masked} signed />}
           deltaTone={totals.pnl > 0 ? "positive" : totals.pnl < 0 ? "negative" : "neutral"}
         />
       </div>
@@ -715,21 +924,10 @@ export default function AccountsPage() {
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {activeRows.map(({ acc, pnl, live }) => (
-            <AccountCard
-              key={acc.id}
-              acc={acc}
-              pnl={pnl}
-              live={live}
-              masked={masked}
-              base={base}
-              quoting={quotingId === acc.id}
-              fxError={fxErrorId === acc.id}
-              onEdit={() => openEdit(acc)}
-              onDelete={() => setToDelete(acc)}
-              onArchive={() => handleArchive(acc)}
-              onQuote={() => handleQuote(acc)}
-            />
+          {activeRows.map((r, i) => (
+            <Reveal key={r.acc.id} delay={i * 70}>
+              {renderCard(r)}
+            </Reveal>
           ))}
         </div>
       )}
@@ -748,22 +946,8 @@ export default function AccountsPage() {
           </div>
           {showArchived && (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {archivedRows.map(({ acc, pnl, live }) => (
-                <AccountCard
-                  key={acc.id}
-                  acc={acc}
-                  pnl={pnl}
-                  live={live}
-                  masked={masked}
-                  base={base}
-                  muted
-                  quoting={quotingId === acc.id}
-                  fxError={fxErrorId === acc.id}
-                  onEdit={() => openEdit(acc)}
-                  onDelete={() => setToDelete(acc)}
-                  onArchive={() => handleArchive(acc)}
-                  onQuote={() => handleQuote(acc)}
-                />
+              {archivedRows.map((r) => (
+                <Reveal key={r.acc.id}>{renderCard(r, true)}</Reveal>
               ))}
             </div>
           )}

@@ -5,11 +5,13 @@
 // timezone e week_start sono la fonte unica di verità dei confini del giorno.
 // ============================================================
 
+import React from "react";
 import { useDB, updateDB, nowISO } from "@/lib/storage";
 import { COMMON_CURRENCIES } from "@/lib/fx";
 import { currencySymbol } from "@/lib/format";
 import { dayKeyNow } from "@/lib/dates";
 import type { UserSettings, PrivacyMode } from "@/lib/types";
+import { cn } from "@/lib/cn";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Field, Input, Select } from "@/components/ui/Field";
 import { Badge } from "@/components/ui/Badge";
@@ -20,6 +22,16 @@ function saveSettings(patch: Partial<UserSettings>) {
     ...d,
     settings: { ...d.settings, ...patch, updatedAt: nowISO() },
   }));
+}
+
+/** Kicker di card — etichetta piccola accent sopra il titolo (come SectionHeader). */
+function CardKicker({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">
+      <span className="h-1 w-1 rounded-full bg-accent" />
+      {children}
+    </p>
+  );
 }
 
 /** "Ora" nella timezone indicata → day key + weekday, null se fuso invalido. */
@@ -43,13 +55,16 @@ export function UserSettingsEditor() {
   });
 
   return (
-    <Card>
+    <Card hairline="accent">
       <CardHeader>
         <div>
+          <CardKicker>Preferenze</CardKicker>
           <CardTitle>Utente & Impostazioni</CardTitle>
           <CardSubtitle>Ogni modifica viene salvata immediatamente.</CardSubtitle>
         </div>
-        <Badge tone="info">💾 Salvato · {savedAt}</Badge>
+        <Badge tone="success" pulse>
+          💾 Salvato · {savedAt}
+        </Badge>
       </CardHeader>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -73,32 +88,40 @@ export function UserSettingsEditor() {
           </Select>
         </Field>
 
-        <Field label="Fuso orario (IANA)" className="sm:col-span-2">
-          <Input
-            list="ascend-tz-list"
-            value={s.timezone}
-            placeholder="Es. Europe/Rome"
-            onChange={(e) => saveSettings({ timezone: e.target.value.trim() })}
-          />
-          <datalist id="ascend-tz-list">
-            {TZ_NAMES.map((tz) => (
-              <option key={tz} value={tz} />
-            ))}
-          </datalist>
-          <div className="mt-1.5 text-xs text-muted-foreground">
-            {now ? (
-              <>
-                Oggi in <span className="tnum font-medium text-secondary-text">{s.timezone}</span> è{" "}
-                <span className="font-medium capitalize text-secondary-text">{now.weekday}</span> ·{" "}
-                <span className="tnum text-secondary-text">{now.date}</span>
-              </>
-            ) : s.timezone === "" ? (
-              <span className="text-muted-foreground">Digita un fuso IANA, es. Europe/Rome.</span>
-            ) : (
-              <span className="text-danger">Fuso non valido — usa un nome IANA, es. Europe/Rome.</span>
-            )}
-          </div>
-        </Field>
+        {/* Fuso orario — pannello evidenziato perché è la fonte dei confini del giorno */}
+        <div className="relative overflow-hidden rounded-xl border border-accent/20 bg-accent-dim p-3 sm:col-span-2">
+          <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/70 to-transparent" />
+          <Field label="Fuso orario (IANA)">
+            <Input
+              list="ascend-tz-list"
+              value={s.timezone}
+              placeholder="Es. Europe/Rome"
+              onChange={(e) => saveSettings({ timezone: e.target.value.trim() })}
+            />
+            <datalist id="ascend-tz-list">
+              {TZ_NAMES.map((tz) => (
+                <option key={tz} value={tz} />
+              ))}
+            </datalist>
+            <div className="mt-2 text-xs text-muted-foreground">
+              {now ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span>Oggi in</span>
+                  <span className="tnum font-medium text-secondary-text">{s.timezone}</span>
+                  <span className="text-muted-foreground">è</span>
+                  <span className="rounded-full border border-accent/25 bg-accent/10 px-2 py-0.5 font-medium capitalize text-accent">
+                    {now.weekday}
+                  </span>
+                  <span className="tnum text-secondary-text">{now.date}</span>
+                </div>
+              ) : s.timezone === "" ? (
+                <span className="text-muted-foreground">Digita un fuso IANA, es. Europe/Rome.</span>
+              ) : (
+                <span className="text-danger">Fuso non valido — usa un nome IANA, es. Europe/Rome.</span>
+              )}
+            </div>
+          </Field>
+        </div>
 
         <Field label="Inizio settimana">
           <Select
@@ -126,10 +149,13 @@ export function UserSettingsEditor() {
         </Field>
       </div>
 
-      <div className="mt-4 rounded-lg border-l-2 border-accent bg-accent/5 px-3 py-2.5 text-xs leading-relaxed text-secondary-text">
-        <span className="font-semibold text-foreground">🧭 Confini del giorno.</span>{" "}
-        timezone e week_start sono la fonte unica di verità per i confini del giorno — mai inferiti dal
-        browser.
+      <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-accent/25 bg-accent/5 px-3 py-2.5 text-xs leading-relaxed text-secondary-text">
+        <span className="mt-0.5 text-base">🧭</span>
+        <div>
+          <span className="font-semibold text-foreground">Confini del giorno.</span> timezone e
+          week_start sono la fonte unica di verità per i confini del giorno — mai inferiti dal
+          browser.
+        </div>
       </div>
     </Card>
   );

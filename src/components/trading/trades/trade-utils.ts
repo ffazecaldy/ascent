@@ -97,3 +97,15 @@ export function formatCloseDate(iso: string, locale = "it-IT"): string {
     minute: "2-digit",
   });
 }
+
+/** Compatta per righe dense: "20 ago · 14:30". */
+export function formatDayTime(iso: string, locale = "it-IT"): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleString(locale, {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}

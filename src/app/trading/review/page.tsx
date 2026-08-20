@@ -1,16 +1,32 @@
 "use client";
 
 // ============================================================
-// ASCEND — Weekly Review (specifica v3)
+// ASCEND — Weekly Review (specifica v3) · art-direction rich/animated
 // Settimana selezionabile (weekStart di UserSettings), statistiche
 // auto-calcolate via weeklyReviewStats + 3 domande di riflessione
 // salvate su db.weeklyReviews (upsert per weekStart).
+// LOGICA INVARIATA — solo resa UI (StatCard compatte con sparkline,
+// AnimatedNumber sui totali, finanze a 3 colonne, quiz curato,
+// kicker, badge 'corrente', banner "Settimana perfetta ✨" con glow).
 // ============================================================
 
 import { useMemo, useRef, useState } from "react";
+import { cn } from "@/lib/cn";
 import { useDB, updateDB, upsert, uid, nowISO } from "@/lib/storage";
-import { weeklyReviewStats, accountBaseRate, ascordDay } from "@/lib/compute";
-import { todayKey, weekStartKey, addDaysKey, parseDateKey, isoToDayKey } from "@/lib/dates";
+import {
+  weeklyReviewStats,
+  accountBaseRate,
+  ascordDay,
+  disciplineStats,
+} from "@/lib/compute";
+import {
+  todayKey,
+  weekStartKey,
+  addDaysKey,
+  parseDateKey,
+  isoToDayKey,
+  labelDayKey,
+} from "@/lib/dates";
 import {
   formatMoney,
   formatNumber,
@@ -23,8 +39,11 @@ import type { WeeklyReview } from "@/lib/types";
 import { Card, CardHeader, CardSubtitle, CardTitle } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
 import { Button } from "@/components/ui/Button";
-import { Field, TextArea } from "@/components/ui/Field";
+import { Badge } from "@/components/ui/Badge";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import { TextArea } from "@/components/ui/Field";
 import { EmptyState, SectionHeader } from "@/components/ui/Misc";
+import { Reveal } from "@/components/ui/Reveal";
 
 // --- helper locali (dentro il file, niente toccate a src/lib) ---
 
@@ -36,6 +55,10 @@ function pad2(n: number): string {
 function keyToLabel(key: string): string {
   const { y, m, d } = parseDateKey(key);
   return `${pad2(d)}/${pad2(m)}/${y}`;
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 /** Snapshot tipizzato delle statistiche di settimana (weeklyReviewStats + integrazioni). */
@@ -64,11 +87,13 @@ interface WeekStats {
 export default function WeeklyReviewPage() {
   const db = useDB();
   const tz = db.settings.timezone;
+  const locale = db.settings.locale;
   const today = todayKey(tz);
   const currentWeekStart = weekStartKey(today, db.settings.weekStart);
   const [week, setWeek] = useState<string>(currentWeekStart);
   const weekEnd = addDaysKey(week, 6);
   const minWeek = addDaysKey(currentWeekStart, -728); // max ~2 anni indietro
+  const isCurrent = week === currentWeekStart;
 
   // Statistiche della settimana selezionata, auto-calcolate a ogni render.
   const stats = useMemo<WeekStats>(() => {
@@ -108,6 +133,47 @@ export default function WeeklyReviewPage() {
     return { ...raw, totalBase, ascordWon, ascordTotal, wins, losses, breakeven };
   }, [db, week, tz, weekEnd, today]);
 
+  // Sparkline giornaliere (solo giorni trascorsi) per win rate, P&L, disciplina e Ascend.
+  const daily = useMemo(() => {
+    const pnl: number[] = [];
+    const winRate: number[] = [];
+    const discipline: number[] = [];
+    const ascord: number[] = [];
+    const count: number[] = [];
+    let prevWr: number | null = null;
+    let prevDisc: number | null = null;
+    for (let i = 0; i < 7; i++) {
+      const dk = addDaysKey(week, i);
+      if (dk > today) continue; // il futuro non è ancora scritto
+      const dayTrades = db.trades.filter((t) => isoToDayKey(t.closeDate, tz) === dk);
+      let dPnl = 0,
+        wins = 0;
+      for (const t of dayTrades) {
+        const acc = db.accounts.find((a) => a.id === t.accountId);
+        dPnl += t.resultNative * (acc ? accountBaseRate(acc, db.settings.baseCurrency) : 1);
+        if (t.resultR > 0) wins++;
+      }
+      pnl.push(round2(dPnl));
+      count.push(dayTrades.length);
+
+      // giorni senza trade → riporta il valore precedente (linea piatta)
+      let dWr: number | null = dayTrades.length ? (wins / dayTrades.length) * 100 : null;
+      if (dWr == null) dWr = prevWr;
+      else prevWr = dWr;
+      winRate.push(dWr ?? 0);
+
+      let dDisc: number | null = dayTrades.length
+        ? disciplineStats(db, dayTrades.map((t) => t.id)).disciplinePct
+        : null;
+      if (dDisc == null) dDisc = prevDisc;
+      else prevDisc = dDisc;
+      discipline.push(dDisc ?? 0);
+
+      ascord.push(ascordDay(db, dk).met ? 1 : 0);
+    }
+    return { pnl, winRate, discipline, ascord, count };
+  }, [db, week, tz, today]);
+
   const existing = db.weeklyReviews.find((r) => r.weekStart === week) ?? null;
 
   const pct = (v: number | null): string =>
@@ -117,132 +183,295 @@ export default function WeeklyReviewPage() {
       ? maskMoney()
       : formatMoney(v, db.settings.baseCurrency, db.settings.locale);
   const pnlTone = stats.totalBase > 0 ? "positive" : stats.totalBase < 0 ? "negative" : "neutral";
+  const pnlSparkColor = stats.totalBase >= 0 ? "#2DDF9E" : "#FF5C5C";
+
+  const perfect = stats.ascordTotal > 0 && stats.ascordWon === stats.ascordTotal;
+  const perfectFull = perfect && stats.ascordTotal === 7;
 
   return (
     <div className="space-y-6">
       <SectionHeader
+        kicker="Trading · Weekly Review"
         title="Weekly Review"
         subtitle="Dati della settimana e riflessione. Chiudi ogni settimana con consapevolezza."
+        action={
+          existing ? (
+            <Badge tone="success">✓ Review salvata</Badge>
+          ) : (
+            <Badge tone="default">Da compilare</Badge>
+          )
+        }
       />
 
       {/* Selettore settimana */}
-      <Card>
-        <div className="flex items-center justify-between gap-3">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setWeek(addDaysKey(week, -7))}
-            disabled={week <= minWeek}
-            aria-label="Settimana precedente"
-            title="Settimana precedente"
-          >
-            ‹
-          </Button>
-          <div className="text-center">
-            <p className="text-sm font-semibold">Settimana del {keyToLabel(week)}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground tnum">
-              {keyToLabel(week)} → {keyToLabel(weekEnd)}
-              {week === currentWeekStart && <span className="text-accent"> · corrente</span>}
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {week !== currentWeekStart && (
-              <Button variant="ghost" size="sm" onClick={() => setWeek(currentWeekStart)}>
-                Oggi
-              </Button>
-            )}
+      <Reveal>
+        <Card hairline="accent">
+          <div className="flex items-center justify-between gap-3">
             <Button
               variant="outline"
               size="icon"
-              onClick={() => setWeek(addDaysKey(week, 7))}
-              disabled={week >= currentWeekStart}
-              aria-label="Prossima settimana"
-              title="Prossima settimana"
+              onClick={() => setWeek(addDaysKey(week, -7))}
+              disabled={week <= minWeek}
+              aria-label="Settimana precedente"
+              title="Settimana precedente"
             >
-              ›
+              ‹
             </Button>
+            <div className="min-w-0 flex-1 text-center">
+              <p className="text-sm font-semibold sm:text-[15px]">
+                Settimana del {labelDayKey(week, locale)}
+              </p>
+              <div className="mt-0.5 flex flex-wrap items-center justify-center gap-2">
+                <span className="text-[11px] text-muted-foreground tnum">
+                  {keyToLabel(week)} → {keyToLabel(weekEnd)}
+                </span>
+                {isCurrent && (
+                  <Badge tone="info" pulse>
+                    corrente
+                  </Badge>
+                )}
+                {existing && (
+                  <Badge tone="success">✓ review</Badge>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {!isCurrent && (
+                <Button variant="ghost" size="sm" onClick={() => setWeek(currentWeekStart)}>
+                  Oggi
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setWeek(addDaysKey(week, 7))}
+                disabled={week >= currentWeekStart}
+                aria-label="Prossima settimana"
+                title="Prossima settimana"
+              >
+                ›
+              </Button>
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      </Reveal>
 
-      {/* Statistiche auto-calcolate */}
+      {/* Settimana perfetta ✨ — glow quando Ascend completo */}
+      {perfect && (
+        <Reveal>
+          <div
+            className={cn(
+              "animate-pop relative flex items-center gap-3.5 overflow-hidden rounded-[--radius] border px-4 py-3.5",
+              perfectFull
+                ? "border-success/45 bg-success/10 shadow-[0_0_55px_-12px_rgba(45,223,158,0.6)]"
+                : "border-success/30 bg-success/[0.07] shadow-[0_0_35px_-14px_rgba(45,223,158,0.45)]"
+            )}
+          >
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-success/15 text-xl shadow-[0_0_18px_-4px_rgba(45,223,158,0.7)]">
+              ✨
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-success">
+                {perfectFull ? "Settimana perfetta — 7/7 giorni vinti" : "Serie perfetta in corso"}
+              </p>
+              <p className="mt-0.5 text-xs text-success/70">
+                {perfectFull
+                  ? "Ogni Ascend Day completato. Hai chiuso la settimana al massimo."
+                  : `${stats.ascordWon}/${stats.ascordTotal} giorno${stats.ascordTotal > 1 ? "i" : ""} vinto${
+                      stats.ascordTotal > 1 ? "i" : ""
+                    } finora: mantieni il ritmo.`}
+              </p>
+            </div>
+            <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-success animate-pulse-dot" />
+          </div>
+        </Reveal>
+      )}
+
+      {/* Statistiche auto-calcolate — StatCard compatte con sparkline */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-        <StatCard
-          label="Trade chiusi"
-          value={formatNumber(stats.trades)}
-          delta={`${stats.wins} win · ${stats.losses} loss`}
-        />
-        <StatCard label="Win rate" value={pct(stats.winRate)} delta="sui trade chiusi" />
-        <StatCard
-          label="P&L trading"
-          value={money(stats.totalBase)}
-          delta={`${formatR(stats.totalR)} in R`}
-          deltaTone={pnlTone}
-        />
-        <StatCard
-          label="Profit factor"
-          value={
-            stats.profitFactor != null
-              ? stats.profitFactor.toLocaleString("it-IT", { maximumFractionDigits: 2 })
-              : "—"
-          }
-          delta="lordo win / lordo loss"
-        />
-        <StatCard
-          label="Disciplina"
-          value={pct(stats.disciplinePct)}
-          delta={`${stats.noSetupCount} senza setup`}
-        />
-        <StatCard
-          label="Ore PC"
-          value={minutiToOre(stats.pcMinutes)}
-          delta={`${formatNumber(stats.pcMinutes)} min`}
-        />
-        <StatCard label="Allenamenti" value={formatNumber(stats.workouts)} delta="nella settimana" />
-        <StatCard label="Pagine lette" value={formatNumber(stats.pagesRead)} delta="da libri in corso" />
-        <StatCard
-          label="Ascend Day"
-          value={`${stats.ascordWon}/${stats.ascordTotal}`}
-          delta={
-            stats.ascordTotal > 0 && stats.ascordWon === stats.ascordTotal
-              ? "Settimana perfetta ✨"
-              : "giorni vinti"
-          }
-          deltaTone={stats.ascordTotal > 0 && stats.ascordWon === stats.ascordTotal ? "positive" : "neutral"}
-        />
+        <Reveal delay={0}>
+          <StatCard
+            label="Trade chiusi"
+            icon={<span className="text-sm">📊</span>}
+            value={formatNumber(stats.trades)}
+            delta={`${stats.wins} win · ${stats.losses} loss${stats.breakeven ? ` · ${stats.breakeven} be` : ""}`}
+            spark={daily.count}
+            sparkColor="#4C7EFF"
+          />
+        </Reveal>
+        <Reveal delay={50}>
+          <StatCard
+            label="Win rate"
+            icon={<span className="text-sm">🎯</span>}
+            value={pct(stats.winRate)}
+            delta="sui trade chiusi"
+            spark={daily.winRate}
+            sparkColor="#2DDF9E"
+            hairline="success"
+          />
+        </Reveal>
+        <Reveal delay={100}>
+          <div
+            className="h-full rounded-[--radius]"
+            style={
+              pnlTone === "positive"
+                ? { boxShadow: "0 0 32px -14px rgba(45,223,158,0.5)" }
+                : pnlTone === "negative"
+                ? { boxShadow: "0 0 32px -14px rgba(255,92,92,0.6)" }
+                : undefined
+            }
+          >
+            <StatCard
+              label="P&L trading"
+              icon={<span className="text-sm">💰</span>}
+              valueClassName={
+                stats.totalBase > 0 ? "text-success" : stats.totalBase < 0 ? "text-danger" : ""
+              }
+              value={
+                <AnimatedNumber
+                  key={week}
+                  value={stats.totalBase}
+                  fmt={money}
+                />
+              }
+              delta={`${formatR(stats.totalR)} in R`}
+              deltaTone={pnlTone}
+              spark={daily.pnl}
+              sparkColor={pnlSparkColor}
+              hairline={pnlTone === "positive" ? "success" : pnlTone === "negative" ? "danger" : "accent"}
+            />
+          </div>
+        </Reveal>
+        <Reveal delay={150}>
+          <StatCard
+            label="Profit factor"
+            icon={<span className="text-sm">⚖️</span>}
+            value={
+              stats.profitFactor != null
+                ? stats.profitFactor.toLocaleString("it-IT", { maximumFractionDigits: 2 })
+                : "—"
+            }
+            delta="lordo win / lordo loss"
+          />
+        </Reveal>
+        <Reveal delay={0}>
+          <StatCard
+            label="Disciplina"
+            icon={<span className="text-sm">🧭</span>}
+            value={pct(stats.disciplinePct)}
+            delta={`${stats.noSetupCount} senza setup`}
+            spark={daily.discipline}
+            sparkColor="#2FD4FF"
+          />
+        </Reveal>
+        <Reveal delay={50}>
+          <StatCard
+            label="Ore PC"
+            icon={<span className="text-sm">💻</span>}
+            value={minutiToOre(stats.pcMinutes)}
+            delta={`${formatNumber(stats.pcMinutes)} min`}
+          />
+        </Reveal>
+        <Reveal delay={100}>
+          <StatCard
+            label="Allenamenti"
+            icon={<span className="text-sm">🏋️</span>}
+            value={formatNumber(stats.workouts)}
+            delta="nella settimana"
+          />
+        </Reveal>
+        <Reveal delay={150}>
+          <StatCard
+            label="Pagine lette"
+            icon={<span className="text-sm">📖</span>}
+            value={formatNumber(stats.pagesRead)}
+            delta="da libri in corso"
+          />
+        </Reveal>
+        <Reveal delay={200}>
+          <div
+            className={cn(
+              "h-full rounded-[--radius]",
+              perfect && "shadow-[0_0_34px_-12px_rgba(45,223,158,0.65)]"
+            )}
+          >
+            <StatCard
+              label="Ascend Day"
+              icon={<span className="text-sm">⚡</span>}
+              value={
+                <AnimatedNumber
+                  key={week}
+                  value={stats.ascordWon}
+                  fmt={(n) => `${Math.round(n)}/${stats.ascordTotal}`}
+                />
+              }
+              delta={perfect ? "Settimana perfetta ✨" : stats.ascordTotal > 0 ? "giorni vinti" : "nessun goal attivo"}
+              deltaTone={perfect ? "positive" : "neutral"}
+              spark={daily.ascord}
+              sparkColor="#2DDF9E"
+              hairline={perfect ? "success" : "none"}
+            />
+          </div>
+        </Reveal>
       </div>
 
       {/* Finanze della settimana (valuta base) */}
-      <Card>
-        <div className="mb-3 flex items-center justify-between">
-          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Finanze della settimana
-          </span>
-          <span className="text-[10px] text-muted-foreground">
-            {db.settings.baseCurrency}
-          </span>
-        </div>
-        <div className="grid grid-cols-3 gap-3 text-center">
-          <div>
-            <p className="text-xs text-muted-foreground">Entrate</p>
-            <p className="mt-1 text-lg font-semibold tnum text-success">{money(stats.income)}</p>
+      <Reveal>
+        <Card className="grid-texture">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Finanze della settimana
+              </p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">transazioni registrate nel periodo</p>
+            </div>
+            <Badge tone="default">{db.settings.baseCurrency}</Badge>
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Uscite</p>
-            <p className="mt-1 text-lg font-semibold tnum text-danger">{money(stats.expense)}</p>
+          <div className="grid grid-cols-3 divide-x divide-border">
+            <div className="px-2 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Entrate
+              </p>
+              <AnimatedNumber
+                key={week}
+                value={stats.income}
+                fmt={money}
+                className="mt-1.5 block font-mono text-lg font-semibold text-success sm:text-xl"
+              />
+              <p className="mt-1 text-[10px] text-muted-foreground">incassi della settimana</p>
+            </div>
+            <div className="px-2 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Uscite
+              </p>
+              <AnimatedNumber
+                key={week}
+                value={stats.expense}
+                fmt={money}
+                className="mt-1.5 block font-mono text-lg font-semibold text-danger sm:text-xl"
+              />
+              <p className="mt-1 text-[10px] text-muted-foreground">spese della settimana</p>
+            </div>
+            <div className="px-2 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Net
+              </p>
+              <AnimatedNumber
+                key={week}
+                value={stats.net}
+                fmt={money}
+                className={cn(
+                  "mt-1.5 block font-mono text-lg font-semibold sm:text-xl",
+                  stats.net > 0 ? "text-success" : stats.net < 0 ? "text-danger" : "text-foreground"
+                )}
+              />
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                {stats.net > 0 ? "avanzo" : stats.net < 0 ? "deficit" : "in pari"} della settimana
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Net</p>
-            <p
-              className={`mt-1 text-lg font-semibold tnum ${
-                stats.net > 0 ? "text-success" : stats.net < 0 ? "text-danger" : "text-foreground"
-              }`}
-            >
-              {money(stats.net)}
-            </p>
-          </div>
-        </div>
-      </Card>
+        </Card>
+      </Reveal>
 
       {/* Riflessione */}
       <ReflectionForm key={week} week={week} existing={existing} stats={stats} />
@@ -253,6 +482,43 @@ export default function WeeklyReviewPage() {
 // ------------------------------------------------------------
 // Form di riflessione — risposte editabili, upsert per weekStart
 // ------------------------------------------------------------
+
+function QuestionPanel({
+  n,
+  title,
+  value,
+  onChange,
+  placeholder,
+}: {
+  n: number;
+  title: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-muted/35 p-3.5 transition-colors hover:border-border-strong focus-within:border-accent/50 sm:p-4">
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-accent-2 text-[11px] font-bold text-white shadow-[0_2px_10px_-3px_var(--accent-glow)]">
+          {n}
+        </span>
+        <p className="text-[13px] font-semibold leading-snug text-foreground">{title}</p>
+      </div>
+      <TextArea
+        rows={3}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="mt-3 min-h-[88px] rounded-xl border-border-strong/70 bg-muted/50 text-[13px] leading-relaxed transition-all hover:border-border-strong focus:border-accent/50 focus:bg-muted"
+      />
+      {value.trim().length > 0 && (
+        <p className="mt-1.5 text-right text-[10px] text-muted-foreground/60">
+          {value.trim().length} caratteri
+        </p>
+      )}
+    </div>
+  );
+}
 
 function ReflectionForm({
   week,
@@ -276,7 +542,7 @@ function ReflectionForm({
   const showMsg = (text: string) => {
     setMsg(text);
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setMsg(null), 4000);
+    timer.current = setTimeout(() => setMsg(null), 5000);
   };
 
   const startForm = () => {
@@ -306,65 +572,84 @@ function ReflectionForm({
   // Empty state: nessuna review salvata per questa settimana
   if (!existing && !showForm) {
     return (
-      <Card>
-        <EmptyState
-          icon="✍️"
-          title="Nessuna review per questa settimana"
-          description="Prenditi dieci minuti: cosa è andato bene, cosa no, e cosa cambierai. Le statistiche sopra sono già pronte."
-          action={<Button onClick={startForm}>Completa oggi</Button>}
-        />
-      </Card>
+      <Reveal>
+        <Card>
+          <EmptyState
+            icon="✍️"
+            title="Nessuna review per questa settimana"
+            description="Prenditi dieci minuti: cosa è andato bene, cosa no, e cosa cambierai. Le statistiche sopra sono già pronte."
+            action={
+              <Button glow onClick={startForm}>
+                Completa oggi ✨
+              </Button>
+            }
+          />
+        </Card>
+      </Reveal>
     );
   }
 
   return (
-    <div ref={formRef}>
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>Riflessione della settimana</CardTitle>
-            <CardSubtitle>Settimana del {keyToLabel(week)}</CardSubtitle>
-          </div>
-        </CardHeader>
-        <div className="space-y-4">
-          <Field label="1 · Cosa ha funzionato questa settimana?">
-            <TextArea
-              rows={3}
+    <Reveal>
+      <div ref={formRef}>
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Riflessione della settimana</CardTitle>
+              <CardSubtitle>
+                Settimana del {labelDayKey(week, db.settings.locale)} — sii onesto con te stesso.
+              </CardSubtitle>
+            </div>
+            {existing ? (
+              <Badge tone="success">✓ Salvata</Badge>
+            ) : (
+              <Badge tone="warning">Bozza</Badge>
+            )}
+          </CardHeader>
+
+          <div className="space-y-3">
+            <QuestionPanel
+              n={1}
+              title="Cosa ha funzionato questa settimana?"
               value={a1}
-              onChange={(e) => setA1(e.target.value)}
+              onChange={setA1}
               placeholder="Es. ho rispettato il playbook, ho chiuso prima del rollover, niente revenge trading…"
             />
-          </Field>
-          <Field label="2 · Cosa non ha funzionato e perché?">
-            <TextArea
-              rows={3}
+            <QuestionPanel
+              n={2}
+              title="Cosa non ha funzionato e perché?"
               value={a2}
-              onChange={(e) => setA2(e.target.value)}
+              onChange={setA2}
               placeholder="Es. ho inseguito il mercato, orari sbagliati, ho saltato il journal di un giorno…"
             />
-          </Field>
-          <Field label="3 · Cosa farò diversamente la prossima settimana?">
-            <TextArea
-              rows={3}
+            <QuestionPanel
+              n={3}
+              title="Cosa farò diversamente la prossima settimana?"
               value={a3}
-              onChange={(e) => setA3(e.target.value)}
+              onChange={setA3}
               placeholder="Un'azione concreta: regola, abitudine o processo da cambiare."
             />
-          </Field>
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Button onClick={save} disabled={nothingToSave}>
-            Salva review
-          </Button>
-          {msg && <span className="text-sm font-medium text-success">{msg}</span>}
-        </div>
-        {existing && (
-          <p className="mt-3 text-xs text-muted-foreground">
-            {existing.updatedAt === existing.createdAt ? "Creato" : "Aggiornato"} il{" "}
-            {new Date(existing.updatedAt).toLocaleString(db.settings.locale)}
-          </p>
-        )}
-      </Card>
-    </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button onClick={save} disabled={nothingToSave} glow size="lg">
+              {existing ? "Aggiorna review" : "Salva review"}
+            </Button>
+            {msg && (
+              <span className="animate-pop inline-flex items-center gap-1.5 rounded-full border border-success/25 bg-success/10 px-3 py-1 text-xs font-semibold text-success">
+                <span className="text-emerald-300">✔</span> {msg}
+              </span>
+            )}
+          </div>
+
+          {existing && (
+            <p className="mt-3 text-[11px] text-muted-foreground">
+              {existing.updatedAt === existing.createdAt ? "Creato" : "Aggiornato"} il{" "}
+              {new Date(existing.updatedAt).toLocaleString(db.settings.locale)}
+            </p>
+          )}
+        </Card>
+      </div>
+    </Reveal>
   );
 }

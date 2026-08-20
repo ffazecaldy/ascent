@@ -1,29 +1,34 @@
 "use client";
 // ============================================================
 // ASCEND — Payout & Certificati (specifica v3 §4.2 + §4.3)
-// - CRUD Spese firm (eval / reset / sub) per account
-// - CRUD Payout con tasso FX (prefill quoteFx, editabile)
-// - Sync automatico payout → Transaction income nelle Finanze
-//   (categoria "Payout trading" trovata per nome o creata)
-// - Netto reale per account (base) colorato
-// - Muro dei certificati: trofei 🏆 / payout 💰 / patrimonio gestito
+// ART-DIRECTION v2 (stile myfundedbook, ricco e animato)
+// - KPI con AnimatedNumber + formatSignedMoney + hairline per segno
+// - Muro dei certificati: trofei 🏆/💰/💎 con gradiente + glow + hover-lift
+// - Netto reale per account come StatCard (hairline verde/rosso)
+// - Tabelle dense tnum con righe hover e tasso FX sempre visibile
+// - Modale CRUD con pipeline FX: tasso editabile, badge API/manuale, riquota
+// La LOGICA (CRUD, sync payout→transazione, privacy) è invariata.
 // ============================================================
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { useDB, updateDB, upsert, removeById, uid, nowISO } from "@/lib/storage";
 import { SectionHeader, EmptyState } from "@/components/ui/Misc";
-import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal, ConfirmDialog } from "@/components/ui/Modal";
 import { Field, Input, Select, TextArea } from "@/components/ui/Field";
 import { Badge } from "@/components/ui/Badge";
 import { StatCard } from "@/components/ui/StatCard";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import { Reveal } from "@/components/ui/Reveal";
 import { formatMoney, formatSignedMoney } from "@/lib/format";
 import { convertToBase, accountBaseRate } from "@/lib/compute";
 import { quoteFx, COMMON_CURRENCIES } from "@/lib/fx";
 import { todayKey, labelDayKey } from "@/lib/dates";
 import { moneyMasked, maskMoney } from "@/lib/privacy";
+import { cn } from "@/lib/cn";
 import type {
   DB,
   Category,
@@ -54,6 +59,26 @@ const EXPENSE_TYPE_LABEL: Record<FirmExpenseType, string> = {
   reset: "Reset",
   sub: "Abbonamento",
 };
+
+/** Palette trofei: gold (🏆 eval) · green (💰 payout) · blue (💎 capitale). */
+const TROPHY_TONE = {
+  gold: {
+    tile: "border-warning/30 bg-gradient-to-br from-amber-400/30 via-amber-500/10 to-transparent",
+    glow: "shadow-[0_0_28px_-8px_rgba(240,180,41,0.6)]",
+    wash: "from-warning/20",
+  },
+  green: {
+    tile: "border-success/30 bg-gradient-to-br from-success/25 via-success/10 to-transparent",
+    glow: "shadow-[0_0_28px_-8px_rgba(45,223,158,0.5)]",
+    wash: "from-success/20",
+  },
+  blue: {
+    tile: "border-accent/30 bg-gradient-to-br from-accent/30 via-accent-2/10 to-transparent",
+    glow: "shadow-[0_0_28px_-8px_rgba(76,126,255,0.55)]",
+    wash: "from-accent/20",
+  },
+} as const;
+type TrophyTone = keyof typeof TROPHY_TONE;
 
 /** Categoria 'Payout trading' trovata per nome; se manca la crea (📈 #22c55e income). */
 function ensurePayoutCategory(db: DB): { db: DB; categoryId: string } {
@@ -96,7 +121,110 @@ function roundRate(r: number): number {
 }
 
 // ============================================================
+// Micro-componenti di art-direction (solo presentazione)
+// ============================================================
+
+/** Numero animato con formattazione money (privacy-aware: mascherato se richiesto). */
+function MoneyValue({
+  value,
+  currency,
+  signed = false,
+  hidden,
+  locale,
+}: {
+  value: number;
+  currency: string;
+  signed?: boolean;
+  hidden: boolean;
+  locale: string;
+}) {
+  if (hidden) return <>{maskMoney()}</>;
+  return (
+    <AnimatedNumber
+      value={value}
+      duration={900}
+      fmt={(n) => (signed ? formatSignedMoney(n, currency, locale) : formatMoney(n, currency, locale))}
+    />
+  );
+}
+
+/** Card trofeo: icona su riquadro con gradiente + glow, hover-lift, badge dati. */
+function TrophyCard({
+  tone,
+  icon,
+  title,
+  titleClassName,
+  badges,
+  foot,
+}: {
+  tone: TrophyTone;
+  icon: string;
+  title: ReactNode;
+  titleClassName?: string;
+  badges?: ReactNode[];
+  foot?: ReactNode;
+}) {
+  const t = TROPHY_TONE[tone];
+  return (
+    <Card className="group relative flex flex-col items-center gap-1.5 overflow-hidden p-4 text-center">
+      {/* velo di luce dall'alto */}
+      <div className={cn("pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b to-transparent", t.wash)} />
+      <div
+        className={cn(
+          "relative mt-1 grid h-12 w-12 place-items-center rounded-2xl border transition-transform duration-300 group-hover:-translate-y-1 group-hover:scale-105",
+          t.tile,
+          t.glow
+        )}
+      >
+        <span className="text-xl leading-none drop-shadow-sm">{icon}</span>
+      </div>
+      <div className={cn("relative w-full truncate px-1 text-sm font-semibold tracking-tight", titleClassName)}>
+        {title}
+      </div>
+      {badges && badges.length > 0 && (
+        <div className="relative flex flex-wrap items-center justify-center gap-1">
+          {badges.map((b, i) => (
+            <span key={i}>{b}</span>
+          ))}
+        </div>
+      )}
+      {foot != null && (
+        <div className="relative w-full truncate px-1 text-[11px] text-muted-foreground">{foot}</div>
+      )}
+    </Card>
+  );
+}
+
+/** Cella tasso FX di una riga tabella: sempre visibile, tnum. */
+function FxRate({
+  currency,
+  rate,
+  base,
+  locale,
+}: {
+  currency: string;
+  rate: number;
+  base: string;
+  locale: string;
+}) {
+  if (currency.toUpperCase() === base.toUpperCase()) {
+    return <span className="text-muted-foreground/60">—</span>;
+  }
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap text-[10px]">
+      <span className="text-muted-foreground">1 {currency}</span>
+      <span className="text-muted-foreground/50">≈</span>
+      <span className="tnum text-secondary-text">
+        {isFinite(rate) ? rate.toLocaleString(locale, { maximumFractionDigits: 4 }) : "…"}
+      </span>
+      <span className="text-muted-foreground">{base}</span>
+    </span>
+  );
+}
+
+// ============================================================
 // Modal condivisa — nuovo/aggiungi payout o spesa firm
+// Pipeline FX: prefill quoteFx, tasso editabile, badge API/manuale, riquota
 // ============================================================
 
 type FormMode = "payout" | "expense";
@@ -111,6 +239,7 @@ function ItemModal({
   baseCurrency,
   timezone,
   locale,
+  hidden,
 }: {
   open: boolean;
   onClose: () => void;
@@ -121,6 +250,7 @@ function ItemModal({
   baseCurrency: string;
   timezone: string;
   locale: string;
+  hidden: boolean;
 }) {
   const editing = editItem != null;
   const [account, setAccount] = useState("");
@@ -129,6 +259,9 @@ function ItemModal({
   const [currency, setCurrency] = useState("");
   const [rate, setRate] = useState("1");
   const [rateAuto, setRateAuto] = useState(false);
+  const [quoting, setQuoting] = useState(false);
+  const [quoteTick, setQuoteTick] = useState(0);
+  const [quoteSrc, setQuoteSrc] = useState<"api" | "manual" | null>(null);
   const [date, setDate] = useState("");
   const [note, setNote] = useState("");
 
@@ -150,6 +283,8 @@ function ItemModal({
       setCurrency(editItem.currency);
       setRate(String(editItem.exchangeRate ?? 1));
       setRateAuto(false); // non sovrascrivere il tasso già salvato
+      setQuoteSrc("manual");
+      setQuoting(false);
       setDate(editItem.date);
       setNote(editItem.note ?? "");
     } else {
@@ -160,6 +295,8 @@ function ItemModal({
       setCurrency(first?.nativeCurrency ?? baseCurrency);
       setRate("1");
       setRateAuto(true); // valuta nativa → quota il tasso se ≠ base (effect sotto)
+      setQuoteSrc(null);
+      setQuoting(false);
       setDate(todayKey(timezone));
       setNote("");
     }
@@ -171,21 +308,46 @@ function ItemModal({
     if (!open || !rateAuto) return;
     if (sameBase) {
       setRate("1");
+      setQuoting(false);
+      setQuoteSrc(null);
       return;
     }
     let alive = true;
+    setQuoting(true);
     quoteFx(currency, baseCurrency).then((q) => {
-      if (alive && q) setRate(String(roundRate(q.rate)));
+      if (!alive) return;
+      setQuoting(false);
+      setQuoteSrc(q ? "api" : "manual");
+      if (q) setRate(String(roundRate(q.rate)));
     });
     return () => {
       alive = false;
     };
-  }, [open, currency, baseCurrency, rateAuto, sameBase]);
+  }, [open, currency, baseCurrency, rateAuto, sameBase, quoteTick]);
 
   const onCurrencyChange = (next: string) => {
     setCurrency(next);
     setRateAuto(true); // nuova valuta → riquota
   };
+
+  const requote = () => {
+    if (sameBase || quoting) return;
+    setRateAuto(true);
+    setQuoteSrc(null);
+    setQuoteTick((t) => t + 1);
+  };
+
+  // Badge fonte del tasso (pipeline FX)
+  const sourceEl =
+    sameBase ? (
+      <span className="text-[10px] text-muted-foreground">tasso 1 · stessa valuta della base</span>
+    ) : quoting ? (
+      <Badge tone="info" pulse>API · quotazione…</Badge>
+    ) : quoteSrc === "api" ? (
+      <Badge tone="info">API</Badge>
+    ) : (
+      <Badge tone="warning">Manuale</Badge>
+    );
 
   const save = () => {
     if (!canSave) return;
@@ -220,11 +382,24 @@ function ItemModal({
     onClose();
   };
 
+  const modalTitle = (
+    <span className="flex items-center gap-2">
+      <span>{mode === "payout" ? "💰" : "🧾"}</span>
+      {editing
+        ? mode === "payout"
+          ? "Modifica payout"
+          : "Modifica spesa firm"
+        : mode === "payout"
+          ? "Nuovo payout"
+          : "Nuova spesa firm"}
+    </span>
+  );
+
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? (mode === "payout" ? "Modifica payout" : "Modifica spesa firm") : mode === "payout" ? "Nuovo payout" : "Nuova spesa firm"}
+      title={modalTitle}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>Annulla</Button>
@@ -234,7 +409,18 @@ function ItemModal({
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Account" className={mode === "expense" ? "" : "sm:col-span-2"}>
-          <Select value={account} onChange={(e) => { const v = e.target.value; setAccount(v); const a = accounts.find((x) => x.id === v); if (a && !editing) { setCurrency(a.nativeCurrency); setRateAuto(true); } }}>
+          <Select
+            value={account}
+            onChange={(e) => {
+              const v = e.target.value;
+              setAccount(v);
+              const a = accounts.find((x) => x.id === v);
+              if (a && !editing) {
+                setCurrency(a.nativeCurrency);
+                setRateAuto(true);
+              }
+            }}
+          >
             <option value="" disabled>Seleziona account</option>
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>{a.name}{a.archived ? " (archiviato)" : ""}</option>
@@ -272,22 +458,47 @@ function ItemModal({
           </Select>
         </Field>
 
-        <Field label={`Tasso (${baseCurrency} per 1 ${currency || "…"})`}>
-          <Input
-            type="number"
-            inputMode="decimal"
-            step="any"
-            min="0"
-            value={rate}
-            disabled={sameBase}
-            onChange={(e) => { setRate(e.target.value); setRateAuto(false); }}
-          />
-          {!sameBase && (
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              1 {currency || "…"} = {rate && rateValid ? rate : "…"} {baseCurrency}
-              {rateAuto ? " · quotato automaticamente" : " · manuale"}
-            </p>
-          )}
+        <Field
+          label={`Tasso · 1 ${currency || "…"} in ${baseCurrency}`}
+          className="sm:col-span-2"
+        >
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              inputMode="decimal"
+              step="any"
+              min="0"
+              value={rate}
+              disabled={sameBase}
+              className="flex-1 tnum"
+              onChange={(e) => {
+                setRate(e.target.value);
+                setRateAuto(false);
+                setQuoteSrc("manual");
+              }}
+            />
+            {!sameBase && (
+              <Button
+                variant="outline"
+                size="md"
+                onClick={requote}
+                disabled={quoting}
+                aria-label="Riquota il tasso dall'API"
+                title="Riquota dall'API"
+                className="shrink-0 px-2.5"
+              >
+                <span className={cn("inline-block", quoting && "animate-spin")}>↻</span>
+              </Button>
+            )}
+          </div>
+          <div className="mt-1.5 flex items-center justify-between gap-2">
+            <div>{sourceEl}</div>
+            {amountValid && rateValid && (
+              <span className="tnum text-[11px] text-muted-foreground">
+                ≈ {hidden ? maskMoney() : formatMoney(amountNum * (sameBase ? 1 : rateNum), baseCurrency, locale)}
+              </span>
+            )}
+          </div>
         </Field>
 
         <Field label="Data">
@@ -335,6 +546,9 @@ export default function PayoutsPage() {
       : signed
         ? formatSignedMoney(amount, currency, locale)
         : formatMoney(amount, currency, locale);
+  /** Spesa mostrata come uscita (−) in rosso. */
+  const Out = (amount: number, currency: string) =>
+    hidden ? maskMoney() : `−${formatMoney(amount, currency, locale)}`;
 
   // ---- KPI globali (valuta base) ----
   const sumBase = (list: { amount: number; exchangeRate: number }[]) =>
@@ -396,6 +610,7 @@ export default function PayoutsPage() {
     return (
       <div className="space-y-6">
         <SectionHeader
+          kicker="Trading · Payout"
           title="Payout & Certificati"
           subtitle="Spese firm, payout ricevuti e muro dei certificati."
         />
@@ -416,210 +631,355 @@ export default function PayoutsPage() {
   return (
     <div className="space-y-8">
       <SectionHeader
+        kicker="Trading · Payout"
         title="Payout & Certificati"
         subtitle="Spese firm, payout ricevuti e muro dei certificati."
         action={
           <>
             <Button variant="outline" size="sm" onClick={() => openNew("expense")}>＋ Spesa firm</Button>
-            <Button size="sm" onClick={() => openNew("payout")}>＋ Payout</Button>
+            <Button size="sm" onClick={() => openNew("payout")} glow>＋ Payout</Button>
           </>
         }
       />
 
-      {/* KPI */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Netto reale totale"
-          value={
-            <span className={netTotal >= 0 ? "text-success" : "text-danger"}>
-              {M(netTotal, base, true)}
-            </span>
-          }
-          icon={<span className="text-base">⚖️</span>}
-        />
-        <StatCard
-          label="Payout ricevuti"
-          value={M(totalPayoutBase, base)}
-          delta={`${payouts.length} payout`}
-          icon={<span className="text-base">💰</span>}
-        />
-        <StatCard
-          label="Spese firm"
-          value={M(totalExpenseBase, base)}
-          delta={`${expenses.length} spese`}
-          icon={<span className="text-base">🧾</span>}
-        />
-        <StatCard
-          label="Patrimonio gestito"
-          value={M(patrimonio, base)}
-          delta={`${activeAccounts.length} account attivi`}
-          icon={<span className="text-base">📊</span>}
-        />
-      </div>
-
-      {/* Muro dei certificati */}
-      <section>
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold tracking-tight">Muro dei certificati</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Eval superate, payout incassati e capitale sotto gestione.
-          </p>
+      {/* KPI — AnimatedNumber + hairline per segno */}
+      <Reveal>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="Netto reale totale"
+            icon={<span className="text-base leading-none">⚖️</span>}
+            hairline={netTotal > 0 ? "success" : netTotal < 0 ? "danger" : "accent"}
+            value={<MoneyValue value={netTotal} currency={base} signed hidden={hidden} locale={locale} />}
+            valueClassName={netTotal > 0 ? "text-success" : netTotal < 0 ? "text-danger" : "text-foreground"}
+            delta={`${payouts.length} payout · ${expenses.length} spese`}
+          />
+          <StatCard
+            label="Payout ricevuti"
+            icon={<span className="text-base leading-none">💰</span>}
+            hairline="success"
+            value={<MoneyValue value={totalPayoutBase} currency={base} hidden={hidden} locale={locale} />}
+            delta={`${payouts.length} payout`}
+          />
+          <StatCard
+            label="Spese firm"
+            icon={<span className="text-base leading-none">🧾</span>}
+            hairline="danger"
+            value={<MoneyValue value={totalExpenseBase} currency={base} hidden={hidden} locale={locale} />}
+            delta={`${expenses.length} spese`}
+          />
+          <StatCard
+            label="Patrimonio gestito"
+            icon={<span className="text-base leading-none">💎</span>}
+            hairline="accent"
+            value={<MoneyValue value={patrimonio} currency={base} hidden={hidden} locale={locale} />}
+            delta={`${activeAccounts.length} account attivi`}
+          />
         </div>
+      </Reveal>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {earned.map((a) => (
-            <Card key={a.id} className="flex flex-col items-center justify-center gap-1 text-center">
-              <span className="text-3xl">🏆</span>
-              <p className="w-full truncate px-1 text-sm font-semibold">{a.name}</p>
-              <Badge tone={STATUS_META[a.status].tone}>{STATUS_META[a.status].label}</Badge>
-              <p className="text-[11px] text-muted-foreground">dal {fmtISO(a.createdAt)}</p>
-            </Card>
-          ))}
+      {/* Muro dei certificati — trofei con gradiente + glow */}
+      <Reveal delay={60}>
+        <section>
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold tracking-tight">Muro dei certificati</h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Eval superate, payout incassati e capitale sotto gestione.
+            </p>
+          </div>
 
-          {payoutsSorted.map((p) => (
-            <Card key={p.id} className="flex flex-col items-center justify-center gap-1 text-center">
-              <span className="text-3xl">💰</span>
-              <p className="text-lg font-semibold tnum text-success">{M(p.amount, p.currency)}</p>
-              <p className="text-[11px] text-muted-foreground">{labelDayKey(p.date, locale)}</p>
-              <Badge tone="default">{accountName(p.accountId)}</Badge>
-            </Card>
-          ))}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {earned.map((a) => (
+              <TrophyCard
+                key={a.id}
+                tone="gold"
+                icon="🏆"
+                title={a.name}
+                badges={[
+                  <Badge key="s" tone={STATUS_META[a.status].tone}>{STATUS_META[a.status].label}</Badge>,
+                  <Badge key="d">dal {fmtISO(a.createdAt)}</Badge>,
+                ]}
+              />
+            ))}
 
-          {earned.length === 0 && payouts.length === 0 && (
-            <Card className="flex flex-col items-center justify-center gap-1 border-dashed text-center">
-              <span className="text-3xl opacity-60">🕳</span>
-              <p className="text-xs text-muted-foreground">Ancora nessun trofeo</p>
-            </Card>
-          )}
+            {payoutsSorted.map((p) => (
+              <TrophyCard
+                key={p.id}
+                tone="green"
+                icon="💰"
+                title={hidden ? maskMoney() : formatSignedMoney(p.amount, p.currency, locale)}
+                titleClassName="tnum text-success"
+                badges={[
+                  <Badge key="a">{accountName(p.accountId)}</Badge>,
+                  <Badge key="d">{labelDayKey(p.date, locale)}</Badge>,
+                ]}
+                foot={
+                  p.note
+                    ? p.note
+                    : p.currency !== base
+                      ? `${p.currency} → ${base}`
+                      : undefined
+                }
+              />
+            ))}
 
-          <Card className="flex flex-col items-center justify-center gap-1 border-accent/40 text-center">
-            <span className="text-3xl">📊</span>
-            <p className="text-lg font-semibold tnum">{M(patrimonio, base)}</p>
-            <p className="text-[11px] text-muted-foreground">patrimonio gestito</p>
-          </Card>
-        </div>
-      </section>
-
-      {/* Dettaglio per account */}
-      <section>
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold tracking-tight">Dettaglio per account</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Payout e spese firm, con netto reale convertito in {base}.
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          {activeAccounts.map((acc) => {
-            const net = netOf(acc.id);
-            const accPayouts = payouts
-              .filter((p) => p.accountId === acc.id)
-              .sort((a, b) => b.date.localeCompare(a.date));
-            const accExpenses = expenses
-              .filter((e) => e.accountId === acc.id)
-              .sort((a, b) => b.date.localeCompare(a.date));
-            return (
-              <Card key={acc.id}>
-                <CardHeader>
-                  <div className="min-w-0">
-                    <CardTitle>{acc.name}</CardTitle>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                      <Badge tone={STATUS_META[acc.status].tone}>{STATUS_META[acc.status].label}</Badge>
-                      {acc.firm && <span className="text-xs text-muted-foreground">{acc.firm}</span>}
-                      <span className="text-xs text-muted-foreground">· {acc.nativeCurrency}</span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Netto reale
-                    </p>
-                    <p className={`tnum text-xl font-semibold ${net >= 0 ? "text-success" : "text-danger"}`}>
-                      {M(net, base, true)}
-                    </p>
-                  </div>
-                </CardHeader>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  {/* Payout */}
-                  <div>
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-xs font-medium text-secondary-text">
-                        Payout
-                        {accPayouts.length > 0 && (
-                          <span className="ml-1 text-muted-foreground">· tot {M(payoutSumOf(acc.id), base)}</span>
-                        )}
-                      </p>
-                      <Button size="sm" variant="subtle" onClick={() => openNew("payout", acc.id)} aria-label="Nuovo payout">＋</Button>
-                    </div>
-                    {accPayouts.length === 0 ? (
-                      <p className="rounded-lg border border-dashed border-border-strong px-3 py-3 text-center text-xs text-muted-foreground">
-                        Nessun payout
-                      </p>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {accPayouts.map((p) => (
-                          <div key={p.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted px-3 py-2">
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium tnum text-success">{M(p.amount, p.currency)}</p>
-                              <p className="truncate text-[11px] text-muted-foreground">
-                                {labelDayKey(p.date, locale)}
-                                {p.currency !== base && ` · ≈ ${M(convertToBase(p.amount, p.exchangeRate), base)}`}
-                                {p.note ? ` · ${p.note}` : ""}
-                              </p>
-                            </div>
-                            <div className="flex shrink-0 gap-0.5">
-                              <Button size="icon" variant="ghost" onClick={() => openEdit("payout", p)} aria-label="Modifica payout">✏️</Button>
-                              <Button size="icon" variant="ghost" onClick={() => setConfirm({ kind: "payout", id: p.id })} aria-label="Elimina payout">🗑</Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Spese firm */}
-                  <div>
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-xs font-medium text-secondary-text">
-                        Spese firm
-                        {accExpenses.length > 0 && (
-                          <span className="ml-1 text-muted-foreground">· tot {M(expenseSumOf(acc.id), base)}</span>
-                        )}
-                      </p>
-                      <Button size="sm" variant="subtle" onClick={() => openNew("expense", acc.id)} aria-label="Nuova spesa firm">＋</Button>
-                    </div>
-                    {accExpenses.length === 0 ? (
-                      <p className="rounded-lg border border-dashed border-border-strong px-3 py-3 text-center text-xs text-muted-foreground">
-                        Nessuna spesa
-                      </p>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {accExpenses.map((e) => (
-                          <div key={e.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted px-3 py-2">
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium tnum text-danger">{M(e.amount, e.currency)}</p>
-                              <p className="truncate text-[11px] text-muted-foreground">
-                                {labelDayKey(e.date, locale)}
-                                <span className="ml-1 rounded bg-elevated px-1 py-px text-[10px]">{EXPENSE_TYPE_LABEL[e.type]}</span>
-                                {e.currency !== base && ` · ≈ ${M(convertToBase(e.amount, e.exchangeRate), base)}`}
-                                {e.note ? ` · ${e.note}` : ""}
-                              </p>
-                            </div>
-                            <div className="flex shrink-0 gap-0.5">
-                              <Button size="icon" variant="ghost" onClick={() => openEdit("expense", e)} aria-label="Modifica spesa">✏️</Button>
-                              <Button size="icon" variant="ghost" onClick={() => setConfirm({ kind: "expense", id: e.id })} aria-label="Elimina spesa">🗑</Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
+            {earned.length === 0 && payouts.length === 0 && (
+              <Card className="flex flex-col items-center justify-center gap-1 border-dashed text-center">
+                <span className="animate-rise text-3xl opacity-60">🕳</span>
+                <p className="text-xs text-muted-foreground">
+                  Ancora nessun trofeo — supera una valutazione o incassa un payout
+                </p>
               </Card>
-            );
-          })}
-        </div>
-      </section>
+            )}
+
+            <TrophyCard
+              tone="blue"
+              icon="💎"
+              title={<MoneyValue value={patrimonio} currency={base} hidden={hidden} locale={locale} />}
+              titleClassName="tnum text-lg"
+              badges={[
+                <Badge key="n" tone="info">{activeAccounts.length} account attivi</Badge>,
+              ]}
+              foot="capitale sotto gestione"
+            />
+          </div>
+        </section>
+      </Reveal>
+
+      {/* Dettaglio per account — netto StatCard + tabelle dense */}
+      <Reveal delay={40}>
+        <section>
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold tracking-tight">Dettaglio per account</h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Payout e spese firm, con netto reale convertito in {base}.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {activeAccounts.map((acc) => {
+              const net = netOf(acc.id);
+              const accPayouts = payouts
+                .filter((p) => p.accountId === acc.id)
+                .sort((a, b) => b.date.localeCompare(a.date));
+              const accExpenses = expenses
+                .filter((e) => e.accountId === acc.id)
+                .sort((a, b) => b.date.localeCompare(a.date));
+              return (
+                <Card key={acc.id} texture className="space-y-4">
+                  {/* Header account + Netto reale come StatCard (hairline per segno) */}
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1 basis-56">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base leading-none">
+                          {acc.status === "superato" || acc.status === "finanziato"
+                            ? "🏆"
+                            : acc.status === "bruciato"
+                              ? "🔥"
+                              : "🧪"}
+                        </span>
+                        <h3 className="text-base font-semibold tracking-tight">{acc.name}</h3>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                        <Badge tone={STATUS_META[acc.status].tone}>{STATUS_META[acc.status].label}</Badge>
+                        {acc.firm && <span className="text-xs text-muted-foreground">{acc.firm}</span>}
+                        <span className="text-xs text-muted-foreground">· {acc.nativeCurrency}</span>
+                      </div>
+                    </div>
+                    <StatCard
+                      label="Netto reale"
+                      icon={<span className="text-sm leading-none">⚖️</span>}
+                      hairline={net > 0 ? "success" : net < 0 ? "danger" : "none"}
+                      className="w-full max-w-[13rem] shrink-0"
+                      value={<MoneyValue value={net} currency={base} signed hidden={hidden} locale={locale} />}
+                      valueClassName={net > 0 ? "text-success" : net < 0 ? "text-danger" : "text-foreground"}
+                      delta={
+                        hidden ? (
+                          maskMoney()
+                        ) : (
+                          <>
+                            <span className="text-success">+{formatMoney(payoutSumOf(acc.id), base, locale)}</span>
+                            <span className="text-muted-foreground"> · </span>
+                            <span className="text-danger">−{formatMoney(expenseSumOf(acc.id), base, locale)}</span>
+                          </>
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {/* Payout */}
+                    <div>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-secondary-text">
+                          <span className="text-sm leading-none">💰</span> Payout
+                          <span className="tnum rounded bg-elevated px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">
+                            {accPayouts.length}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {accPayouts.length > 0 && (
+                            <span className="tnum text-[11px] text-success/90">+ {M(payoutSumOf(acc.id), base)}</span>
+                          )}
+                          <Button
+                            size="icon"
+                            variant="subtle"
+                            onClick={() => openNew("payout", acc.id)}
+                            aria-label="Nuovo payout"
+                            className="h-6 w-6 rounded-md text-xs"
+                          >＋</Button>
+                        </div>
+                      </div>
+
+                      {accPayouts.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-border-strong px-3 py-5 text-center text-xs text-muted-foreground">
+                          <p>Nessun payout registrato</p>
+                          <button
+                            className="mt-1 font-medium text-accent hover:underline"
+                            onClick={() => openNew("payout", acc.id)}
+                          >
+                            ＋ aggiungi il primo
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="overflow-hidden rounded-xl border border-border bg-muted/20">
+                          <div className="overflow-x-auto">
+                            <table className="w-full min-w-[26rem] border-collapse text-xs">
+                              <thead>
+                                <tr className="border-b border-border-strong bg-elevated/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                                  <th className="py-1.5 pl-2.5 pr-2 text-left font-semibold">Data</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold">Importo</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold">Tasso FX</th>
+                                  <th className="hidden px-2 py-1.5 text-left font-semibold sm:table-cell">Dettaglio</th>
+                                  <th className="py-1.5 pl-2 pr-2.5 text-right font-semibold">Azioni</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border/70">
+                                {accPayouts.map((p) => (
+                                  <tr key={p.id} className="group/row transition-colors hover:bg-elevated/70">
+                                    <td className="whitespace-nowrap py-1.5 pl-2.5 pr-2 text-muted-foreground">
+                                      {labelDayKey(p.date, locale)}
+                                    </td>
+                                    <td className="whitespace-nowrap px-2 py-1.5 text-right tnum font-semibold text-success">
+                                      {M(p.amount, p.currency, true)}
+                                    </td>
+                                    <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                                      <FxRate currency={p.currency} rate={p.exchangeRate} base={base} locale={locale} />
+                                    </td>
+                                    <td className="hidden px-2 py-1.5 sm:table-cell">
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        {p.currency !== base && (
+                                          <span className="tnum text-[11px] text-success/80">
+                                            ≈ {M(convertToBase(p.amount, p.exchangeRate), base)}
+                                          </span>
+                                        )}
+                                        {p.note && <span className="truncate text-muted-foreground">{p.note}</span>}
+                                      </div>
+                                    </td>
+                                    <td className="whitespace-nowrap py-1 pl-2 pr-1.5 text-right">
+                                      <div className="flex items-center justify-end gap-0.5">
+                                        <Button size="icon" variant="ghost" onClick={() => openEdit("payout", p)} aria-label="Modifica payout" className="h-6 w-6 rounded-md text-xs">✏️</Button>
+                                        <Button size="icon" variant="ghost" onClick={() => setConfirm({ kind: "payout", id: p.id })} aria-label="Elimina payout" className="h-6 w-6 rounded-md text-xs">🗑</Button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Spese firm */}
+                    <div>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-secondary-text">
+                          <span className="text-sm leading-none">🧾</span> Spese firm
+                          <span className="tnum rounded bg-elevated px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">
+                            {accExpenses.length}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {accExpenses.length > 0 && (
+                            <span className="tnum text-[11px] text-danger/90">− {M(expenseSumOf(acc.id), base)}</span>
+                          )}
+                          <Button
+                            size="icon"
+                            variant="subtle"
+                            onClick={() => openNew("expense", acc.id)}
+                            aria-label="Nuova spesa firm"
+                            className="h-6 w-6 rounded-md text-xs"
+                          >＋</Button>
+                        </div>
+                      </div>
+
+                      {accExpenses.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-border-strong px-3 py-5 text-center text-xs text-muted-foreground">
+                          <p>Nessuna spesa registrata</p>
+                          <button
+                            className="mt-1 font-medium text-accent hover:underline"
+                            onClick={() => openNew("expense", acc.id)}
+                          >
+                            ＋ aggiungi la prima
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="overflow-hidden rounded-xl border border-border bg-muted/20">
+                          <div className="overflow-x-auto">
+                            <table className="w-full min-w-[26rem] border-collapse text-xs">
+                              <thead>
+                                <tr className="border-b border-border-strong bg-elevated/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                                  <th className="py-1.5 pl-2.5 pr-2 text-left font-semibold">Data</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold">Importo</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold">Tasso FX</th>
+                                  <th className="hidden px-2 py-1.5 text-left font-semibold sm:table-cell">Dettaglio</th>
+                                  <th className="py-1.5 pl-2 pr-2.5 text-right font-semibold">Azioni</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border/70">
+                                {accExpenses.map((e) => (
+                                  <tr key={e.id} className="group/row transition-colors hover:bg-elevated/70">
+                                    <td className="whitespace-nowrap py-1.5 pl-2.5 pr-2 text-muted-foreground">
+                                      {labelDayKey(e.date, locale)}
+                                    </td>
+                                    <td className="whitespace-nowrap px-2 py-1.5 text-right tnum font-semibold text-danger">
+                                      {Out(e.amount, e.currency)}
+                                    </td>
+                                    <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                                      <FxRate currency={e.currency} rate={e.exchangeRate} base={base} locale={locale} />
+                                    </td>
+                                    <td className="hidden px-2 py-1.5 sm:table-cell">
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <Badge className="px-1.5 text-[9px]">{EXPENSE_TYPE_LABEL[e.type]}</Badge>
+                                        {e.currency !== base && (
+                                          <span className="tnum text-[11px] text-danger/80">
+                                            ≈ {M(convertToBase(e.amount, e.exchangeRate), base)}
+                                          </span>
+                                        )}
+                                        {e.note && <span className="truncate text-muted-foreground">{e.note}</span>}
+                                      </div>
+                                    </td>
+                                    <td className="whitespace-nowrap py-1 pl-2 pr-1.5 text-right">
+                                      <div className="flex items-center justify-end gap-0.5">
+                                        <Button size="icon" variant="ghost" onClick={() => openEdit("expense", e)} aria-label="Modifica spesa" className="h-6 w-6 rounded-md text-xs">✏️</Button>
+                                        <Button size="icon" variant="ghost" onClick={() => setConfirm({ kind: "expense", id: e.id })} aria-label="Elimina spesa" className="h-6 w-6 rounded-md text-xs">🗑</Button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+      </Reveal>
 
       {/* Modale create/edit */}
       <ItemModal
@@ -632,6 +992,7 @@ export default function PayoutsPage() {
         baseCurrency={base}
         timezone={db.settings.timezone}
         locale={locale}
+        hidden={hidden}
       />
 
       {/* Conferma eliminazione */}

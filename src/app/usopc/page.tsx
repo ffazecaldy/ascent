@@ -1,23 +1,24 @@
 "use client";
 // ============================================================
-// ASCEND — Uso del PC (spec 4.4, MVP: inserimento manuale + CSV)
-// Categorizzazione: PCAppCategoryMap (mappa app→categoria configurabile,
-// pronta per il connettore ActivityWatch V2).
+// ASCEND — Uso del PC (spec 4.4) · art-direct v2 rich+animated
+// Stile myfundedbook: KPI con spark, card hairline+texture,
+// Donut colorato per categoria, anteprima CSV curata, reveal.
 // ============================================================
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useDB, updateDB, upsert, removeById, uid, nowISO } from "@/lib/storage";
 import type { PCUsageLog, PCAppCategoryMap } from "@/lib/types";
-import { todayKey, addDaysKey, weekStartKey, monthKeyOf } from "@/lib/dates";
+import { todayKey, addDaysKey, weekStartKey, monthKeyOf, labelDayKey } from "@/lib/dates";
 import { pcMinutesInWeek } from "@/lib/compute";
 import { minutiToOre } from "@/lib/format";
-import { SectionHeader } from "@/components/ui/Misc";
+import { SectionHeader, ProgressBar, EmptyState, Tabs } from "@/components/ui/Misc";
 import { Card, CardTitle, CardHeader, CardSubtitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { Field, Input, Select, TextArea } from "@/components/ui/Field";
-import { ProgressBar, EmptyState, Tabs } from "@/components/ui/Misc";
+import { StatCard } from "@/components/ui/StatCard";
+import { Reveal } from "@/components/ui/Reveal";
 import { BarsChart, DonutChart } from "@/components/charts";
 
 const DEFAULT_CATEGORIES = [
@@ -51,9 +52,57 @@ function isValidDayKey(dk: string): boolean {
   return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
 }
 
+/** Icona KPI inline (nessuna dipendenza). */
+function Icon({ d, size = 14, className }: { d: string; size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d={d} />
+    </svg>
+  );
+}
+
+const I = {
+  monitor: "M2 5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zM8 21h8M12 17v4",
+  clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2",
+  calendar: "M8 2v4M16 2v4M3 10h18M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z",
+  target: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+  csv: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h2M8 17h5",
+} as const;
+
+/** Mini sparkline (stat card custom obiettivo settimana). */
+function TinySpark({ data, color = "#4C7EFF" }: { data: number[]; color?: string }) {
+  if (data.length < 2) return null;
+  const W = 60;
+  const H = 20;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const span = max - min || 1;
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * W;
+    const y = H - 2 - ((v - min) / span) * (H - 6);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-5 w-15" preserveAspectRatio="none">
+      <polyline points={pts.join(" ")} fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export default function UsoPcPage() {
   const db = useDB();
   const tz = db.settings.timezone;
+  const locale = db.settings.locale || "it-IT";
 
   // --- categorie note = default + quelle usate nei log ---
   const categories = useMemo(() => {
@@ -68,6 +117,7 @@ export default function UsoPcPage() {
 
   const today = todayKey(tz);
   const month = monthKeyOf(day);
+  const yestKey = addDaysKey(today, -1);
 
   const logsMonth = useMemo(
     () => db.pcUsageLogs.filter((p) => monthKeyOf(p.date) === month),
@@ -77,6 +127,60 @@ export default function UsoPcPage() {
     () => db.pcUsageLogs.filter((p) => p.date === day),
     [db.pcUsageLogs, day]
   );
+
+  // --- metriche KPI ---
+  const totalTodayMin = useMemo(() => logsDay.reduce((s, p) => s + p.minutes, 0), [logsDay]);
+  const productiveToday = useMemo(
+    () => db.pcUsageLogs.filter((p) => p.date === today && PRODUCTIVE.includes(p.categoryId)).reduce((s, p) => s + p.minutes, 0),
+    [db.pcUsageLogs, today]
+  );
+  const monthTotalMin = useMemo(() => logsMonth.reduce((s, p) => s + p.minutes, 0), [logsMonth]);
+
+  // minuti per giorno, ultimi 7 giorni (per spark)
+  const last7TotalsMin = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) => {
+        const dk = addDaysKey(today, i - 6);
+        return db.pcUsageLogs.filter((p) => p.date === dk).reduce((s, p) => s + p.minutes, 0);
+      }),
+    [db.pcUsageLogs, today]
+  );
+  const last7ProdMin = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) => {
+        const dk = addDaysKey(today, i - 6);
+        return db.pcUsageLogs.filter((p) => p.date === dk && PRODUCTIVE.includes(p.categoryId)).reduce((s, p) => s + p.minutes, 0);
+      }),
+    [db.pcUsageLogs, today]
+  );
+  // minuti per giorno del mese corrente (spark card "ore mese")
+  const monthDailyMin = useMemo(() => {
+    const start = month + "-01";
+    const arr: number[] = [];
+    let cursor = start;
+    for (let i = 0; i < 40; i++) {
+      if (monthKeyOf(cursor) !== month) break;
+      arr.push(db.pcUsageLogs.filter((p) => p.date === cursor).reduce((s, p) => s + p.minutes, 0));
+      cursor = addDaysKey(cursor, 1);
+    }
+    return arr;
+  }, [db.pcUsageLogs, month]);
+
+  // deltas vs ieri
+  const delta = useMemo(() => {
+    const yestTotal = db.pcUsageLogs.filter((p) => p.date === yestKey).reduce((s, p) => s + p.minutes, 0);
+    const yestProd = db.pcUsageLogs.filter((p) => p.date === yestKey && PRODUCTIVE.includes(p.categoryId)).reduce((s, p) => s + p.minutes, 0);
+    return { total: totalTodayMin - yestTotal, prod: productiveToday - yestProd };
+  }, [db.pcUsageLogs, yestKey, totalTodayMin, productiveToday]);
+
+  const deltaTone = (v: number): "positive" | "negative" | "neutral" => (v > 0 ? "positive" : v < 0 ? "negative" : "neutral");
+  const deltaLabel = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${minutiToOre(Math.abs(v))} vs ieri`;
+
+  const weeklyGoal = db.weeklyGoals.find((g) => g.type === "pc_hours" && g.active);
+  const weekStart = weekStartKey(today, db.settings.weekStart);
+  const pcMinutesWeek = pcMinutesInWeek(db, weekStart, db.settings.weekStart);
+  const goalMin = weeklyGoal ? weeklyGoal.targetValue * 60 : 0;
+  const weekPct = goalMin > 0 ? Math.min(100, Math.round((pcMinutesWeek / goalMin) * 100)) : 0;
 
   const byCategoryMonth = useMemo(() => {
     const map = new Map<string, number>();
@@ -93,22 +197,11 @@ export default function UsoPcPage() {
   }, [logsDay]);
 
   const last7 = useMemo(() => {
-    const out: { x: string; y: number }[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const dk = addDaysKey(today, -i);
-      const total = db.pcUsageLogs.filter((p) => p.date === dk).reduce((s, p) => s + p.minutes, 0);
-      out.push({ x: dk.slice(8) + "/" + dk.slice(5, 7), y: Math.round(total / 60) });
-    }
-    return out;
-  }, [db.pcUsageLogs, today]);
-
-  const productiveToday = db.pcUsageLogs
-    .filter((p) => p.date === today && PRODUCTIVE.includes(p.categoryId))
-    .reduce((s, p) => s + p.minutes, 0);
-
-  const weeklyGoal = db.weeklyGoals.find((g) => g.type === "pc_hours" && g.active);
-  const weekStart = weekStartKey(today, db.settings.weekStart);
-  const pcMinutesWeek = pcMinutesInWeek(db, weekStart, db.settings.weekStart);
+    return last7TotalsMin.map((mins, i) => ({
+      x: addDaysKey(today, i - 6).slice(8) + "/" + addDaysKey(today, i - 6).slice(5, 7),
+      y: Math.round(mins / 60),
+    }));
+  }, [last7TotalsMin, today]);
 
   // --- modal inserimento ---
   const [open, setOpen] = useState(false);
@@ -155,11 +248,11 @@ export default function UsoPcPage() {
       const minutes = Number(minutesRaw);
       let err: string | undefined;
       if (parts.length < 3 || !date || !category || !minutesRaw) {
-        err = "riga incompleta: servono data,categoria,minuti";
+        err = "annotazione incompleta: data,categoria,minuti";
       } else if (!isValidDayKey(date)) {
-        err = `data non valida: "${date}" (usa yyyy-MM-dd)`;
+        err = `data non valida: “${date}” (yyyy-MM-dd)`;
       } else if (isNaN(minutes) || minutes <= 0 || !Number.isInteger(minutes)) {
-        err = "minuti non validi: intero positivo atteso";
+        err = "minuti: intero positivo atteso";
       } else {
         out.push({ date, category, minutes, ok: true });
         return;
@@ -171,6 +264,7 @@ export default function UsoPcPage() {
 
   const validCount = csvPreview.filter((r) => r.ok).length;
   const errCount = csvPreview.length - validCount;
+  const validMin = csvPreview.filter((r) => r.ok).reduce((s, r) => s + r.minutes, 0);
 
   const importCsv = () => {
     const valid = csvPreview.filter((r) => r.ok);
@@ -218,157 +312,227 @@ export default function UsoPcPage() {
     setAppCat(m.category);
   };
 
+  // --- header content (azioni) ---
+  const actions: ReactNode = (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setMapOpen(true)}>
+        Mock app
+      </Button>
+      <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
+        Import CSV
+      </Button>
+      <Button size="sm" glow onClick={() => setOpen(true)}>
+        + Registra
+      </Button>
+    </>
+  );
+
   return (
     <div className="space-y-6">
-      <SectionHeader
-        title="Uso del PC"
-        subtitle="Inserimento manuale o import CSV (MVP). Il connettore ActivityWatch automatico è previsto in V2."
-        action={
-          <>
-            <Button variant="outline" size="sm" onClick={() => setMapOpen(true)}>
-              Mapping app
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
-              Import CSV
-            </Button>
-            <Button size="sm" onClick={() => setOpen(true)}>
-              + Registra
-            </Button>
-          </>
-        }
-      />
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Ore produttive oggi</span>
-          <span className="text-2xl font-semibold tnum">{minutiToOre(productiveToday)}</span>
-          <span className="text-xs text-muted-foreground">Lavoro · Sviluppo · Studio</span>
-        </Card>
-        <Card className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Ore totali oggi</span>
-          <span className="text-2xl font-semibold tnum">{minutiToOre(logsDay.reduce((s, p) => s + p.minutes, 0))}</span>
-          <span className="text-xs text-muted-foreground">{logsDay.length} log</span>
-        </Card>
-        <Card className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Ore del mese</span>
-          <span className="text-2xl font-semibold tnum">
-            {minutiToOre(logsMonth.reduce((s, p) => s + p.minutes, 0))}
-          </span>
-          <span className="text-xs text-muted-foreground">{month}</span>
-        </Card>
-        <Card className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Obiettivo settimanale</span>
-          {weeklyGoal ? (
-            <>
-              <span className="text-2xl font-semibold tnum">
-                {minutiToOre(pcMinutesWeek)} <span className="text-sm text-muted-foreground">/ {minutiToOre(weeklyGoal.targetValue * 60)}</span>
-              </span>
-              <ProgressBar value={pcMinutesWeek} max={weeklyGoal.targetValue * 60} />
-            </>
-          ) : (
-            <>
-              <span className="text-2xl font-semibold tnum">—</span>
-              <span className="text-xs text-muted-foreground">Nessun WeeklyGoal pc_hours attivo</span>
-            </>
-          )}
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>Viste</CardTitle>
-            <CardSubtitle>Giorno, composizione mensile per categoria, trend 7 giorni</CardSubtitle>
-          </div>
-        </CardHeader>
-        <Tabs
-          tabs={[
-            { id: "giorno", label: "Giorno" },
-            { id: "mese", label: "Mese" },
-            { id: "trend", label: "Trend 7gg" },
-          ]}
-          value={tab}
-          onChange={setTab}
+      <Reveal>
+        <SectionHeader
+          kicker="Uso del PC"
+          title="Dove vanno le tue ore."
+          subtitle="Ore produttive, distrazioni e trend degli ultimi 7 giorni — tutto il tuo tempo in un colpo d'occhio."
+          action={actions}
         />
-        <div className="mt-4">
-          {tab === "giorno" && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Input type="date" value={day} onChange={(e) => setDay(e.target.value)} className="w-auto" />
-                {day !== today && (
-                  <Button variant="ghost" size="sm" onClick={() => setDay(today)}>
-                    Oggi
-                  </Button>
-                )}
-              </div>
-              {logsDay.length === 0 ? (
-                <EmptyState icon="💻" title="Nessun log per questo giorno" />
-              ) : (
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <BarsChart
-                    data={byCategoryDay.map((c) => ({ x: c.label, y: c.value }))}
-                    color="#4C7EFF"
-                    height={160}
-                  />
-                  <div className="space-y-1.5">
-                    {byCategoryDay.map((c) => (
-                      <div key={c.label} className="flex items-center justify-between text-sm">
-                        <span className="text-secondary-text">{c.label}</span>
-                        <span className="tnum">{minutiToOre(c.value)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+      </Reveal>
+
+      {/* KPI */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Reveal delay={0}>
+          <StatCard
+            label="Ore produttive oggi"
+            value={minutiToOre(productiveToday)}
+            icon={<Icon d={I.monitor} className="text-accent" />}
+            delta={deltaLabel(delta.prod)}
+            deltaTone={deltaTone(delta.prod)}
+            spark={last7ProdMin}
+            sparkColor="#4C7EFF"
+            className="h-full"
+          />
+        </Reveal>
+        <Reveal delay={60}>
+          <StatCard
+            label="Ore oggi"
+            value={minutiToOre(totalTodayMin)}
+            icon={<Icon d={I.clock} className="text-accent-3" />}
+            delta={`${logsDay.length} ${logsDay.length === 1 ? "log" : "log"}`}
+            deltaTone="neutral"
+            spark={last7TotalsMin}
+            sparkColor="#2FD4FF"
+            className="h-full"
+          />
+        </Reveal>
+        <Reveal delay={120}>
+          <StatCard
+            label="Ore del mese"
+            value={minutiToOre(monthTotalMin)}
+            icon={<Icon d={I.calendar} className="text-accent-2" />}
+            delta={month}
+            deltaTone="neutral"
+            spark={monthDailyMin}
+            sparkColor="#8A6BFF"
+            className="h-full"
+          />
+        </Reveal>
+        <Reveal delay={180}>
+          {/* Obiettivo settimana — StatCard-like con ProgressBar + spark */}
+          <Card hairline="accent" className="flex h-full flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Obiettivo settimana
+              </span>
+              <Icon d={I.target} className="text-accent" />
+            </div>
+            <div className="text-[26px] font-semibold leading-none tracking-tight tnum">
+              {minutiToOre(pcMinutesWeek)}
+              {goalMin > 0 && (
+                <span className="ml-1 text-sm font-medium text-muted-foreground">/ {minutiToOre(goalMin)}</span>
               )}
             </div>
-          )}
-          {tab === "mese" && (
-            byCategoryMonth.length === 0 ? (
-              <EmptyState icon="📊" title="Nessun dato questo mese" />
-            ) : (
-              <DonutChart
-                data={byCategoryMonth}
-                centerLabel="Totale"
-                centerValue={minutiToOre(byCategoryMonth.reduce((s, c) => s + c.value, 0))}
-              />
-            )
-          )}
-          {tab === "trend" && (
-            <BarsChart data={last7} color="#4C7EFF" height={180} />
-          )}
-        </div>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>Log del giorno selezionato</CardTitle>
-            <CardSubtitle>Elimina i log errati</CardSubtitle>
-          </div>
-        </CardHeader>
-        {logsDay.length === 0 ? (
-          <EmptyState icon="🕐" title="Nessun log" action={<Button size="sm" onClick={() => setOpen(true)}>+ Registra</Button>} />
-        ) : (
-          <div className="space-y-1.5">
-            {logsDay.map((p) => (
-              <div key={p.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <Badge>{p.categoryId}</Badge>
-                  <span className="text-xs text-muted-foreground">{p.source}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold tnum">{minutiToOre(p.minutes)}</span>
-                  <button onClick={() => delLog(p.id)} className="text-muted-foreground hover:text-danger" aria-label="Elimina">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                    </svg>
-                  </button>
-                </div>
+            <div className="flex items-end justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                {goalMin > 0 ? (
+                  <>
+                    <ProgressBar value={pcMinutesWeek} max={goalMin} className="h-1.5" />
+                    <span className="mt-1 block text-[10px] tnum text-muted-foreground">{weekPct}% della meta</span>
+                  </>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground">Configura il goal in Obiettivi</span>
+                )}
               </div>
-            ))}
+              <TinySpark data={last7TotalsMin} />
+            </div>
+          </Card>
+        </Reveal>
+      </div>
+
+      {/* Viste: giorno / mese / trend */}
+      <Reveal delay={40}>
+        <Card hairline="accent" texture>
+          <CardHeader>
+            <div>
+              <CardTitle>Viste</CardTitle>
+              <CardSubtitle>Giorno, composizione mensile per categoria, trend 7 giorni</CardSubtitle>
+            </div>
+            <Badge tone="info">
+              {tab === "giorno" ? "Giorno" : tab === "mese" ? "Mese" : "Trend"}
+            </Badge>
+          </CardHeader>
+          <Tabs
+            tabs={[
+              { id: "giorno", label: "Giorno" },
+              { id: "mese", label: "Mese" },
+              { id: "trend", label: "Trend 7gg" },
+            ]}
+            value={tab}
+            onChange={setTab}
+          />
+          <div key={tab} className="animate-pop mt-4">
+            {tab === "giorno" && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input type="date" value={day} onChange={(e) => setDay(e.target.value)} className="w-auto" />
+                  {day !== today && (
+                    <Button variant="ghost" size="sm" onClick={() => setDay(today)}>
+                      Oggi
+                    </Button>
+                  )}
+                  <span className="ml-auto text-[11px] text-muted-foreground">{labelDayKey(day, locale)}</span>
+                </div>
+                {logsDay.length === 0 ? (
+                  <EmptyState icon="💻" title="Nessun log per questo giorno" />
+                ) : (
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <BarsChart
+                      data={byCategoryDay.map((c) => ({ x: c.label, y: c.value }))}
+                      color="#4C7EFF"
+                      height={160}
+                    />
+                    <div className="space-y-1.5">
+                      {byCategoryDay.map((c) => {
+                        const color = CATEGORY_COLORS[c.label] ?? "#64748b";
+                        const pctDay = totalTodayMin > 0 ? Math.round((c.value / totalTodayMin) * 100) : 0;
+                        return (
+                          <div key={c.label} className="flex items-center justify-between rounded-lg border border-border bg-elevated/40 px-3 py-2 text-sm">
+                            <span className="flex items-center gap-2 text-secondary-text">
+                              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                              {c.label}
+                            </span>
+                            <span className="flex items-center gap-2">
+                              <span className="tnum font-medium">{minutiToOre(c.value)}</span>
+                              <span className="tnum w-9 text-right text-[10px] text-muted-foreground">{pctDay}%</span>
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {tab === "mese" &&
+              (byCategoryMonth.length === 0 ? (
+                <EmptyState icon="📊" title="Nessun dato questo mese" />
+              ) : (
+                <DonutChart
+                  data={byCategoryMonth}
+                  centerLabel="Totale"
+                  centerValue={minutiToOre(byCategoryMonth.reduce((s, c) => s + c.value, 0))}
+                />
+              ))}
+            {tab === "trend" && (
+              <div className="space-y-2">
+                <BarsChart data={last7} color="#4C7EFF" height={180} />
+                <p className="text-right text-[11px] text-muted-foreground">ore al giorno · ultimi 7 giorni</p>
+              </div>
+            )}
           </div>
-        )}
-      </Card>
+        </Card>
+      </Reveal>
+
+      {/* Log del giorno */}
+      <Reveal delay={20}>
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Log del giorno selezionato</CardTitle>
+              <CardSubtitle>Elimina i log errati</CardSubtitle>
+            </div>
+            <Badge tone="default">
+              <span className="tnum">{minutiToOre(totalTodayMin)}</span>
+            </Badge>
+          </CardHeader>
+          {logsDay.length === 0 ? (
+            <EmptyState icon="🕐" title="Nessun log" action={<Button size="sm" onClick={() => setOpen(true)}>+ Registra</Button>} />
+          ) : (
+            <div className="space-y-1.5">
+              {logsDay.map((p) => (
+                <div
+                  key={p.id}
+                  className="group flex items-center justify-between rounded-lg border border-border bg-elevated/40 px-3 py-2 transition-colors hover:border-border-strong"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[p.categoryId] ?? "#64748b" }} />
+                    <Badge>{p.categoryId}</Badge>
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{p.source}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold tnum">{minutiToOre(p.minutes)}</span>
+                    <span className="hidden text-[10px] tnum text-muted-foreground group-hover:inline">{p.minutes} min</span>
+                    <button onClick={() => delLog(p.id)} className="text-muted-foreground transition-colors hover:text-danger" aria-label="Elimina">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </Reveal>
 
       {/* Modal inserimento */}
       <Modal open={open} onClose={() => setOpen(false)} title="Registra uso del PC"
@@ -396,35 +560,82 @@ export default function UsoPcPage() {
         </div>
       </Modal>
 
-      {/* Modal CSV */}
+      {/* Modal CSV — anteprima curata */}
       <Modal open={csvOpen} onClose={() => setCsvOpen(false)} title="Import CSV uso PC" width="max-w-xl"
-        footer={<>
-          <Button variant="ghost" onClick={() => setCsvOpen(false)}>Annulla</Button>
-          <Button onClick={parseCsv} variant="outline">Anteprima</Button>
-          <Button onClick={importCsv} disabled={validCount === 0}>
-            Importa {validCount || 0} log
-          </Button>
-        </>}>
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setCsvOpen(false)}>Annulla</Button>
+            <Button onClick={parseCsv} variant="outline">Anteprima</Button>
+            <Button onClick={importCsv} disabled={validCount === 0}>
+              Importa {validCount || 0} log
+            </Button>
+          </>
+        }>
         <p className="mb-2 text-xs text-muted-foreground">
-          Una riga per log: <code className="text-accent">data,categoria,minuti</code> (es. <code className="text-accent">2026-08-20,Lavoro,240</code>). Separatore , ; o tab.
+          Una riga per log: <code className="rounded bg-muted px-1 py-0.5 text-accent">data,categoria,minuti</code>{" "}
+          (es. <code className="rounded bg-muted px-1 py-0.5 text-accent">2026-08-20,Lavoro,240</code>). Separatore , ; o tab.
         </p>
-        <TextArea value={csvText} onChange={(e) => setCsvText(e.target.value)} placeholder={"2026-08-20,Lavoro,240\n2026-08-20,Gaming,90"} />
+        <TextArea
+          value={csvText}
+          onChange={(e) => setCsvText(e.target.value)}
+          placeholder={"2026-08-20,Lavoro,240\n2026-08-20,Gaming,90"}
+          className="font-mono text-xs"
+        />
         {csvPreview.length > 0 && (
-          <div className="mt-3 max-h-48 space-y-1 overflow-y-auto rounded-lg border border-border p-2">
-            <p className="mb-1 flex items-center gap-2 text-xs">
-              <span className="text-success">{validCount} valide</span>
-              <span>·</span>
-              <span className={errCount > 0 ? "text-danger" : "text-muted-foreground"}>{errCount} con errore</span>
-            </p>
-            {csvPreview.map((r, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs">
-                <span className={r.ok ? "text-success" : "text-danger"}>{r.ok ? "✓" : "✗"}</span>
-                <span className="tnum">{r.date || "—"}</span>
-                <span>{r.category || "—"}</span>
-                <span className="tnum text-muted-foreground">{r.ok ? `${r.minutes}min` : "—"}</span>
-                {r.err && <span className="text-danger">{r.err}</span>}
+          <div className="mt-3 overflow-hidden rounded-xl border border-border bg-card">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-elevated/50 px-3 py-2">
+              <div className="flex items-center gap-2 text-xs">
+                <Badge tone="success">
+                  <span className="tnum">{validCount}</span> valide
+                </Badge>
+                <Badge tone={errCount > 0 ? "danger" : "default"}>
+                  <span className="tnum">{errCount}</span> con errore
+                </Badge>
+                {validMin > 0 && (
+                  <span className="text-muted-foreground">
+                    totale <span className="tnum text-secondary-text">{minutiToOre(validMin)}</span>
+                  </span>
+                )}
               </div>
-            ))}
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">anteprima</span>
+            </div>
+            {/* intestazione colonne */}
+            <div className="grid grid-cols-[88px_1fr_64px_1.4fr] gap-2 border-b border-border/60 px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              <span>Data</span>
+              <span>Categoria</span>
+              <span className="text-right">Minuti</span>
+              <span className="text-right">Esito</span>
+            </div>
+            <div className="max-h-48 overflow-y-auto">
+              {csvPreview.map((r, i) => (
+                <div
+                  key={i}
+                  className={`grid grid-cols-[88px_1fr_64px_1.4fr] items-center gap-2 border-b border-border/40 px-3 py-1.5 text-xs transition-colors ${
+                    r.ok ? "bg-success/[0.05]" : "bg-danger/[0.05]"
+                  }`}
+                >
+                  <span className="tnum text-secondary-text">{r.date || "—"}</span>
+                  <span className="flex items-center gap-1.5 truncate">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[r.category] ?? "#64748b" }} />
+                    <span className="truncate">{r.category || "—"}</span>
+                  </span>
+                  <span className="tnum text-right text-secondary-text">{r.ok ? `${r.minutes}` : "—"}</span>
+                  <span className="flex items-center justify-end gap-1.5 text-right">
+                    {r.ok ? (
+                      <span className="flex items-center gap-1 text-success">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 13l4 4L19 7" /></svg>
+                        ok
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-danger">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                        <span className="truncate" title={r.err}>{r.err}</span>
+                      </span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </Modal>
@@ -458,14 +669,14 @@ export default function UsoPcPage() {
               <span className="font-medium">{m.appName}</span>
               <span className="flex items-center gap-2">
                 <Badge>{m.category}</Badge>
-                <button onClick={() => startEditMap(m)} className="text-muted-foreground hover:text-accent" aria-label="Modifica">
+                <button onClick={() => startEditMap(m)} className="text-muted-foreground transition-colors hover:text-accent" aria-label="Modifica">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
                   </svg>
                 </button>
                 <button
                   onClick={() => updateDB((d) => ({ ...d, pcAppCategoryMap: removeById(d.pcAppCategoryMap, m.id) }))}
-                  className="text-muted-foreground hover:text-danger"
+                  className="text-muted-foreground transition-colors hover:text-danger"
                   aria-label="Elimina"
                 >✕</button>
               </span>

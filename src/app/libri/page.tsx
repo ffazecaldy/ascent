@@ -1,11 +1,9 @@
 "use client";
 // ============================================================
-// ASCEND — Libri (spec 4.5 + batch import)
-// CRUD libro · progress pagine · quick "+X pagine oggi" ·
-// import batch "una riga per libro" · filtri per stato ·
-// libro in corso in evidenza · empty state
-// Nota: ogni variazione di pagesRead aggiorna updatedAt=nowISO()
-// (usato dal motore per streak di lettura e minuti di lettura).
+// ASCEND — Libri (spec 4.5 + batch import) · art-direct v2
+// Stile myfundedbook: cover-gradient con lettera iniziale,
+// libro in corso in evidenza, ProgressBar sottile, quick
+// "+X pagine" con glow, hairline accent per "in corso".
 // ============================================================
 
 import { useMemo, useState } from "react";
@@ -16,11 +14,12 @@ import { cn } from "@/lib/cn";
 import type { Book, BookStatus } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Badge, StatusDot } from "@/components/ui/Badge";
+import { Badge } from "@/components/ui/Badge";
 import { Modal, ConfirmDialog } from "@/components/ui/Modal";
 import { Input, TextArea, Select, Field } from "@/components/ui/Field";
 import { Tabs, ProgressBar, EmptyState, SectionHeader } from "@/components/ui/Misc";
 import { StatCard } from "@/components/ui/StatCard";
+import { Reveal } from "@/components/ui/Reveal";
 
 // ------------------------------------------------------------
 // Metadati stato
@@ -95,7 +94,6 @@ function buildBook(form: BookForm, tz: string, existing?: Book): Book {
   let startDate = form.startDate || null;
   let endDate = form.endDate || null;
 
-  // 100% → finito con endDate oggi (vale sia in creazione che in modifica)
   if (totalPages > 0 && pagesRead >= totalPages) {
     status = "finito";
     if (!startDate) startDate = today;
@@ -106,8 +104,6 @@ function buildBook(form: BookForm, tz: string, existing?: Book): Book {
     if (!startDate) startDate = today;
   }
 
-  // updatedAt → solo se cambia il progresso pagine (non la metadati),
-  // così lo streak di lettura non viene inquinato da rename/rating.
   const pagesChanged = !existing || existing.pagesRead !== pagesRead;
 
   return {
@@ -154,6 +150,25 @@ function parseImportLines(text: string): ParsedImport[] {
 }
 
 // ------------------------------------------------------------
+// Cover gradient — colore stabile per titolo (lettera iniziale)
+// ------------------------------------------------------------
+const COVER_PAIRS: [string, string][] = [
+  ["#4C7EFF", "#8A6BFF"],
+  ["#8A6BFF", "#2FD4FF"],
+  ["#2FD4FF", "#4C7EFF"],
+  ["#f97316", "#ec4899"],
+  ["#06b6d4", "#4C7EFF"],
+  ["#10b981", "#06b6d4"],
+];
+function coverGradient(title: string): { background: string } {
+  let h = 0;
+  for (const c of title) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const [a, b] = COVER_PAIRS[h % COVER_PAIRS.length];
+  return { background: `linear-gradient(135deg, ${a}, ${b})` };
+}
+const titleInitial = (title: string): string => (title.trim() ? title.trim()[0].toUpperCase() : "?");
+
+// ------------------------------------------------------------
 // Piccole icone SVG (nessuna dipendenza)
 // ------------------------------------------------------------
 function Icon({ d, size = 14, className }: { d: string; size?: number; className?: string }) {
@@ -180,6 +195,7 @@ const I = {
   trash: "M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2",
   upload: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12",
   chevron: "m6 9 6 6 6-6",
+  book: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z",
 } as const;
 
 function Star({ filled, size = 15, onClick }: { filled: boolean; size?: number; onClick?: () => void }) {
@@ -188,7 +204,10 @@ function Star({ filled, size = 15, onClick }: { filled: boolean; size?: number; 
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      className={cn("transition-colors", filled ? "text-accent" : "text-border-strong")}
+      className={cn(
+        "transition-colors",
+        filled ? "text-accent drop-shadow-[0_0_5px_rgba(76,126,255,0.5)]" : "text-border-strong"
+      )}
       fill={filled ? "currentColor" : "none"}
       stroke="currentColor"
       strokeWidth="1.8"
@@ -210,7 +229,7 @@ function Star({ filled, size = 15, onClick }: { filled: boolean; size?: number; 
   );
 }
 
-/** Riga "+X pagine oggi" — input numero che aggiunge a pagesRead. */
+/** Riga "+X pagine oggi" — con glow sul CTA. */
 function CommitPages({
   book,
   onCommit,
@@ -229,7 +248,7 @@ function CommitPages({
     setVal("");
   };
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <Input
         type="number"
         min={1}
@@ -238,12 +257,47 @@ function CommitPages({
         onKeyDown={(e) => e.key === "Enter" && submit()}
         placeholder="X"
         aria-label="Pagine lette oggi"
-        className={cn("tnum text-right", compact ? "h-8 w-16 text-sm" : "h-9 w-20 text-sm")}
+        className={cn("tnum text-right", compact ? "h-7 w-14 text-sm" : "h-9 w-20 text-sm")}
       />
-      <Button size={compact ? "sm" : "md"} disabled={!ok} onClick={submit}>
+      <Button size={compact ? "sm" : "md"} disabled={!ok} onClick={submit} glow>
         <Icon d={I.plus} size={12} />
         {ok ? n : "X"} pagine oggi
       </Button>
+    </div>
+  );
+}
+
+/** Copertina stilizzata con gradiente e lettera iniziale. */
+function Cover({
+  title,
+  size = "sm",
+  className,
+}: {
+  title: string;
+  size?: "sm" | "lg";
+  className?: string;
+}) {
+  const grad = coverGradient(title);
+  const dims = size === "lg" ? "h-28 w-[4.5rem] rounded-lg" : "h-14 w-10 rounded-md";
+  return (
+    <div
+      className={cn("relative shrink-0 select-none overflow-hidden shadow-[0_6px_18px_-6px_rgba(0,0,0,0.7)]", dims, className)}
+      style={grad}
+    >
+      {/* dorso */}
+      <span className="absolute inset-y-0 left-[3px] w-px bg-white/25" />
+      <span className="absolute inset-y-0 left-[6px] w-px bg-black/20" />
+      <span className="absolute inset-0 flex items-center justify-center">
+        <span
+          className={cn(
+            "font-bold text-white/95",
+            size === "lg" ? "text-4xl" : "text-xl"
+          )}
+          style={{ textShadow: "0 2px 8px rgba(0,0,0,0.35)" }}
+        >
+          {titleInitial(title)}
+        </span>
+      </span>
     </div>
   );
 }
@@ -268,50 +322,56 @@ function BookCard({
   const pct = total > 0 ? Math.round((book.pagesRead / total) * 100) : 0;
   const done = total > 0 && book.pagesRead >= total;
   const rating = book.rating ?? 0;
+  const current = book.status === "in_corso" && !done;
 
   return (
-    <Card className="flex flex-col gap-2.5">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h4 className="truncate text-sm font-semibold text-foreground">{book.title}</h4>
-            {done ? (
-              <Badge tone="warning">✓ {STATUS_LABEL.finito}</Badge>
-            ) : (
-              <Badge tone={STATUS_BADGE[book.status]}>{STATUS_LABEL[book.status]}</Badge>
-            )}
+    <Card hairline={current ? "accent" : "none"} className="flex h-full flex-col gap-2.5">
+      <div className="flex gap-3">
+        <Cover title={book.title} size="sm" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="truncate text-sm font-semibold text-foreground">{book.title}</h4>
+                {done ? (
+                  <Badge tone="warning">✓ {STATUS_LABEL.finito}</Badge>
+                ) : (
+                  <Badge tone={STATUS_BADGE[book.status]}>{STATUS_LABEL[book.status]}</Badge>
+                )}
+              </div>
+              {book.author && <p className="mt-0.5 truncate text-xs text-muted-foreground">{book.author}</p>}
+            </div>
+            <div className="flex shrink-0 items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => onEdit(book)}
+                aria-label="Modifica"
+                title="Modifica"
+                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-elevated hover:text-foreground"
+              >
+                <Icon d={I.edit} size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete(book)}
+                aria-label="Elimina"
+                title="Elimina"
+                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger"
+              >
+                <Icon d={I.trash} size={14} />
+              </button>
+            </div>
           </div>
-          {book.author && <p className="mt-0.5 truncate text-xs text-muted-foreground">{book.author}</p>}
-        </div>
-        <div className="flex shrink-0 items-center gap-0.5">
-          <button
-            type="button"
-            onClick={() => onEdit(book)}
-            aria-label="Modifica"
-            title="Modifica"
-            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-elevated hover:text-foreground"
-          >
-            <Icon d={I.edit} size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={() => onDelete(book)}
-            aria-label="Elimina"
-            title="Elimina"
-            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger"
-          >
-            <Icon d={I.trash} size={14} />
-          </button>
-        </div>
-      </div>
 
-      <div className="flex items-center gap-1.5">
-        <div className="flex items-center gap-0.5">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Star key={i} filled={i <= rating} size={15} onClick={() => onRating(book, rating === i ? 0 : i)} />
-          ))}
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <div className="flex items-center gap-0.5">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Star key={i} filled={i <= rating} size={14} onClick={() => onRating(book, rating === i ? 0 : i)} />
+              ))}
+            </div>
+            <span className="tnum text-[10px] text-muted-foreground">{rating > 0 ? `${rating}/5` : "da valutare"}</span>
+          </div>
         </div>
-        <span className="tnum text-[11px] text-muted-foreground">{rating > 0 ? `${rating}/5` : "da valutare"}</span>
       </div>
 
       {(total > 0 || book.pagesRead > 0) && (
@@ -322,7 +382,7 @@ function BookCard({
               {book.pagesRead} / {total || "—"} pagine · {pct}%
             </span>
           </div>
-          <ProgressBar value={book.pagesRead} max={total || 1} />
+          <ProgressBar value={book.pagesRead} max={total || 1} className="h-1.5" />
         </div>
       )}
 
@@ -336,7 +396,7 @@ function BookCard({
       )}
 
       {(book.notes || book.quotes) && (
-        <div className="space-y-1.5 border-t border-border pt-2.5">
+        <div className="mt-auto space-y-1.5 border-t border-border pt-2.5">
           {book.quotes && <p className="line-clamp-2 text-xs italic text-secondary-text">&ldquo;{book.quotes}&rdquo;</p>}
           {book.notes && <p className="line-clamp-2 text-xs text-muted-foreground">{book.notes}</p>}
         </div>
@@ -410,11 +470,10 @@ export default function LibriPage() {
         return {
           ...b,
           pagesRead: next,
-          // 100% → finito con endDate oggi; con le prime pagine parte il libro
           status: finished ? "finito" : b.status === "da_leggere" ? "in_corso" : b.status,
           startDate: !finished && b.status === "da_leggere" && !b.startDate ? today : b.startDate,
           endDate: finished ? today : b.endDate,
-          updatedAt: nowISO(), // attività di lettura di oggi (streak / minuti)
+          updatedAt: nowISO(),
         };
       }),
     }));
@@ -473,49 +532,68 @@ export default function LibriPage() {
     setImportOpen(false);
   };
 
-  // ---- featured current book ----
   const currentPct = current && current.totalPages > 0 ? Math.round((current.pagesRead / current.totalPages) * 100) : 0;
+  const remaining =
+    current && current.totalPages > 0 ? Math.max(0, current.totalPages - current.pagesRead) : 0;
 
   return (
     <div className="space-y-6">
-      <SectionHeader
-        title="Libri"
-        subtitle={`${books.length} ${books.length === 1 ? "libro" : "libri"} · ${counts.in_corso} in corso · ${counts.finito} ${counts.finito === 1 ? "finito" : "finiti"}`}
-        action={
-          <>
-            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-              <Icon d={I.upload} size={13} />
-              Importa
-            </Button>
-            <Button size="sm" onClick={openNew}>
-              <Icon d={I.plus} size={13} />
-              Nuovo libro
-            </Button>
-          </>
-        }
-      />
+      <Reveal>
+        <SectionHeader
+          kicker="Libreria"
+          title="Leggi di più, ogni giorno."
+          subtitle={`${books.length} ${books.length === 1 ? "libro" : "libri"} · ${counts.in_corso} in corso · ${counts.finito} ${counts.finito === 1 ? "finito" : "finiti"}`}
+          action={
+            <>
+              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+                <Icon d={I.upload} size={13} />
+                Importa
+              </Button>
+              <Button size="sm" onClick={openNew}>
+                <Icon d={I.plus} size={13} />
+                Nuovo libro
+              </Button>
+            </>
+          }
+        />
+      </Reveal>
 
       {books.length > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="In libreria" value={books.length} icon="📚" />
-          <StatCard label="In corso" value={counts.in_corso} icon="📖" />
-          <StatCard label="Completati" value={counts.finito} icon="🏁" />
-          <StatCard label="Pagine lette" value={totalPagesRead} icon="📄" />
+          <Reveal delay={0}>
+            <StatCard label="In libreria" value={books.length} icon={<Icon d={I.book} className="text-accent" />} className="h-full" />
+          </Reveal>
+          <Reveal delay={60}>
+            <StatCard label="In corso" value={counts.in_corso} icon={<Icon d={I.plus} className="text-accent" />} className="h-full" />
+          </Reveal>
+          <Reveal delay={120}>
+            <StatCard label="Completati" value={counts.finito} icon={<Icon d={I.book} className="text-accent" />} className="h-full" />
+          </Reveal>
+          <Reveal delay={180}>
+            <StatCard label="Pagine lette" value={totalPagesRead} icon={<Icon d={I.book} className="text-accent" />} className="h-full" />
+          </Reveal>
         </div>
       )}
 
+      {/* Libro in corso — evidenza con cover */}
       {current && (
-        <Card className="flex flex-col gap-3 border-accent/30 bg-accent/5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <StatusDot color="var(--accent)" />
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">In corso adesso</span>
-            </div>
-            <Badge tone="info">{STATUS_LABEL.in_corso}</Badge>
-          </div>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <h2 className="truncate text-xl font-semibold tracking-tight">{current.title}</h2>
+        <Reveal delay={40}>
+          <Card hairline="accent" texture className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
+            <Cover title={current.title} size="lg" />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone="info" pulse>● In corso adesso</Badge>
+                <span className="text-[11px] text-muted-foreground">
+                  {remaining > 0 ? (
+                    <>
+                      ancora <span className="tnum text-secondary-text">{remaining}</span> pagine
+                    </>
+                  ) : (
+                    "ultimo miglio 🏁"
+                  )}
+                </span>
+              </div>
+              <h2 className="mt-1.5 truncate text-xl font-semibold tracking-tight">{current.title}</h2>
               {current.author && <p className="mt-0.5 text-sm text-muted-foreground">{current.author}</p>}
               <div className="mt-2 flex items-center gap-1.5">
                 {[1, 2, 3, 4, 5].map((i) => (
@@ -530,62 +608,69 @@ export default function LibriPage() {
                   {(current.rating ?? 0) > 0 ? `${current.rating}/5` : "da valutare"}
                 </span>
               </div>
-            </div>
-            <div className="w-full sm:w-72">
-              <div className="mb-1 flex items-baseline justify-between text-xs">
-                <span className="text-muted-foreground">Pagine</span>
-                <span className="tnum font-medium text-foreground">
-                  {current.pagesRead} / {current.totalPages || "—"} · {currentPct}%
-                </span>
-              </div>
-              <ProgressBar value={current.pagesRead} max={current.totalPages || 1} className="h-2.5" />
-              <div className="mt-3">
-                <CommitPages book={current} onCommit={addPages} />
+              <div className="mt-3 max-w-md">
+                <div className="mb-1 flex items-baseline justify-between text-xs">
+                  <span className="text-muted-foreground">Progresso</span>
+                  <span className="tnum font-medium text-foreground">
+                    {current.pagesRead} / {current.totalPages || "—"} · {currentPct}%
+                  </span>
+                </div>
+                <ProgressBar value={current.pagesRead} max={current.totalPages || 1} className="h-1.5" />
               </div>
             </div>
-          </div>
-        </Card>
+            <div className="w-full sm:w-auto sm:shrink-0">
+              <CommitPages book={current} onCommit={addPages} />
+            </div>
+          </Card>
+        </Reveal>
       )}
 
       {books.length > 0 && (
-        <Tabs tabs={TABS.map((t) => ({ ...t, count: counts[t.id] }))} value={tab} onChange={(id) => setTab(id as TabId)} />
+        <Reveal delay={20}>
+          <Tabs tabs={TABS.map((t) => ({ ...t, count: counts[t.id] }))} value={tab} onChange={(id) => setTab(id as TabId)} />
+        </Reveal>
       )}
 
       {books.length === 0 ? (
-        <EmptyState
-          icon="📚"
-          title="Libreria vuota"
-          description="Aggiungi il tuo primo libro oppure importa tutta la lista in un colpo: una riga per libro."
-          action={
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button size="sm" onClick={openNew}>
-                <Icon d={I.plus} size={13} />
-                Aggiungi libro
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
-                <Icon d={I.upload} size={13} />
-                Importa da testo
-              </Button>
-            </div>
-          }
-        />
+        <Reveal delay={30}>
+          <EmptyState
+            icon="📚"
+            title="Libreria vuota"
+            description="Aggiungi il tuo primo libro oppure importa tutta la lista in un colpo: una riga per libro."
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button size="sm" onClick={openNew}>
+                  <Icon d={I.plus} size={13} />
+                  Aggiungi libro
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
+                  <Icon d={I.upload} size={13} />
+                  Importa da testo
+                </Button>
+              </div>
+            }
+          />
+        </Reveal>
       ) : shown.length === 0 ? (
-        <EmptyState
-          icon="🗂"
-          title={`Nessun libro ${tab === "tutti" ? "" : `«${STATUS_LABEL[tab as BookStatus].toLowerCase()}»`}`}
-          description="Cambia filtro oppure aggiungi un nuovo libro."
-        />
+        <Reveal delay={30}>
+          <EmptyState
+            icon="🗂"
+            title={`Nessun libro ${tab === "tutti" ? "" : `«${STATUS_LABEL[tab as BookStatus].toLowerCase()}»`}`}
+            description="Cambia filtro oppure aggiungi un nuovo libro."
+          />
+        </Reveal>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {shown.map((b) => (
-            <BookCard
-              key={b.id}
-              book={b}
-              onEdit={openEdit}
-              onDelete={setToDelete}
-              onAddPages={addPages}
-              onRating={setRating}
-            />
+          {shown.map((b, i) => (
+            <Reveal key={b.id} delay={Math.min(i, 5) * 50}>
+              <BookCard
+                book={b}
+                onEdit={openEdit}
+                onDelete={setToDelete}
+                onAddPages={addPages}
+                onRating={setRating}
+              />
+            </Reveal>
           ))}
         </div>
       )}
@@ -708,7 +793,7 @@ export default function LibriPage() {
         </div>
       </Modal>
 
-      {/* Modale import batch */}
+      {/* Modale import batch — anteprima curata */}
       <Modal
         open={importOpen}
         onClose={() => setImportOpen(false)}
@@ -741,26 +826,42 @@ export default function LibriPage() {
           className="min-h-32 font-mono text-xs"
         />
         {importPreview.length > 0 && (
-          <div className="mt-3">
-            <p className="mb-1.5 text-xs font-medium text-secondary-text">
-              Anteprima ({importPreview.length}) — {newImportCount} da importare
-            </p>
-            <ul className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-border bg-muted p-2">
+          <div className="mt-3 overflow-hidden rounded-xl border border-border">
+            <div className="flex items-center justify-between border-b border-border bg-elevated/50 px-3 py-2">
+              <p className="text-xs font-medium text-secondary-text">
+                Anteprima <span className="tnum">({importPreview.length})</span> —{" "}
+                <span className="tnum text-accent">{newImportCount}</span> da importare
+              </p>
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">una riga = un libro</span>
+            </div>
+            <ul className="max-h-48 space-y-1 overflow-y-auto p-2">
               {importPreview.map((r, i) => (
                 <li
                   key={i}
                   className={cn(
-                    "flex items-center justify-between gap-2 rounded-md px-2 py-1 text-xs",
-                    r.dup && "opacity-50"
+                    "flex items-center justify-between gap-2 rounded-lg border border-border/50 bg-elevated/30 px-2.5 py-1.5 text-xs transition-colors hover:border-border-strong",
+                    r.dup && "opacity-55"
                   )}
                 >
-                  <span className="min-w-0 truncate">
-                    <span className="font-medium text-foreground">{r.title}</span>
-                    {r.author && <span className="text-muted-foreground"> — {r.author}</span>}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span
+                      className="flex h-6 w-5 shrink-0 items-center justify-center rounded-[4px] text-[10px] font-bold text-white"
+                      style={coverGradient(r.title)}
+                    >
+                      {titleInitial(r.title)}
+                    </span>
+                    <span className="min-w-0 truncate">
+                      <span className="font-medium text-foreground">{r.title}</span>
+                      {r.author && <span className="text-muted-foreground"> — {r.author}</span>}
+                    </span>
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
                     {r.totalPages > 0 && <span className="tnum text-muted-foreground">{r.totalPages} p.</span>}
-                    {r.dup && <Badge>già in libreria</Badge>}
+                    {r.dup ? (
+                      <Badge>già in libreria</Badge>
+                    ) : (
+                      <Badge tone="info">nuovo</Badge>
+                    )}
                   </span>
                 </li>
               ))}
