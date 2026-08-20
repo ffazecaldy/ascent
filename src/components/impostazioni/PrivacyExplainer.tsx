@@ -11,6 +11,7 @@ import { maskMoney, maskKpi } from "@/lib/privacy";
 import { cn } from "@/lib/cn";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { Icon } from "@/components/ui/Icon";
 
 /** Mini-riga "prima → dopo mascherato". */
 function Row({ label, normal, masked }: { label: string; normal: string; masked: string }) {
@@ -48,7 +49,7 @@ function LevelCard({
   active,
   children,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   desc: string;
   active: boolean;
@@ -107,12 +108,14 @@ export function PrivacyExplainer() {
             toggle nella barra in alto.
           </CardSubtitle>
         </div>
-        <Badge>👁 {mode === "standard" ? "Standard" : "Completa"}</Badge>
+        <Badge>
+          <Icon name="eye" size={11} /> {mode === "standard" ? "Standard" : "Completa"}
+        </Badge>
       </CardHeader>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <LevelCard
-          icon="👁️"
+          icon={<Icon name="eye" size={18} />}
           title="Standard"
           desc="Nasconde le cifre monetarie: gli importi diventano •••. KPI e percentuali restano visibili."
           active={mode === "standard"}
@@ -122,7 +125,7 @@ export function PrivacyExplainer() {
             <Row label="Win rate" normal="63,4%" masked="63,4%" />
             <div className="pt-2">
               <p className="mb-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                <span className="mr-1">🗓</span>Calendario P&L
+                <Icon name="calendar" size={11} className="mr-1" />Calendario P&L
               </p>
               <CalendarPreview neutral={false} />
             </div>
@@ -130,7 +133,7 @@ export function PrivacyExplainer() {
         </LevelCard>
 
         <LevelCard
-          icon="🔒"
+          icon={<Icon name="lock" size={18} />}
           title="Completa"
           desc="Oltre alle cifre, maschera KPI e percentuali (••%) e neutralizza il calendario P&L: nessun dato economico leggibile."
           active={mode === "complete"}
@@ -140,7 +143,7 @@ export function PrivacyExplainer() {
             <Row label="Win rate" normal="63,4%" masked={maskKpi()} />
             <div className="pt-2">
               <p className="mb-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                <span className="mr-1">🗓</span>Calendario P&L
+                <Icon name="calendar" size={11} className="mr-1" />Calendario P&L
               </p>
               <CalendarPreview neutral />
             </div>

@@ -4,7 +4,7 @@
 // ASCEND — Home · Panoramica Obiettivi
 // Elenca TUTTI gli obiettivi attivi (daily + weekly):
 //  - nome + badge tipo (daily/weekly)
-//  - stato di oggi: daily → ✓ verde (met) / grigio (mancante);
+//  - stato di oggi: daily → check verde (met) / grigio (mancante);
 //    weekly → progress bar con valore/target (success se raggiunto)
 //  - badge scadenza se deadline (warning ≤3 gg, danger se scaduta)
 // Tutto derivato da useDB a ogni render → ogni nuovo obiettivo
@@ -30,7 +30,8 @@ import {
 import type { DB, WeeklyGoal, DailyGoal } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { ProgressBar, EmptyState } from "@/components/ui/Misc";
+import { ProgressBar } from "@/components/ui/Misc";
+import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
 
 // ------------------------------------------------------------
@@ -173,11 +174,15 @@ export function GoalsOverviewCard({ db }: { db: DB }) {
       </CardHeader>
 
       {total === 0 ? (
-        <EmptyState
-          icon="🎯"
-          title="Nessun obiettivo attivo"
-          description="Definisci i tuoi obiettivi nella sezione Obiettivi: appariranno qui subito, con lo stato di oggi."
-        />
+        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
+          <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
+            <Icon name="target" size={30} className="text-accent" />
+          </div>
+          <p className="text-sm font-medium text-secondary-text">Nessun obiettivo attivo</p>
+          <p className="max-w-xs text-xs text-muted-foreground">
+            Definisci i tuoi obiettivi nella sezione Obiettivi: appariranno qui subito, con lo stato di oggi.
+          </p>
+        </div>
       ) : (
         <ul className="space-y-2">
           {/* Daily goals — stato di oggi */}
@@ -194,13 +199,13 @@ export function GoalsOverviewCard({ db }: { db: DB }) {
                 <div className="flex items-center gap-2.5">
                   <span
                     className={cn(
-                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold transition-[background-color,box-shadow,color] duration-300",
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-[background-color,box-shadow,color] duration-300",
                       met
                         ? "bg-success text-[#0b0b0c] shadow-[0_0_12px_-2px_rgba(45,223,158,0.6)]"
                         : "border border-border-strong bg-elevated text-transparent"
                     )}
                   >
-                    ✓
+                    {met && <Icon name="check" size={13} strokeWidth={3} />}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-1.5 truncate text-sm font-medium">
@@ -214,7 +219,16 @@ export function GoalsOverviewCard({ db }: { db: DB }) {
                       met ? "text-success" : "text-muted-foreground"
                     )}
                   >
-                    {met ? "✓ fatto" : target > 0 ? `${value}/${target}` : "da fare"}
+                    {met ? (
+                      <span className="inline-flex items-center gap-1">
+                        <Icon name="check" size={11} />
+                        fatto
+                      </span>
+                    ) : target > 0 ? (
+                      `${value}/${target}`
+                    ) : (
+                      "da fare"
+                    )}
                   </span>
                 </div>
                 {g.deadline && (
@@ -239,13 +253,13 @@ export function GoalsOverviewCard({ db }: { db: DB }) {
                 <div className="flex items-center gap-2.5">
                   <span
                     className={cn(
-                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold transition-[background-color,box-shadow,color] duration-300",
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-[background-color,box-shadow,color] duration-300",
                       met
                         ? "bg-success text-[#0b0b0c] shadow-[0_0_12px_-2px_rgba(45,223,158,0.6)]"
                         : "border border-border-strong bg-elevated text-transparent"
                     )}
                   >
-                    ✓
+                    {met && <Icon name="check" size={13} strokeWidth={3} />}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-1.5 truncate text-sm font-medium">

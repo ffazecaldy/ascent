@@ -10,6 +10,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
+import { Icon } from "@/components/ui/Icon";
 import { compressImage, readAsDataURL } from "./trade-utils";
 import { Lightbox } from "./Lightbox";
 
@@ -111,7 +112,7 @@ export function ScreenshotUploader({
         )}
       >
         <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-elevated text-xl shadow-[--shadow-card] transition-transform duration-200 group-hover:scale-110 group-hover:border-accent/40">
-          📷
+          <Icon name="upload" size={22} />
         </div>
         <p className="text-xs font-medium text-secondary-text">Trascina gli screenshot qui</p>
         <div className="flex items-center gap-1.5">
@@ -158,9 +159,9 @@ export function ScreenshotUploader({
               <button
                 onClick={() => remove(i)}
                 aria-label="Rimuovi screenshot"
-                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-border-strong bg-card text-[10px] text-muted-foreground opacity-0 shadow transition-[color,background-color,opacity] hover:bg-danger/20 hover:text-danger group-hover/thumb:opacity-100"
+                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-border-strong bg-card text-muted-foreground opacity-0 shadow transition-[color,background-color,opacity] hover:bg-danger/20 hover:text-danger group-hover/thumb:opacity-100"
               >
-                ✕
+                <Icon name="x" size={12} />
               </button>
             </div>
           ))}

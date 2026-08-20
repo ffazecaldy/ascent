@@ -24,6 +24,7 @@ import { SectionHeader } from "@/components/ui/Misc";
 import { Reveal } from "@/components/ui/Reveal";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
 import { SavingsKpi } from "@/components/risparmi/SavingsKpi";
 import { GoalManager } from "@/components/risparmi/GoalManager";
 import { DepositManager } from "@/components/risparmi/DepositManager";
@@ -71,8 +72,8 @@ export default function RisparmiPage() {
       {isEmpty && (
         <Reveal>
           <Card className="flex flex-col items-center gap-3 border-dashed px-6 py-10 text-center" texture>
-            <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 text-2xl shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
-              🪙
+            <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
+              <Icon name="coins" size={32} className="text-accent" />
             </div>
             <div>
               <h2 className="text-lg font-semibold tracking-tight">Inizia a risparmiare</h2>
@@ -83,7 +84,7 @@ export default function RisparmiPage() {
             </div>
             <div className="flex flex-wrap items-center justify-center gap-2">
               <Button size="sm" glow onClick={() => setGoalForm({ mode: "new" })}>
-                🎯 Crea il primo obiettivo
+                Crea il primo obiettivo
               </Button>
               <Button variant="outline" size="sm" onClick={() => setDepositForm({ mode: "new", goalId: "" })}>
                 ＋ Registra un versamento

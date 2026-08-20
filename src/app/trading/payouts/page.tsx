@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/Badge";
 import { StatCard } from "@/components/ui/StatCard";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { Reveal } from "@/components/ui/Reveal";
+import { Icon } from "@/components/ui/Icon";
 import { formatMoney, formatSignedMoney } from "@/lib/format";
 import { convertToBase, accountBaseRate } from "@/lib/compute";
 import { quoteFx, COMMON_CURRENCIES } from "@/lib/fx";
@@ -158,7 +159,7 @@ function TrophyCard({
   foot,
 }: {
   tone: TrophyTone;
-  icon: string;
+  icon: ReactNode;
   title: ReactNode;
   titleClassName?: string;
   badges?: ReactNode[];
@@ -384,7 +385,7 @@ function ItemModal({
 
   const modalTitle = (
     <span className="flex items-center gap-2">
-      <span>{mode === "payout" ? "💰" : "🧾"}</span>
+      <Icon name={mode === "payout" ? "wallet" : "banknote"} size={16} />
       {editing
         ? mode === "payout"
           ? "Modifica payout"
@@ -487,7 +488,7 @@ function ItemModal({
                 title="Riquota dall'API"
                 className="shrink-0 px-2.5"
               >
-                <span className={cn("inline-block", quoting && "animate-spin")}>↻</span>
+                <Icon name="refresh" size={16} className={cn("inline-block", quoting && "animate-spin")} />
               </Button>
             )}
           </div>
@@ -615,7 +616,7 @@ export default function PayoutsPage() {
           subtitle="Spese firm, payout ricevuti e muro dei certificati."
         />
         <EmptyState
-          icon="🏦"
+          icon={<Icon name="building" size={32} />}
           title="Nessun account di trading"
           description="Crea un account nella sezione Account per registrare payout e spese firm."
           action={
@@ -636,8 +637,8 @@ export default function PayoutsPage() {
         subtitle="Spese firm, payout ricevuti e muro dei certificati."
         action={
           <>
-            <Button variant="outline" size="sm" onClick={() => openNew("expense")}>＋ Spesa firm</Button>
-            <Button size="sm" onClick={() => openNew("payout")} glow>＋ Payout</Button>
+            <Button variant="outline" size="sm" onClick={() => openNew("expense")}><Icon name="plus" size={14} /> Spesa firm</Button>
+            <Button size="sm" onClick={() => openNew("payout")} glow><Icon name="plus" size={14} /> Payout</Button>
           </>
         }
       />
@@ -647,7 +648,7 @@ export default function PayoutsPage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             label="Netto reale totale"
-            icon={<span className="text-base leading-none">⚖️</span>}
+            icon={<Icon name="scale" size={16} />}
             hairline={netTotal > 0 ? "success" : netTotal < 0 ? "danger" : "accent"}
             value={<MoneyValue value={netTotal} currency={base} signed hidden={hidden} locale={locale} />}
             valueClassName={netTotal > 0 ? "text-success" : netTotal < 0 ? "text-danger" : "text-foreground"}
@@ -655,21 +656,21 @@ export default function PayoutsPage() {
           />
           <StatCard
             label="Payout ricevuti"
-            icon={<span className="text-base leading-none">💰</span>}
+            icon={<Icon name="wallet" size={16} />}
             hairline="success"
             value={<MoneyValue value={totalPayoutBase} currency={base} hidden={hidden} locale={locale} />}
             delta={`${payouts.length} payout`}
           />
           <StatCard
             label="Spese firm"
-            icon={<span className="text-base leading-none">🧾</span>}
+            icon={<Icon name="banknote" size={16} />}
             hairline="danger"
             value={<MoneyValue value={totalExpenseBase} currency={base} hidden={hidden} locale={locale} />}
             delta={`${expenses.length} spese`}
           />
           <StatCard
             label="Patrimonio gestito"
-            icon={<span className="text-base leading-none">💎</span>}
+            icon={<Icon name="gem" size={16} />}
             hairline="accent"
             value={<MoneyValue value={patrimonio} currency={base} hidden={hidden} locale={locale} />}
             delta={`${activeAccounts.length} account attivi`}
@@ -692,7 +693,7 @@ export default function PayoutsPage() {
               <TrophyCard
                 key={a.id}
                 tone="gold"
-                icon="🏆"
+                icon={<Icon name="trophy" size={22} />}
                 title={a.name}
                 badges={[
                   <Badge key="s" tone={STATUS_META[a.status].tone}>{STATUS_META[a.status].label}</Badge>,
@@ -705,7 +706,7 @@ export default function PayoutsPage() {
               <TrophyCard
                 key={p.id}
                 tone="green"
-                icon="💰"
+                icon={<Icon name="coins" size={22} />}
                 title={hidden ? maskMoney() : formatSignedMoney(p.amount, p.currency, locale)}
                 titleClassName="tnum text-success"
                 badges={[
@@ -724,7 +725,7 @@ export default function PayoutsPage() {
 
             {earned.length === 0 && payouts.length === 0 && (
               <Card className="flex flex-col items-center justify-center gap-1 border-dashed text-center">
-                <span className="animate-rise text-3xl opacity-60">🕳</span>
+                <span className="animate-rise"><Icon name="trophy" size={32} className="opacity-60" /></span>
                 <p className="text-xs text-muted-foreground">
                   Ancora nessun trofeo — supera una valutazione o incassa un payout
                 </p>
@@ -733,7 +734,7 @@ export default function PayoutsPage() {
 
             <TrophyCard
               tone="blue"
-              icon="💎"
+              icon={<Icon name="gem" size={22} />}
               title={<MoneyValue value={patrimonio} currency={base} hidden={hidden} locale={locale} />}
               titleClassName="tnum text-lg"
               badges={[
@@ -772,10 +773,10 @@ export default function PayoutsPage() {
                       <div className="flex items-center gap-2">
                         <span className="text-base leading-none">
                           {acc.status === "superato" || acc.status === "finanziato"
-                            ? "🏆"
+                            ? <Icon name="trophy" size={18} />
                             : acc.status === "bruciato"
-                              ? "🔥"
-                              : "🧪"}
+                              ? <Icon name="flame" size={18} />
+                              : <Icon name="target" size={18} />}
                         </span>
                         <h3 className="text-base font-semibold tracking-tight">{acc.name}</h3>
                       </div>
@@ -787,7 +788,7 @@ export default function PayoutsPage() {
                     </div>
                     <StatCard
                       label="Netto reale"
-                      icon={<span className="text-sm leading-none">⚖️</span>}
+                      icon={<Icon name="scale" size={16} />}
                       hairline={net > 0 ? "success" : net < 0 ? "danger" : "none"}
                       className="w-full max-w-[13rem] shrink-0"
                       value={<MoneyValue value={net} currency={base} signed hidden={hidden} locale={locale} />}
@@ -811,7 +812,7 @@ export default function PayoutsPage() {
                     <div>
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-secondary-text">
-                          <span className="text-sm leading-none">💰</span> Payout
+                          <Icon name="wallet" size={14} /> Payout
                           <span className="tnum rounded bg-elevated px-1.5 py-0.5 text-[11px] font-normal text-secondary-text">
                             {accPayouts.length}
                           </span>
@@ -826,7 +827,7 @@ export default function PayoutsPage() {
                             onClick={() => openNew("payout", acc.id)}
                             aria-label="Nuovo payout"
                             className="h-6 w-6 rounded-md text-xs"
-                          >＋</Button>
+                          ><Icon name="plus" size={14} /></Button>
                         </div>
                       </div>
 
@@ -837,7 +838,7 @@ export default function PayoutsPage() {
                             className="mt-1 font-medium text-accent hover:underline"
                             onClick={() => openNew("payout", acc.id)}
                           >
-                            ＋ aggiungi il primo
+                            <Icon name="plus" size={12} /> aggiungi il primo
                           </button>
                         </div>
                       ) : (
@@ -877,8 +878,8 @@ export default function PayoutsPage() {
                                     </td>
                                     <td className="whitespace-nowrap py-1 pl-2 pr-1.5 text-right">
                                       <div className="flex items-center justify-end gap-0.5">
-                                        <Button size="icon" variant="ghost" onClick={() => openEdit("payout", p)} aria-label="Modifica payout" className="h-6 w-6 rounded-md text-xs">✏️</Button>
-                                        <Button size="icon" variant="ghost" onClick={() => setConfirm({ kind: "payout", id: p.id })} aria-label="Elimina payout" className="h-6 w-6 rounded-md text-xs">🗑</Button>
+                                        <Button size="icon" variant="ghost" onClick={() => openEdit("payout", p)} aria-label="Modifica payout" className="h-6 w-6 rounded-md text-xs"><Icon name="pencil" size={14} /></Button>
+                                        <Button size="icon" variant="ghost" onClick={() => setConfirm({ kind: "payout", id: p.id })} aria-label="Elimina payout" className="h-6 w-6 rounded-md text-xs"><Icon name="trash" size={14} /></Button>
                                       </div>
                                     </td>
                                   </tr>
@@ -894,7 +895,7 @@ export default function PayoutsPage() {
                     <div>
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-secondary-text">
-                          <span className="text-sm leading-none">🧾</span> Spese firm
+                          <Icon name="banknote" size={14} /> Spese firm
                           <span className="tnum rounded bg-elevated px-1.5 py-0.5 text-[11px] font-normal text-secondary-text">
                             {accExpenses.length}
                           </span>
@@ -909,7 +910,7 @@ export default function PayoutsPage() {
                             onClick={() => openNew("expense", acc.id)}
                             aria-label="Nuova spesa firm"
                             className="h-6 w-6 rounded-md text-xs"
-                          >＋</Button>
+                          ><Icon name="plus" size={14} /></Button>
                         </div>
                       </div>
 
@@ -920,7 +921,7 @@ export default function PayoutsPage() {
                             className="mt-1 font-medium text-accent hover:underline"
                             onClick={() => openNew("expense", acc.id)}
                           >
-                            ＋ aggiungi la prima
+                            <Icon name="plus" size={12} /> aggiungi la prima
                           </button>
                         </div>
                       ) : (
@@ -961,8 +962,8 @@ export default function PayoutsPage() {
                                     </td>
                                     <td className="whitespace-nowrap py-1 pl-2 pr-1.5 text-right">
                                       <div className="flex items-center justify-end gap-0.5">
-                                        <Button size="icon" variant="ghost" onClick={() => openEdit("expense", e)} aria-label="Modifica spesa" className="h-6 w-6 rounded-md text-xs">✏️</Button>
-                                        <Button size="icon" variant="ghost" onClick={() => setConfirm({ kind: "expense", id: e.id })} aria-label="Elimina spesa" className="h-6 w-6 rounded-md text-xs">🗑</Button>
+                                        <Button size="icon" variant="ghost" onClick={() => openEdit("expense", e)} aria-label="Modifica spesa" className="h-6 w-6 rounded-md text-xs"><Icon name="pencil" size={14} /></Button>
+                                        <Button size="icon" variant="ghost" onClick={() => setConfirm({ kind: "expense", id: e.id })} aria-label="Elimina spesa" className="h-6 w-6 rounded-md text-xs"><Icon name="trash" size={14} /></Button>
                                       </div>
                                     </td>
                                   </tr>

@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { useDB, updateDB, upsert, uid, nowISO } from "@/lib/storage";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
 import { Field, Input, Select, TextArea } from "@/components/ui/Field";
 import { formatMoney } from "@/lib/format";
 import { todayKey } from "@/lib/dates";
@@ -80,7 +81,7 @@ export function DepositForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? "🧾 Modifica versamento" : "🧾 Nuovo versamento"}
+      title={editing ? "Modifica versamento" : "Nuovo versamento"}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
@@ -143,7 +144,10 @@ export function DepositForm({
         </div>
       )}
       {selGoal && goalRemaining != null && goalRemaining === 0 && isFinite(amountNum) && amountNum > 0 && (
-        <p className="mt-2 text-[11px] font-medium text-success">🎉 Con questo versamento l&apos;obiettivo è completo.</p>
+        <p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-success">
+          <Icon name="sparkles" size={14} />
+          Con questo versamento l&apos;obiettivo è completo.
+        </p>
       )}
     </Modal>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================
-// ASCEND — Home · Hero Activity Streak 🔥
+// ASCEND — Home · Hero Activity Streak
 // Grande contatore con COUNT-UP + anello di progresso verso il
 // prossimo traguardo (7/14/30/60/100/365) + glow quando attivo.
 // Persistenza automatica del freeze (1 al mese).
@@ -14,6 +14,7 @@ import { labelDayKey } from "@/lib/dates";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import { Icon } from "@/components/ui/Icon";
 
 const MILESTONES = [7, 14, 30, 60, 100, 365];
 
@@ -70,7 +71,7 @@ export function StreakHero() {
             "Inizia da zero."
           ) : (
             <>
-              Streak di <span className="grad-text">🔥 {streak.days}</span> {streak.days === 1 ? "giorno" : "giorni"}
+              Streak di <span className="grad-text inline-flex items-center gap-1"><Icon name="flame" size={19} /> {streak.days}</span> {streak.days === 1 ? "giorno" : "giorni"}
             </>
           )}
         </p>
@@ -81,9 +82,9 @@ export function StreakHero() {
           {streak.todayActive ? (
             <Badge tone="success" pulse>● Oggi attivo</Badge>
           ) : streak.freezeUsed ? (
-            <Badge tone="info" pulse>❄ Freeze · oggi coperto</Badge>
+            <Badge tone="info" pulse><Icon name="shield" size={12} /> Freeze · oggi coperto</Badge>
           ) : (
-            <Badge tone="warning" pulse>⚡ Registra qualcosa oggi</Badge>
+            <Badge tone="warning" pulse><Icon name="zap" size={12} /> Registra qualcosa oggi</Badge>
           )}
           {streak.days > 0 && milestone > streak.days && (
             <Badge>

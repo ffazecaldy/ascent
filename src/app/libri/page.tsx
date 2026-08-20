@@ -17,9 +17,10 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Modal, ConfirmDialog } from "@/components/ui/Modal";
 import { Input, TextArea, Select, Field } from "@/components/ui/Field";
-import { Tabs, ProgressBar, EmptyState, SectionHeader } from "@/components/ui/Misc";
+import { Tabs, ProgressBar, SectionHeader } from "@/components/ui/Misc";
 import { StatCard } from "@/components/ui/StatCard";
 import { Reveal } from "@/components/ui/Reveal";
+import { Icon } from "@/components/ui/Icon";
 
 // ------------------------------------------------------------
 // Metadati stato
@@ -169,35 +170,8 @@ function coverGradient(title: string): { background: string } {
 const titleInitial = (title: string): string => (title.trim() ? title.trim()[0].toUpperCase() : "?");
 
 // ------------------------------------------------------------
-// Piccole icone SVG (nessuna dipendenza)
+// Valutazione a stelle (uri riempito, stroke coerente)
 // ------------------------------------------------------------
-function Icon({ d, size = 14, className }: { d: string; size?: number; className?: string }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d={d} />
-    </svg>
-  );
-}
-
-const I = {
-  plus: "M5 12h14M12 5v14",
-  edit: "M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z",
-  trash: "M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2",
-  upload: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12",
-  chevron: "m6 9 6 6 6-6",
-  book: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z",
-} as const;
-
 function Star({ filled, size = 15, onClick }: { filled: boolean; size?: number; onClick?: () => void }) {
   const svg = (
     <svg
@@ -260,7 +234,7 @@ function CommitPages({
         className={cn("tnum text-right", compact ? "h-7 w-14 text-sm" : "h-9 w-20 text-sm")}
       />
       <Button size={compact ? "sm" : "md"} disabled={!ok} onClick={submit} glow>
-        <Icon d={I.plus} size={12} />
+        <Icon name="plus" size={12} />
         {ok ? n : "X"} pagine oggi
       </Button>
     </div>
@@ -334,7 +308,7 @@ function BookCard({
               <div className="flex flex-wrap items-center gap-2">
                 <h4 className="truncate text-sm font-semibold text-foreground">{book.title}</h4>
                 {done ? (
-                  <Badge tone="warning">✓ {STATUS_LABEL.finito}</Badge>
+                  <Badge tone="warning"><Icon name="check" size={11} /> {STATUS_LABEL.finito}</Badge>
                 ) : (
                   <Badge tone={STATUS_BADGE[book.status]}>{STATUS_LABEL[book.status]}</Badge>
                 )}
@@ -349,7 +323,7 @@ function BookCard({
                 title="Modifica"
                 className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-elevated hover:text-foreground"
               >
-                <Icon d={I.edit} size={14} />
+                <Icon name="pencil" size={14} />
               </button>
               <button
                 type="button"
@@ -358,7 +332,7 @@ function BookCard({
                 title="Elimina"
                 className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger"
               >
-                <Icon d={I.trash} size={14} />
+                <Icon name="trash" size={14} />
               </button>
             </div>
           </div>
@@ -390,8 +364,8 @@ function BookCard({
 
       {(book.startDate || book.endDate) && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-          {book.startDate && <span className="tnum">🗓 Iniziato {labelDayKey(book.startDate)}</span>}
-          {book.endDate && <span className="tnum">🏁 Finito {labelDayKey(book.endDate)}</span>}
+          {book.startDate && <span className="tnum"><Icon name="calendar" size={11} className="mr-1 inline" /> Iniziato {labelDayKey(book.startDate)}</span>}
+          {book.endDate && <span className="tnum"><Icon name="flag" size={11} className="mr-1 inline" /> Finito {labelDayKey(book.endDate)}</span>}
         </div>
       )}
 
@@ -546,11 +520,11 @@ export default function LibriPage() {
           action={
             <>
               <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-                <Icon d={I.upload} size={13} />
+                <Icon name="upload" size={13} />
                 Importa
               </Button>
               <Button size="sm" onClick={openNew}>
-                <Icon d={I.plus} size={13} />
+                <Icon name="plus" size={13} />
                 Nuovo libro
               </Button>
             </>
@@ -561,16 +535,16 @@ export default function LibriPage() {
       {books.length > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Reveal delay={0}>
-            <StatCard label="In libreria" value={books.length} icon={<Icon d={I.book} className="text-accent" />} className="h-full" />
+            <StatCard label="In libreria" value={books.length} icon={<Icon name="book" size={16} className="text-accent" />} className="h-full" />
           </Reveal>
           <Reveal delay={60}>
-            <StatCard label="In corso" value={counts.in_corso} icon={<Icon d={I.plus} className="text-accent" />} className="h-full" />
+            <StatCard label="In corso" value={counts.in_corso} icon={<Icon name="book-open" size={16} className="text-accent" />} className="h-full" />
           </Reveal>
           <Reveal delay={120}>
-            <StatCard label="Completati" value={counts.finito} icon={<Icon d={I.book} className="text-accent" />} className="h-full" />
+            <StatCard label="Completati" value={counts.finito} icon={<Icon name="check" size={16} className="text-accent" />} className="h-full" />
           </Reveal>
           <Reveal delay={180}>
-            <StatCard label="Pagine lette" value={totalPagesRead} icon={<Icon d={I.book} className="text-accent" />} className="h-full" />
+            <StatCard label="Pagine lette" value={totalPagesRead} icon={<Icon name="book-open" size={16} className="text-accent" />} className="h-full" />
           </Reveal>
         </div>
       )}
@@ -589,7 +563,9 @@ export default function LibriPage() {
                       ancora <span className="tnum text-secondary-text">{remaining}</span> pagine
                     </>
                   ) : (
-                    "ultimo miglio 🏁"
+                    <span className="inline-flex items-center gap-1">
+                      ultimo miglio <Icon name="flag" size={11} />
+                    </span>
                   )}
                 </span>
               </div>
@@ -633,31 +609,35 @@ export default function LibriPage() {
 
       {books.length === 0 ? (
         <Reveal delay={30}>
-          <EmptyState
-            icon="📚"
-            title="Libreria vuota"
-            description="Aggiungi il tuo primo libro oppure importa tutta la lista in un colpo: una riga per libro."
-            action={
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button size="sm" onClick={openNew}>
-                  <Icon d={I.plus} size={13} />
-                  Aggiungi libro
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
-                  <Icon d={I.upload} size={13} />
-                  Importa da testo
-                </Button>
-              </div>
-            }
-          />
+          <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
+            <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
+              <Icon name="book-open" size={30} className="text-accent" />
+            </div>
+            <p className="text-sm font-medium text-secondary-text">Libreria vuota</p>
+            <p className="max-w-xs text-xs text-muted-foreground">
+              Aggiungi il tuo primo libro oppure importa tutta la lista in un colpo: una riga per libro.
+            </p>
+            <div className="mt-2 flex flex-wrap justify-center gap-2">
+              <Button size="sm" onClick={openNew}>
+                <Icon name="plus" size={13} />
+                Aggiungi libro
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
+                <Icon name="upload" size={13} />
+                Importa da testo
+              </Button>
+            </div>
+          </div>
         </Reveal>
       ) : shown.length === 0 ? (
         <Reveal delay={30}>
-          <EmptyState
-            icon="🗂"
-            title={`Nessun libro ${tab === "tutti" ? "" : `«${STATUS_LABEL[tab as BookStatus].toLowerCase()}»`}`}
-            description="Cambia filtro oppure aggiungi un nuovo libro."
-          />
+          <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
+            <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
+              <Icon name="book" size={30} className="text-accent" />
+            </div>
+            <p className="text-sm font-medium text-secondary-text">{`Nessun libro ${tab === "tutti" ? "" : `«${STATUS_LABEL[tab as BookStatus].toLowerCase()}»`}`}</p>
+            <p className="max-w-xs text-xs text-muted-foreground">Cambia filtro oppure aggiungi un nuovo libro.</p>
+          </div>
         </Reveal>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -721,7 +701,7 @@ export default function LibriPage() {
                 ))}
               </Select>
               <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                <Icon d={I.chevron} size={12} />
+                <Icon name="arrow-down" size={12} />
               </span>
             </div>
           </Field>

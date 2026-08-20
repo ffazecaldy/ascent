@@ -18,6 +18,7 @@ import { cn } from "@/lib/cn";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
 import { ConfirmDialog } from "@/components/ui/Modal";
 
 export function TransactionTable({ month }: { month: string }) {
@@ -68,8 +69,8 @@ export function TransactionTable({ month }: { month: string }) {
           <div className="relative flex flex-col items-center justify-center gap-3 py-14 text-center">
             <div className="relative">
               <span className="absolute inset-0 -m-3 rounded-full bg-accent/10 blur-md animate-pulse-dot" />
-              <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-accent/25 bg-accent/5 text-2xl shadow-[0_0_24px_-6px_var(--accent-glow)]">
-                🪙
+              <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-accent/25 bg-accent/5 shadow-[0_0_24px_-6px_var(--accent-glow)]">
+                <Icon name="coins" size={32} className="text-accent" />
               </div>
             </div>
             <div>

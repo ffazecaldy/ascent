@@ -16,6 +16,7 @@ import { Modal, ConfirmDialog } from "@/components/ui/Modal";
 import { Field, Input, Select } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/Misc";
 import { CATEGORY_TYPES, COLOR_PALETTE, EMOJI_SUGGESTIONS } from "./constants";
+import { Icon, type IconName } from "@/components/ui/Icon";
 
 const DEFAULT_COLOR = "#4C7EFF";
 const DEFAULT_ICON = "🧾";
@@ -83,9 +84,9 @@ export function CategoriesManager() {
     setDeleting(null);
   };
 
-  const groups: { type: TransactionType; label: string; icon: string }[] = [
-    { type: "income", label: "Entrate", icon: "📈" },
-    { type: "expense", label: "Uscite", icon: "📉" },
+  const groups: { type: TransactionType; label: string; icon: IconName }[] = [
+    { type: "income", label: "Entrate", icon: "arrow-up" },
+    { type: "expense", label: "Uscite", icon: "arrow-down" },
   ];
 
   return (
@@ -97,12 +98,14 @@ export function CategoriesManager() {
             Usate per classificare transazioni, payout e voci. Sono {categories.length} in totale.
           </CardSubtitle>
         </div>
-        <Button onClick={openCreate}>➕ Nuova</Button>
+        <Button onClick={openCreate}>
+          <Icon name="plus" size={14} /> Nuova
+        </Button>
       </CardHeader>
 
       {categories.length === 0 ? (
         <EmptyState
-          icon="🏷"
+          icon={<Icon name="tag" size={34} className="text-accent" />}
           title="Nessuna categoria"
           description="Crea la prima categoria per iniziare a classificare entrate e uscite."
         />
@@ -114,7 +117,7 @@ export function CategoriesManager() {
               <div key={g.type}>
                 <div className="mb-2 flex items-center justify-between">
                   <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-secondary-text">
-                    <span>{g.icon}</span>
+                    <Icon name={g.icon} size={12} />
                     {g.label}
                   </h4>
                   <Badge tone={g.type === "income" ? "default" : "warning"}>{list.length}</Badge>
@@ -149,7 +152,7 @@ export function CategoriesManager() {
                           />
                         </span>
                         <Button variant="ghost" size="icon" onClick={() => openEdit(cat)} aria-label="Modifica">
-                          ✏️
+                          <Icon name="pencil" size={14} />
                         </Button>
                         <Button
                           variant="ghost"
@@ -158,7 +161,7 @@ export function CategoriesManager() {
                           aria-label="Elimina"
                           className="text-muted-foreground hover:text-danger"
                         >
-                          🗑
+                          <Icon name="trash" size={14} />
                         </Button>
                       </div>
                     ))
@@ -171,7 +174,7 @@ export function CategoriesManager() {
       )}
 
       <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-border-strong bg-muted/40 px-3 py-2.5 text-xs leading-relaxed text-secondary-text">
-        <span className="mt-0.5 text-base">⚠️</span>
+        <Icon name="alert" size={14} className="mt-0.5 shrink-0 text-warning" />
         <div>
           <span className="font-semibold text-foreground">I vecchi dati restano com&apos;erano.</span>{" "}
           Modificare nome, icona o colore non ri-classifica le transazioni esistenti: ognuna conserva la

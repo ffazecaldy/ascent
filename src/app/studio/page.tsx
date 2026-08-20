@@ -10,7 +10,7 @@
 import { useState } from "react";
 import { useDB, updateDB, upsert, uid, nowISO } from "@/lib/storage";
 import type { StudySession } from "@/lib/types";
-import { SectionHeader, EmptyState } from "@/components/ui/Misc";
+import { SectionHeader } from "@/components/ui/Misc";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Reveal } from "@/components/ui/Reveal";
@@ -19,6 +19,7 @@ import { StudyLog } from "@/components/studio/StudyLog";
 import { StudyTimer } from "@/components/studio/StudyTimer";
 import { StudyKpis } from "@/components/studio/StudyKpis";
 import { StudyCharts } from "@/components/studio/StudyCharts";
+import { Icon } from "@/components/ui/Icon";
 
 export default function StudioPage() {
   const db = useDB();
@@ -73,7 +74,8 @@ export default function StudioPage() {
           action={
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone="success" pulse>
-                ✓ alimenta lo streak
+                <Icon name="check" size={12} />
+                alimenta lo streak
               </Badge>
               <Button onClick={openNew} variant="primary" glow>
                 + Aggiungi sessione
@@ -89,12 +91,18 @@ export default function StudioPage() {
 
       {!hasSessions ? (
         <Reveal delay={40}>
-          <EmptyState
-            icon="📚"
-            title="Prima sessione di studio"
-            description="Registra la prima sessione per vedere minuti, materie e il contributo all'Activity Streak."
-            action={<Button onClick={openNew}>Aggiungi sessione</Button>}
-          />
+          <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
+            <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
+              <Icon name="book-open" size={30} className="text-accent" />
+            </div>
+            <p className="text-sm font-medium text-secondary-text">Prima sessione di studio</p>
+            <p className="max-w-xs text-xs text-muted-foreground">
+              Registra la prima sessione per vedere minuti, materie e il contributo all'Activity Streak.
+            </p>
+            <div className="mt-2">
+              <Button onClick={openNew}>Aggiungi sessione</Button>
+            </div>
+          </div>
         </Reveal>
       ) : (
         <>

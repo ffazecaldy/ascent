@@ -26,7 +26,8 @@ import { moneyMasked, kpiMasked, maskMoney, maskKpi } from "@/lib/privacy";
 import type { DB } from "@/lib/types";
 import { StatCard } from "@/components/ui/StatCard";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
-import { ProgressBar, EmptyState } from "@/components/ui/Misc";
+import { ProgressBar } from "@/components/ui/Misc";
+import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
 
 export function QuickSummary({ db }: { db: DB }) {
@@ -131,11 +132,15 @@ export function QuickSummary({ db }: { db: DB }) {
             <ProgressBar value={book.pagesRead} max={Math.max(1, book.totalPages)} />
           </div>
         ) : (
-          <EmptyState
-            icon="📚"
-            title="Nessun libro in corso"
-            description="Avvia un nuovo libro per tracciare il tuo progresso di lettura."
-          />
+          <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
+            <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
+              <Icon name="book-open" size={30} className="text-accent" />
+            </div>
+            <p className="text-sm font-medium text-secondary-text">Nessun libro in corso</p>
+            <p className="max-w-xs text-xs text-muted-foreground">
+              Avvia un nuovo libro per tracciare il tuo progresso di lettura.
+            </p>
+          </div>
         )}
       </Card>
     </div>

@@ -26,9 +26,10 @@ import { StatCard } from "@/components/ui/StatCard";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { Field, Input, Label, Select, TextArea } from "@/components/ui/Field";
 import { ConfirmDialog, Modal } from "@/components/ui/Modal";
-import { EmptyState, ProgressBar, SectionHeader } from "@/components/ui/Misc";
+import { ProgressBar, SectionHeader } from "@/components/ui/Misc";
 import { Reveal } from "@/components/ui/Reveal";
 import { BarsChart } from "@/components/charts";
+import { Icon, type IconName } from "@/components/ui/Icon";
 
 const PRESET_TYPES = [
   "Cardio",
@@ -70,19 +71,19 @@ function typeColor(type: string): string {
   return TYPE_COLORS[h % TYPE_COLORS.length];
 }
 
-const TYPE_EMOJI: Record<string, string> = {
-  Cardio: "🏃",
-  Forza: "🏋️",
-  Palestra: "💪",
-  Calistenics: "🤸",
+const TYPE_ICON: Record<string, IconName> = {
+  Cardio: "run",
+  Forza: "dumbbell",
+  Palestra: "dumbbell",
+  Calistenics: "activity",
   // alias di compatibilità: workout storici salvati con la vecchia grafia
-  Calisthenics: "🤸",
-  Yoga: "🧘",
-  Corsa: "🏃",
-  Padel: "🎾",
-  Calcio: "⚽",
-  Nuoto: "🏊",
-  Altro: "💪",
+  Calisthenics: "activity",
+  Yoga: "activity",
+  Corsa: "run",
+  Padel: "target",
+  Calcio: "target",
+  Nuoto: "activity",
+  Altro: "dumbbell",
 };
 
 export default function SportPage() {
@@ -252,12 +253,18 @@ export default function SportPage() {
 
       {!hasWorkouts ? (
         <Reveal delay={30}>
-          <EmptyState
-            icon="💪"
-            title="Nessun allenamento registrato"
-            description="Registra il primo workout per iniziare a costruire lo streak sportivo."
-            action={<Button onClick={openNew}>Aggiungi allenamento</Button>}
-          />
+          <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
+            <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
+              <Icon name="dumbbell" size={30} className="text-accent" />
+            </div>
+            <p className="text-sm font-medium text-secondary-text">Nessun allenamento registrato</p>
+            <p className="max-w-xs text-xs text-muted-foreground">
+              Registra il primo workout per iniziare a costruire lo streak sportivo.
+            </p>
+            <div className="mt-2">
+              <Button onClick={openNew}>Aggiungi allenamento</Button>
+            </div>
+          </div>
         </Reveal>
       ) : (
         <>
@@ -267,7 +274,7 @@ export default function SportPage() {
               <StatCard
                 label="Streak sportivo"
                 value={<AnimatedNumber value={streak} className="text-success" fmt={(n) => String(Math.round(n))} />}
-                icon={<span className="text-lg drop-shadow-[0_0_10px_rgba(45,223,158,0.5)]">🔥</span>}
+                icon={<Icon name="flame" size={18} className="text-success" />}
                 delta={streak === 1 ? "1 giorno" : `${streak} giorni di fila`}
                 deltaTone="positive"
                 hairline="success"
@@ -279,7 +286,7 @@ export default function SportPage() {
               <StatCard
                 label="Questo mese"
                 value={monthCount}
-                icon={<span className="text-lg">📅</span>}
+                icon={<Icon name="calendar" size={18} className="text-accent" />}
                 delta={`${fmtDur(monthMin)} totali`}
                 deltaTone="neutral"
                 className="h-full"
@@ -289,7 +296,7 @@ export default function SportPage() {
               <StatCard
                 label="Durata media"
                 value={fmtDur(avgDur)}
-                icon={<span className="text-lg">⏱</span>}
+                icon={<Icon name="timer" size={18} className="text-accent" />}
                 delta="per sessione"
                 deltaTone="neutral"
                 className="h-full"
@@ -326,7 +333,10 @@ export default function SportPage() {
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs text-muted-foreground">
                       {goalMet ? (
-                        <span className="font-medium text-success">Obiettivo raggiunto 🎉</span>
+                        <span className="inline-flex items-center gap-1 font-medium text-success">
+                          <Icon name="sparkles" size={13} />
+                          Obiettivo raggiunto
+                        </span>
                       ) : (
                         <>Mancano <span className="tnum text-secondary-text">{goalRemaining}</span> allenamento{goalRemaining === 1 ? "" : "i"} alla meta.</>
                       )}
@@ -386,14 +396,14 @@ export default function SportPage() {
                         className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold"
                         style={{ color, backgroundColor: `${color}14`, borderColor: `${color}40` }}
                       >
-                        <span>{TYPE_EMOJI[w.type] ?? "💪"}</span>
+                        <Icon name={TYPE_ICON[w.type] ?? "dumbbell"} size={13} className="shrink-0" />
                         {w.type}
                       </span>
 
                       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-0.5">
                         {w.pr && (
                           <>
-                            <Badge tone="info">🏅 PR</Badge>
+                            <Badge tone="info"><Icon name="trophy" size={11} className="shrink-0" /> PR</Badge>
                             <span className="max-w-[200px] truncate text-[11px] text-secondary-text">{w.pr}</span>
                           </>
                         )}
@@ -404,10 +414,10 @@ export default function SportPage() {
                       <span className="shrink-0 text-sm font-semibold tnum text-accent">{fmtDur(w.durationMin)}</span>
                       <div className="flex shrink-0 items-center gap-0.5 opacity-70 transition-opacity group-hover:opacity-100">
                         <Button variant="ghost" size="icon" onClick={() => openEdit(w)} aria-label="Modifica allenamento">
-                          ✏️
+                          <Icon name="pencil" size={14} />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(w)} aria-label="Elimina allenamento">
-                          🗑️
+                          <Icon name="trash" size={14} />
                         </Button>
                       </div>
                     </div>

@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/Badge";
 import { StatCard } from "@/components/ui/StatCard";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { Reveal } from "@/components/ui/Reveal";
+import { Icon } from "@/components/ui/Icon";
 
 /** Sposta un month key "yyyy-MM" di `delta` mesi. */
 function shiftMonth(month: string, delta: number): string {
@@ -187,7 +188,7 @@ export default function TradingCalendarPage() {
           subtitle="P&L per trading day dell'account — il confine segue la sessione, non la mezzanotte."
         />
         <EmptyState
-          icon="📅"
+          icon={<Icon name="calendar" size={32} />}
           title="Nessun account disponibile"
           description="Crea almeno un account di trading per vedere il calendario P&L per trading day."
           action={
@@ -279,7 +280,7 @@ export default function TradingCalendarPage() {
             </CardHeader>
             {days.length === 0 ? (
               <EmptyState
-                icon="📭"
+                icon={<Icon name="list" size={32} />}
                 title="Nessun trade nel mese"
                 description={`Nessun trade chiuso per ${account!.name} in ${monthLabel}.`}
               />

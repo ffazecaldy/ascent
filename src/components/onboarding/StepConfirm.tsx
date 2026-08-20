@@ -1,6 +1,7 @@
 "use client";
 
 import type { GoalDef } from "./StepGoals";
+import { Icon } from "@/components/ui/Icon";
 
 export function StepConfirm({ goals }: { goals: GoalDef[] }) {
   const active = goals.filter((g) => g.active);
@@ -8,19 +9,7 @@ export function StepConfirm({ goals }: { goals: GoalDef[] }) {
   return (
     <div className="flex flex-col items-center gap-5 text-center">
       <span className="flex h-16 w-16 items-center justify-center rounded-full border border-success/40 bg-success/10 shadow-[0_0_30px_-8px_rgba(45,223,158,0.5)]">
-        <svg
-          width="28"
-          height="28"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-success"
-        >
-          <path d="M20 6 9 17l-5-5" />
-        </svg>
+        <Icon name="check" size={28} strokeWidth={3} className="text-success" />
       </span>
 
       <div>
@@ -47,7 +36,7 @@ export function StepConfirm({ goals }: { goals: GoalDef[] }) {
               key={g.type}
               className="inline-flex items-center gap-1.5 rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-xs font-medium text-accent transition-[border-color,box-shadow] duration-200 hover:border-accent/50 hover:shadow-[0_0_16px_-6px_var(--accent-glow)]"
             >
-              <span>{g.icon}</span>
+              <Icon name={g.icon} size={14} />
               <span className="tnum">
                 {g.label}
                 {g.target > 0 ? ` · ${g.target} min` : ""}

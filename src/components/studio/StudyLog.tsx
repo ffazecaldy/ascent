@@ -14,7 +14,8 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ConfirmDialog } from "@/components/ui/Modal";
 import { Reveal } from "@/components/ui/Reveal";
-import { fmtDur, subjectColor, subjectGradient, subjectEmoji } from "./constants";
+import { Icon } from "@/components/ui/Icon";
+import { fmtDur, subjectColor, subjectGradient, subjectIcon } from "./constants";
 
 export function StudyLog({ onEdit }: { onEdit: (s: StudySession) => void }) {
   const db = useDB();
@@ -70,7 +71,7 @@ export function StudyLog({ onEdit }: { onEdit: (s: StudySession) => void }) {
                     borderColor: `${color}40`,
                   }}
                 >
-                  <span>{subjectEmoji(s.subject)}</span>
+                  <Icon name={subjectIcon(s.subject)} size={13} className="shrink-0" />
                   {s.subject}
                 </span>
 
@@ -90,7 +91,7 @@ export function StudyLog({ onEdit }: { onEdit: (s: StudySession) => void }) {
                 </span>
                 <div className="flex shrink-0 items-center gap-0.5 opacity-70 transition-opacity group-hover:opacity-100">
                   <Button variant="ghost" size="icon" onClick={() => onEdit(s)} aria-label="Modifica sessione">
-                    ✏️
+                    <Icon name="pencil" size={14} />
                   </Button>
                   <Button
                     variant="ghost"
@@ -98,7 +99,7 @@ export function StudyLog({ onEdit }: { onEdit: (s: StudySession) => void }) {
                     onClick={() => setDeleteTarget(s)}
                     aria-label="Elimina sessione"
                   >
-                    🗑️
+                    <Icon name="trash" size={14} />
                   </Button>
                 </div>
               </div>
@@ -115,7 +116,7 @@ export function StudyLog({ onEdit }: { onEdit: (s: StudySession) => void }) {
         title="Eliminare la sessione?"
         message={
           deleteTarget
-            ? `${subjectEmoji(deleteTarget.subject)} ${deleteTarget.subject} del ${labelDayKey(
+            ? `${deleteTarget.subject} del ${labelDayKey(
                 deleteTarget.date,
                 locale
               )} (${fmtDur(deleteTarget.minutes)}) — questa azione non può essere annullata.`

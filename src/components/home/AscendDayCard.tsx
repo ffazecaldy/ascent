@@ -9,8 +9,9 @@ import { ascordWeek, ascordDay } from "@/lib/compute";
 import type { DB } from "@/lib/types";
 import { todayKey, addDaysKey, weekStartKey } from "@/lib/dates";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
-import { ProgressBar, EmptyState } from "@/components/ui/Misc";
+import { ProgressBar } from "@/components/ui/Misc";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import { Icon } from "@/components/ui/Icon";
 
 export function AscendDayCard({ db }: { db: DB }) {
   const asc = ascordWeek(db);
@@ -38,11 +39,15 @@ export function AscendDayCard({ db }: { db: DB }) {
       </CardHeader>
 
       {asc.total === 0 ? (
-        <EmptyState
-          icon="🎯"
-          title="Nessun obiettivo quotidiano"
-          description="Configura i tuoi obiettivi nella sezione Obiettivi per iniziare a vincere gli Ascend Day."
-        />
+        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
+          <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
+            <Icon name="target" size={30} className="text-accent" />
+          </div>
+          <p className="text-sm font-medium text-secondary-text">Nessun obiettivo quotidiano</p>
+          <p className="max-w-xs text-xs text-muted-foreground">
+            Configura i tuoi obiettivi nella sezione Obiettivi per iniziare a vincere gli Ascend Day.
+          </p>
+        </div>
       ) : (
         <>
           <ProgressBar value={asc.won} max={asc.total} />
@@ -74,8 +79,9 @@ export function AscendDayCard({ db }: { db: DB }) {
               today.met ? (
                 <div className="flex items-center gap-2">
                   <span className="animate-pulse-dot h-2 w-2 rounded-full bg-success" />
-                  <p className="text-sm font-medium text-success">
-                    ✓ Ascend Day conquistato ({today.done}/{today.total})
+                  <p className="flex items-center gap-1.5 text-sm font-medium text-success">
+                    <Icon name="check" size={13} className="text-success" />
+                    Ascend Day conquistato ({today.done}/{today.total})
                   </p>
                 </div>
               ) : (

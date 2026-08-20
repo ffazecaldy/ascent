@@ -4,13 +4,14 @@ import type { GoalType } from "@/lib/types";
 import { Toggle } from "@/components/ui/Misc";
 import { Field, Select } from "@/components/ui/Field";
 import { Card } from "@/components/ui/Card";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
 
 export interface GoalDef {
   type: GoalType;
   label: string;
   description: string;
-  icon: string;
+  icon: IconName;
   /** Attivo per default all'arrivo nel wizard */
   active: boolean;
   /** 0 = presenza generica ("almeno un'azione"), altrimenti soglia in minuti */
@@ -25,7 +26,7 @@ export const DEFAULT_GOALS: GoalDef[] = [
     type: "finanze_check",
     label: "Registrare la finanza",
     description: "Almeno una transazione al giorno: il flusso resta sotto controllo.",
-    icon: "💶",
+    icon: "coins",
     active: true,
     target: 0,
   },
@@ -33,7 +34,7 @@ export const DEFAULT_GOALS: GoalDef[] = [
     type: "trade_log",
     label: "Chiudere un trade",
     description: "Ogni trade chiuso finisce nel log: base dati per le statistiche.",
-    icon: "🕹️",
+    icon: "activity",
     active: false,
     target: 0,
   },
@@ -41,7 +42,7 @@ export const DEFAULT_GOALS: GoalDef[] = [
     type: "lettura_minuti",
     label: "Leggere",
     description: "Minuti di lettura al giorno, contati dal progresso dei libri.",
-    icon: "📚",
+    icon: "book-open",
     active: true,
     target: 15,
     targetOptions: [10, 15, 20, 30, 45, 60],
@@ -50,7 +51,7 @@ export const DEFAULT_GOALS: GoalDef[] = [
     type: "allenamento",
     label: "Allenarsi",
     description: "Almeno un workout al giorno: anche 20 minuti contano.",
-    icon: "💪",
+    icon: "dumbbell",
     active: true,
     target: 0,
   },
@@ -58,7 +59,7 @@ export const DEFAULT_GOALS: GoalDef[] = [
     type: "ore_produttive",
     label: "Ore produttive al PC",
     description: "Minuti produttivi tracciati da Uso del PC.",
-    icon: "💻",
+    icon: "monitor",
     active: false,
     target: 120,
     targetOptions: [60, 90, 120, 150, 180, 240],
@@ -67,7 +68,7 @@ export const DEFAULT_GOALS: GoalDef[] = [
     type: "disciplina_ok",
     label: "Disciplina nel trading",
     description: "Tutti i trade del giorno eseguiti col setup rispettato.",
-    icon: "📋",
+    icon: "clipboard",
     active: false,
     target: 0,
   },
@@ -109,8 +110,8 @@ export function StepGoals({
               )}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-strong bg-elevated text-lg">
-                    {g.icon}
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-strong bg-elevated">
+                    <Icon name={g.icon} size={18} className="text-foreground" />
                   </span>
                   <div>
                     <p className="text-sm font-semibold text-foreground">{g.label}</p>
@@ -130,8 +131,8 @@ export function StepGoals({
                   </div>
                 </div>
                 {g.active && (
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/15 text-[10px] text-accent">
-                    ✓
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+                    <Icon name="check" size={10} strokeWidth={2.5} />
                   </span>
                 )}
                 <Toggle

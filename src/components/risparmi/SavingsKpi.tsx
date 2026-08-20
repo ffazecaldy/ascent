@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { ProgressBar } from "@/components/ui/Misc";
+import { Icon } from "@/components/ui/Icon";
 import { formatMoney, formatPercent } from "@/lib/format";
 import { moneyMasked, kpiMasked, maskMoney, maskKpi } from "@/lib/privacy";
 import { cn } from "@/lib/cn";
@@ -34,7 +35,7 @@ export function SavingsKpi({ totals, spark }: { totals: SavingsTotals; spark: nu
       {/* Totale versato */}
       <StatCard
         label="Totale versato"
-        icon={<span className="text-base leading-none">💰</span>}
+        icon={<Icon name="coins" size={16} className="text-accent" />}
         hairline="accent"
         spark={sparkVals}
         sparkColor="#4C7EFF"
@@ -56,7 +57,7 @@ export function SavingsKpi({ totals, spark }: { totals: SavingsTotals; spark: nu
       {/* Obiettivo attivo — target somma */}
       <StatCard
         label="Obiettivo attivo"
-        icon={<span className="text-base leading-none">🎯</span>}
+        icon={<Icon name="target" size={16} className="text-accent" />}
         hairline="accent"
         value={
           hidden ? (
@@ -80,7 +81,11 @@ export function SavingsKpi({ totals, spark }: { totals: SavingsTotals; spark: nu
             Completamento
           </span>
           <span className="text-base leading-none">
-            {doneAll ? "🏆" : "📈"}
+            {doneAll ? (
+              <Icon name="trophy" size={18} className="text-success" />
+            ) : (
+              <Icon name="chart-line" size={18} className="text-accent" />
+            )}
           </span>
         </div>
         <div
@@ -102,11 +107,16 @@ export function SavingsKpi({ totals, spark }: { totals: SavingsTotals; spark: nu
         </div>
         <ProgressBar value={pctOverall} tone="success" />
         <div className="text-xs text-secondary-text">
-          {doneAll
-            ? "Obiettivo complessivo raggiunto 🎉"
-            : totals.target > 0
-              ? `${hidden ? maskMoney() : formatMoney(totals.deposited, base, locale)} versati su ${hidden ? maskMoney() : formatMoney(totals.target, base, locale)}`
-              : "Crea il primo obiettivo per iniziare"}
+          {doneAll ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Icon name="sparkles" size={14} className="text-success" />
+              Obiettivo complessivo raggiunto
+            </span>
+          ) : totals.target > 0 ? (
+            `${hidden ? maskMoney() : formatMoney(totals.deposited, base, locale)} versati su ${hidden ? maskMoney() : formatMoney(totals.target, base, locale)}`
+          ) : (
+            "Crea il primo obiettivo per iniziare"
+          )}
         </div>
       </Card>
     </div>

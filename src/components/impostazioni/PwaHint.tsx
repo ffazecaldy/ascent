@@ -5,12 +5,13 @@
 // ============================================================
 
 import { Card } from "@/components/ui/Card";
+import { Icon } from "@/components/ui/Icon";
 
 export function PwaHint() {
   return (
     <Card className="group flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-accent/25 bg-accent/15 text-2xl shadow-[0_0_18px_-6px_var(--accent-glow)] transition-transform duration-200 group-hover:scale-105">
-        📲
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-accent/25 bg-accent/15 shadow-[0_0_18px_-6px_var(--accent-glow)] transition-transform duration-200 group-hover:scale-105">
+        <Icon name="monitor" size={24} className="text-accent" />
       </div>
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -26,18 +27,7 @@ export function PwaHint() {
         </p>
       </div>
       <span className="hidden text-accent transition-transform duration-200 group-hover:translate-x-1 sm:block">
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M5 12h14m0 0-6-6m6 6-6 6" />
-        </svg>
+        <Icon name="arrow-right" size={18} />
       </span>
     </Card>
   );

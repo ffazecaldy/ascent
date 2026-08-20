@@ -14,6 +14,7 @@ import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/Misc";
+import { Icon } from "@/components/ui/Icon";
 import { setupName } from "@/lib/db";
 import { tradeRespected, monthPnlTrades } from "@/lib/compute";
 import { monthKeyOf, todayKey, parseDateKey } from "@/lib/dates";
@@ -106,7 +107,7 @@ export function RecentTrades({ db }: { db: DB }) {
       </CardHeader>
       {recent.length === 0 ? (
         <EmptyState
-          icon="🕹"
+          icon={<Icon name="list" size={32} />}
           title="Nessun trade"
           description="I trade chiusi compariranno qui con risultato e setup."
           action={

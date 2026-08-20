@@ -13,6 +13,7 @@ import type { DB } from "@/lib/types";
 import { StatCard } from "@/components/ui/StatCard";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { TrendArrow } from "@/components/ui/Arrow";
+import { Icon } from "@/components/ui/Icon";
 import {
   monthPnlTrades,
   tradingStats,
@@ -131,7 +132,7 @@ export function KpiCards({ db }: { db: DB }) {
           </span>
         }
         delta={pnlNote}
-        icon={<span className="text-base leading-none">📈</span>}
+        icon={<Icon name="chart-line" size={16} />}
         spark={moneyHide ? undefined : pnlSeries}
         sparkColor={pnlPos ? "var(--success)" : "var(--danger)"}
         hairline={moneyHide ? "none" : pnlPos ? "success" : "danger"}
@@ -147,7 +148,7 @@ export function KpiCards({ db }: { db: DB }) {
           </span>
         }
         delta={winNote}
-        icon={<span className="text-base leading-none">🎯</span>}
+        icon={<Icon name="target" size={16} />}
       />
       <StatCard
         label="Disciplina del mese"
@@ -160,7 +161,7 @@ export function KpiCards({ db }: { db: DB }) {
           </span>
         }
         delta={discNote}
-        icon={<span className="text-base leading-none">📋</span>}
+        icon={<Icon name="clipboard" size={16} />}
       />
     </div>
   );

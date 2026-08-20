@@ -11,7 +11,7 @@ import type { PCUsageLog, PCAppCategoryMap } from "@/lib/types";
 import { todayKey, addDaysKey, weekStartKey, monthKeyOf, labelDayKey } from "@/lib/dates";
 import { pcMinutesInWeek } from "@/lib/compute";
 import { minutiToOre } from "@/lib/format";
-import { SectionHeader, ProgressBar, EmptyState, Tabs } from "@/components/ui/Misc";
+import { SectionHeader, ProgressBar, Tabs } from "@/components/ui/Misc";
 import { Card, CardTitle, CardHeader, CardSubtitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -20,6 +20,7 @@ import { Field, Input, Select, TextArea } from "@/components/ui/Field";
 import { StatCard } from "@/components/ui/StatCard";
 import { Reveal } from "@/components/ui/Reveal";
 import { BarsChart, DonutChart } from "@/components/charts";
+import { Icon } from "@/components/ui/Icon";
 
 const DEFAULT_CATEGORIES = [
   "Lavoro",
@@ -51,33 +52,6 @@ function isValidDayKey(dk: string): boolean {
   const dt = new Date(y, m - 1, d);
   return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
 }
-
-/** Icona KPI inline (nessuna dipendenza). */
-function Icon({ d, size = 14, className }: { d: string; size?: number; className?: string }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d={d} />
-    </svg>
-  );
-}
-
-const I = {
-  monitor: "M2 5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zM8 21h8M12 17v4",
-  clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2",
-  calendar: "M8 2v4M16 2v4M3 10h18M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z",
-  target: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
-  csv: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h2M8 17h5",
-} as const;
 
 /** Mini sparkline (stat card custom obiettivo settimana). */
 function TinySpark({ data, color = "#4C7EFF" }: { data: number[]; color?: string }) {
@@ -344,7 +318,7 @@ export default function UsoPcPage() {
           <StatCard
             label="Ore produttive oggi"
             value={minutiToOre(productiveToday)}
-            icon={<Icon d={I.monitor} className="text-accent" />}
+            icon={<Icon name="monitor" size={16} className="text-accent" />}
             delta={deltaLabel(delta.prod)}
             deltaTone={deltaTone(delta.prod)}
             spark={last7ProdMin}
@@ -356,7 +330,7 @@ export default function UsoPcPage() {
           <StatCard
             label="Ore oggi"
             value={minutiToOre(totalTodayMin)}
-            icon={<Icon d={I.clock} className="text-accent-3" />}
+            icon={<Icon name="timer" size={16} className="text-accent-3" />}
             delta={`${logsDay.length} ${logsDay.length === 1 ? "log" : "log"}`}
             deltaTone="neutral"
             spark={last7TotalsMin}
@@ -368,7 +342,7 @@ export default function UsoPcPage() {
           <StatCard
             label="Ore del mese"
             value={minutiToOre(monthTotalMin)}
-            icon={<Icon d={I.calendar} className="text-accent-2" />}
+            icon={<Icon name="calendar" size={16} className="text-accent-2" />}
             delta={month}
             deltaTone="neutral"
             spark={monthDailyMin}
@@ -383,7 +357,7 @@ export default function UsoPcPage() {
               <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 Obiettivo settimana
               </span>
-              <Icon d={I.target} className="text-accent" />
+              <Icon name="target" size={16} className="text-accent" />
             </div>
             <div className="text-[26px] font-semibold leading-none tracking-tight tnum">
               {minutiToOre(pcMinutesWeek)}
@@ -442,7 +416,12 @@ export default function UsoPcPage() {
                   <span className="ml-auto text-[11px] text-muted-foreground">{labelDayKey(day, locale)}</span>
                 </div>
                 {logsDay.length === 0 ? (
-                  <EmptyState icon="💻" title="Nessun log per questo giorno" />
+                  <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
+                    <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
+                      <Icon name="monitor" size={30} className="text-accent" />
+                    </div>
+                    <p className="text-sm font-medium text-secondary-text">Nessun log per questo giorno</p>
+                  </div>
                 ) : (
                   <div className="grid gap-4 lg:grid-cols-2">
                     <BarsChart
@@ -474,7 +453,12 @@ export default function UsoPcPage() {
             )}
             {tab === "mese" &&
               (byCategoryMonth.length === 0 ? (
-                <EmptyState icon="📊" title="Nessun dato questo mese" />
+                <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
+                  <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
+                    <Icon name="chart-bar" size={30} className="text-accent" />
+                  </div>
+                  <p className="text-sm font-medium text-secondary-text">Nessun dato questo mese</p>
+                </div>
               ) : (
                 <DonutChart
                   data={byCategoryMonth}
@@ -505,7 +489,15 @@ export default function UsoPcPage() {
             </Badge>
           </CardHeader>
           {logsDay.length === 0 ? (
-            <EmptyState icon="🕐" title="Nessun log" action={<Button size="sm" onClick={() => setOpen(true)}>+ Registra</Button>} />
+            <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
+              <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
+                <Icon name="timer" size={30} className="text-accent" />
+              </div>
+              <p className="text-sm font-medium text-secondary-text">Nessun log</p>
+              <div className="mt-2">
+                <Button size="sm" onClick={() => setOpen(true)}>+ Registra</Button>
+              </div>
+            </div>
           ) : (
             <div className="space-y-1.5">
               {logsDay.map((p) => (
@@ -678,7 +670,9 @@ export default function UsoPcPage() {
                   onClick={() => updateDB((d) => ({ ...d, pcAppCategoryMap: removeById(d.pcAppCategoryMap, m.id) }))}
                   className="text-muted-foreground transition-colors hover:text-danger"
                   aria-label="Elimina"
-                >✕</button>
+                >
+                  <Icon name="x" size={13} />
+                </button>
               </span>
             </div>
           ))}

@@ -28,6 +28,7 @@ import { StatCard } from "@/components/ui/StatCard";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Field";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import { Icon } from "@/components/ui/Icon";
 import { TrendArrow } from "@/components/ui/Arrow";
 import { Reveal } from "@/components/ui/Reveal";
 import { shiftMonth } from "./helpers";
@@ -97,8 +98,8 @@ function PuntoDiPartenza({ base }: { base: string }) {
       <div className="relative flex flex-col items-center gap-4 py-10 text-center sm:py-14">
         <div className="relative">
           <span className="absolute inset-0 -m-3 rounded-full bg-accent/10 blur-md animate-pulse-dot" />
-          <div className="relative grid h-16 w-16 place-items-center rounded-2xl border border-accent/25 bg-accent/5 text-3xl shadow-[0_0_32px_-8px_var(--accent-glow)]">
-            💰
+          <div className="relative grid h-16 w-16 place-items-center rounded-2xl border border-accent/25 bg-accent/5 shadow-[0_0_32px_-8px_var(--accent-glow)]">
+            <Icon name="wallet" size={32} className="text-accent" />
           </div>
         </div>
         <div className="max-w-md">

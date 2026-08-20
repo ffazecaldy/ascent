@@ -64,7 +64,7 @@ export function GoalForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? `Modifica obiettivo · ${editing.name}` : "🎯 Nuovo obiettivo"}
+      title={editing ? `Modifica obiettivo · ${editing.name}` : "Nuovo obiettivo"}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>

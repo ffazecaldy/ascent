@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ConfirmDialog } from "@/components/ui/Modal";
 import { Reveal } from "@/components/ui/Reveal";
+import { Icon, type IconName } from "@/components/ui/Icon";
 
 const LAST_BACKUP_KEY = "ascend:lastbackup";
 
@@ -184,13 +185,13 @@ export default function ExportPage() {
     Sorgente: (p) => (p.source === "manuale" ? "Manuale" : p.source === "csv" ? "CSV" : "ActivityWatch"),
   };
 
-  const csvSections: { key: string; label: string; icon: string; count: number; run: () => void }[] = [
-    { key: "transazioni", label: "Transazioni", icon: "💶", count: db.transactions.length, run: () => downloadCsv("ascend-transazioni", exportCollectionCsv(db.transactions, txMapping)) },
-    { key: "trades", label: "Trade", icon: "🕹", count: db.trades.length, run: () => downloadCsv("ascend-trades", exportCollectionCsv(db.trades, tradeMapping)) },
-    { key: "accounts", label: "Account trading", icon: "🏦", count: db.accounts.length, run: () => downloadCsv("ascend-account", exportCollectionCsv(db.accounts, accountMapping)) },
-    { key: "libri", label: "Libri", icon: "📚", count: db.books.length, run: () => downloadCsv("ascend-libri", exportCollectionCsv(db.books, bookMapping)) },
-    { key: "allenamenti", label: "Allenamenti", icon: "💪", count: db.workouts.length, run: () => downloadCsv("ascend-allenamenti", exportCollectionCsv(db.workouts, workoutMapping)) },
-    { key: "usopc", label: "Log uso PC", icon: "💻", count: db.pcUsageLogs.length, run: () => downloadCsv("ascend-usopc", exportCollectionCsv(db.pcUsageLogs, pcMapping)) },
+  const csvSections: { key: string; label: string; icon: IconName; count: number; run: () => void }[] = [
+    { key: "transazioni", label: "Transazioni", icon: "coins", count: db.transactions.length, run: () => downloadCsv("ascend-transazioni", exportCollectionCsv(db.transactions, txMapping)) },
+    { key: "trades", label: "Trade", icon: "activity", count: db.trades.length, run: () => downloadCsv("ascend-trades", exportCollectionCsv(db.trades, tradeMapping)) },
+    { key: "accounts", label: "Account trading", icon: "building", count: db.accounts.length, run: () => downloadCsv("ascend-account", exportCollectionCsv(db.accounts, accountMapping)) },
+    { key: "libri", label: "Libri", icon: "book-open", count: db.books.length, run: () => downloadCsv("ascend-libri", exportCollectionCsv(db.books, bookMapping)) },
+    { key: "allenamenti", label: "Allenamenti", icon: "dumbbell", count: db.workouts.length, run: () => downloadCsv("ascend-allenamenti", exportCollectionCsv(db.workouts, workoutMapping)) },
+    { key: "usopc", label: "Log uso PC", icon: "monitor", count: db.pcUsageLogs.length, run: () => downloadCsv("ascend-usopc", exportCollectionCsv(db.pcUsageLogs, pcMapping)) },
   ];
 
   // --- Restore (file input + drag & drop) ------------------------------
@@ -261,7 +262,11 @@ export default function ExportPage() {
               : "border-danger/30 bg-danger/10 text-danger"
           )}
         >
-          <span className="text-base">{msg.type === "ok" ? "✅" : "⚠️"}</span>
+          {msg.type === "ok" ? (
+            <Icon name="check" size={16} />
+          ) : (
+            <Icon name="alert" size={16} />
+          )}
           {msg.text}
         </div>
       )}
@@ -280,9 +285,7 @@ export default function ExportPage() {
           </CardHeader>
           <div className="flex flex-wrap items-center gap-3">
             <Button size="lg" glow onClick={handleBackup}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-              </svg>
+              <Icon name="download" size={16} strokeWidth={2.2} />
               Scarica backup JSON
             </Button>
             {lastBackup ? (
@@ -317,8 +320,8 @@ export default function ExportPage() {
                 onClick={s.run}
               >
                 <span className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-elevated text-sm">
-                    {s.icon}
+                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-elevated">
+                    <Icon name={s.icon} size={14} className="text-foreground" />
                   </span>
                   {s.label}
                 </span>
@@ -326,19 +329,7 @@ export default function ExportPage() {
                   <span className="rounded-full bg-elevated px-2 py-0.5 text-[11px] tnum text-muted-foreground">
                     {s.count}
                   </span>
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="text-accent"
-                  >
-                    <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-                  </svg>
+                  <Icon name="download" size={14} className="text-accent" />
                 </span>
               </Button>
             ))}
@@ -393,11 +384,11 @@ export default function ExportPage() {
           >
             <span
               className={cn(
-                "flex h-11 w-11 items-center justify-center rounded-xl text-xl transition-[transform,background-color] duration-300",
+                "flex h-11 w-11 items-center justify-center rounded-xl transition-[transform,background-color] duration-300",
                 dragOver ? "scale-110 bg-accent/20" : "bg-elevated"
               )}
             >
-              {dragOver ? "📂" : "📁"}
+              <Icon name="upload" size={22} className="text-foreground" />
             </span>
             <p className="text-sm font-medium leading-relaxed text-secondary-text">
               {dragOver ? "Rilascia il file qui" : "Trascina il file .json qui o clicca per sceglierlo"}
@@ -417,7 +408,7 @@ export default function ExportPage() {
           {selectedName && (
             <div className="mt-3 flex items-center gap-2 animate-pop">
               <Badge tone="info" pulse>
-                📄 {selectedName}
+                <Icon name="clipboard" size={11} /> {selectedName}
               </Badge>
               <span className="text-xs text-muted-foreground">
                 in attesa di conferma…
@@ -426,8 +417,9 @@ export default function ExportPage() {
           )}
 
           {db.transactions.length + db.trades.length > 0 && (
-            <p className="mt-3 text-xs text-danger/90">
-              ⚠️ Attenzione: hai dati già salvati. Il restore li sostituirà completamente.
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-danger/90">
+              <Icon name="alert" size={12} className="shrink-0" />
+              Attenzione: hai dati già salvati. Il restore li sostituirà completamente.
             </p>
           )}
         </Card>

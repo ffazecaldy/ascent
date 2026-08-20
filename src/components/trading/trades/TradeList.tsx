@@ -17,6 +17,7 @@ import { tradeRespected, rulesOfSetup } from "@/lib/compute";
 import { cn } from "@/lib/cn";
 import { formatDayTime } from "./trade-utils";
 import { Lightbox } from "./Lightbox";
+import { Icon } from "@/components/ui/Icon";
 
 export function TradeList({
   db,
@@ -115,7 +116,7 @@ export function TradeList({
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                   {t.setupId && (
                     <Badge tone="default" className="max-w-[150px] truncate">
-                      📋 {setupName(db, t.setupId)}
+                      <Icon name="clipboard" size={12} /> {setupName(db, t.setupId)}
                     </Badge>
                   )}
 
@@ -145,7 +146,7 @@ export function TradeList({
                               )}
                             />
                             <span className="pointer-events-none absolute bottom-full left-1/2 z-40 mb-1.5 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-border-strong bg-card px-2 py-1 text-[11px] shadow-[--shadow-pop] group-hover/rule:block">
-                              <span className={ok ? "text-success" : "text-danger"}>{ok ? "✓" : "✗"}</span>{" "}
+                              <Icon name={ok ? "check" : "x"} size={11} className={ok ? "text-success" : "text-danger"} />{" "}
                               {r.text}
                             </span>
                           </span>

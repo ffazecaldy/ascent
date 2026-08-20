@@ -18,7 +18,8 @@ import { cn } from "@/lib/cn";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Select, Field, Label } from "@/components/ui/Field";
-import { Toggle, EmptyState } from "@/components/ui/Misc";
+import { Toggle } from "@/components/ui/Misc";
+import { Icon } from "@/components/ui/Icon";
 import { formatRate } from "./helpers";
 
 type FxState = "idle" | "loading" | "ok" | "down";
@@ -159,12 +160,18 @@ export function TransactionForm() {
           <CardTitle>Nuova transazione</CardTitle>
           <CardSubtitle>Serve almeno una categoria per partire.</CardSubtitle>
         </CardHeader>
-        <EmptyState
-          icon="🏷️"
-          title="Nessuna categoria presente"
-          description="Crea le categorie predefinite o aggiungine di tue nel pannello qui accanto."
-          action={<Button onClick={seedCategories}>Crea le categorie predefinite</Button>}
-        />
+        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
+          <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
+            <Icon name="tag" size={30} className="text-accent" />
+          </div>
+          <p className="text-sm font-medium text-secondary-text">Nessuna categoria presente</p>
+          <p className="max-w-xs text-xs text-muted-foreground">
+            Crea le categorie predefinite o aggiungine di tue nel pannello qui accanto.
+          </p>
+          <div className="mt-2">
+            <Button onClick={seedCategories}>Crea le categorie predefinite</Button>
+          </div>
+        </div>
       </Card>
     );
   }

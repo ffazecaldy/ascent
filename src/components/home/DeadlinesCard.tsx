@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================
-// ASCEND — Home · Card "Scadenze" ⏳
+// ASCEND — Home · Card "Scadenze"
 // Prossime 4 scadenze degli obiettivi (upcomingDeadlines):
 // giorni mancanti grandi (tnum), label, badge kind daily/weekly,
 // barra urgenza: >3 gg accent, <=3 warning, scaduto danger.
@@ -13,6 +13,7 @@ import { upcomingDeadlines } from "@/lib/compute";
 import type { DB } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
 
 const URGENCY_WINDOW = 14; // giorni → scala della barra (più corto = più urgente)
@@ -63,9 +64,7 @@ export function DeadlinesCard({ db }: { db: DB }) {
 
       {deadlines.length === 0 ? (
         <div className="flex items-center gap-2.5 rounded-lg border border-dashed border-border-strong px-3 py-2.5">
-          <span aria-hidden className="text-sm">
-            🎯
-          </span>
+          <Icon name="target" size={15} className="text-accent" />
           <p className="text-xs text-secondary-text">
             Nessuna scadenza imminente — tutto sotto controllo.
           </p>

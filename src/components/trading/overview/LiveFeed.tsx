@@ -15,6 +15,7 @@ import type { DB } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/Misc";
+import { Icon } from "@/components/ui/Icon";
 import { setupName } from "@/lib/db";
 import { formatR, formatSignedMoney } from "@/lib/format";
 import { moneyMasked, kpiMasked, maskMoney, maskKpi } from "@/lib/privacy";
@@ -86,7 +87,7 @@ export function LiveFeed({ db }: { db: DB }) {
       </CardHeader>
       {!last ? (
         <EmptyState
-          icon="🕹"
+          icon={<Icon name="list" size={32} />}
           title="Nessun trade chiuso"
           description="Il feed live mostrerà qui l'ultima operazione con il risultato in tempo reale."
         />

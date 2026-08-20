@@ -14,7 +14,8 @@ import { useDB, updateDB, removeById } from "@/lib/storage";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Toggle, ProgressBar, EmptyState } from "@/components/ui/Misc";
+import { Icon } from "@/components/ui/Icon";
+import { Toggle, ProgressBar } from "@/components/ui/Misc";
 import { ConfirmDialog } from "@/components/ui/Modal";
 import { CircularProgress } from "./CircularProgress";
 import { formatMoney, formatPercent } from "@/lib/format";
@@ -35,7 +36,8 @@ function DeadlineBadge({ days }: { days: number }) {
     days < 0 ? `Scaduto · ${-days} gg fa` : days === 0 ? "Scade oggi" : `Scadenza · ${days} gg`;
   return (
     <Badge tone={tone} className="mt-1.5">
-      ⏳ {text}
+      <Icon name="timer" size={13} />
+      {text}
     </Badge>
   );
 }
@@ -113,16 +115,20 @@ export function GoalManager({
       </div>
 
       {rows.length === 0 ? (
-        <EmptyState
-          icon="🎯"
-          title="Nessun obiettivo"
-          description="Crea il tuo primo obiettivo di accumulo: dai un nome, un target e un'eventuale scadenza."
-          action={
+        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
+          <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
+            <Icon name="target" size={30} className="text-accent" />
+          </div>
+          <p className="text-sm font-medium text-secondary-text">Nessun obiettivo</p>
+          <p className="max-w-xs text-xs text-muted-foreground">
+            Crea il tuo primo obiettivo di accumulo: dai un nome, un target e un&apos;eventuale scadenza.
+          </p>
+          <div className="mt-2">
             <Button size="sm" glow onClick={onNewGoal}>
               ＋ Crea obiettivo
             </Button>
-          }
-        />
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {rows.map(({ goal, deposited, pct, done }) => {
@@ -199,11 +205,16 @@ export function GoalManager({
                         {done ? "raggiunto" : `${Math.round(pct)}% completato`}
                       </span>
                       <span className="tnum text-muted-foreground">
-                        {done
-                          ? "🎉 target pieno"
-                          : hidden
-                            ? maskMoney()
-                            : `mancano ${formatMoney(Math.max(0, gap), base, locale)}`}
+                        {done ? (
+                          <span className="inline-flex items-center gap-1">
+                            <Icon name="sparkles" size={12} />
+                            target pieno
+                          </span>
+                        ) : hidden ? (
+                          maskMoney()
+                        ) : (
+                          `mancano ${formatMoney(Math.max(0, gap), base, locale)}`
+                        )}
                       </span>
                     </div>
                   </div>
@@ -213,7 +224,8 @@ export function GoalManager({
                 {done && (
                   <div className="relative flex flex-wrap items-center gap-2 rounded-xl border border-success/25 bg-success/10 px-3 py-2">
                     <Badge tone="success" pulse>
-                      🎉 Raggiunto
+                      <Icon name="sparkles" size={13} />
+                      Raggiunto
                     </Badge>
                     <p className="text-[11px] text-success/90">
                       Obiettivo completo — il tuo capitale è pronto per il prossimo passo.

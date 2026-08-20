@@ -8,7 +8,7 @@
 import { useDB } from "@/lib/storage";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { EmptyState } from "@/components/ui/Misc";
+import { Icon } from "@/components/ui/Icon";
 import { LineChart, ACCENT } from "@/components/charts";
 import { formatMoney } from "@/lib/format";
 import { moneyMasked, maskMoney } from "@/lib/privacy";
@@ -75,16 +75,20 @@ export function AccumulationChart({
           yFormatter={(n) => (hidden ? maskMoney() : formatMoney(n, base, locale))}
         />
       ) : (
-        <EmptyState
-          icon="📈"
-          title="Ancora nessun versamento"
-          description="Registra almeno due versamenti per vedere la tua parabola di accumulo."
-          action={
+        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
+          <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
+            <Icon name="chart-line" size={30} className="text-accent" />
+          </div>
+          <p className="text-sm font-medium text-secondary-text">Ancora nessun versamento</p>
+          <p className="max-w-xs text-xs text-muted-foreground">
+            Registra almeno due versamenti per vedere la tua parabola di accumulo.
+          </p>
+          <div className="mt-2">
             <Button variant="outline" size="sm" onClick={onNewDeposit}>
               ＋ Primo versamento
             </Button>
-          }
-        />
+          </div>
+        </div>
       )}
     </Card>
   );

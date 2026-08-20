@@ -44,6 +44,7 @@ import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { TextArea } from "@/components/ui/Field";
 import { EmptyState, SectionHeader } from "@/components/ui/Misc";
 import { Reveal } from "@/components/ui/Reveal";
+import { Icon } from "@/components/ui/Icon";
 
 // --- helper locali (dentro il file, niente toccate a src/lib) ---
 
@@ -220,7 +221,7 @@ export default function WeeklyReviewPage() {
         subtitle="Dati della settimana e riflessione. Chiudi ogni settimana con consapevolezza."
         action={
           existing ? (
-            <Badge tone="success">✓ Review salvata</Badge>
+            <Badge tone="success"><Icon name="check" size={12} /> Review salvata</Badge>
           ) : (
             <Badge tone="default">Da compilare</Badge>
           )
@@ -255,7 +256,7 @@ export default function WeeklyReviewPage() {
                   </Badge>
                 )}
                 {existing && (
-                  <Badge tone="success">✓ review</Badge>
+                  <Badge tone="success"><Icon name="check" size={12} /> review</Badge>
                 )}
               </div>
             </div>
@@ -292,7 +293,7 @@ export default function WeeklyReviewPage() {
             )}
           >
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-success/15 text-xl shadow-[0_0_18px_-4px_rgba(45,223,158,0.7)]">
-              ✨
+              <Icon name="sparkles" size={20} />
             </span>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-success">
@@ -316,7 +317,7 @@ export default function WeeklyReviewPage() {
         <Reveal delay={0}>
           <StatCard
             label="Trade chiusi"
-            icon={<span className="text-sm">📊</span>}
+            icon={<Icon name="chart-bar" size={16} />}
             value={formatNumber(stats.trades)}
             delta={`${stats.wins} win · ${stats.losses} loss${stats.breakeven ? ` · ${stats.breakeven} be` : ""}`}
             spark={daily.count}
@@ -326,7 +327,7 @@ export default function WeeklyReviewPage() {
         <Reveal delay={50}>
           <StatCard
             label="Win rate"
-            icon={<span className="text-sm">🎯</span>}
+            icon={<Icon name="target" size={16} />}
             value={pct(stats.winRate)}
             delta="sui trade chiusi"
             spark={daily.winRate}
@@ -347,7 +348,7 @@ export default function WeeklyReviewPage() {
           >
             <StatCard
               label="P&L trading"
-              icon={<span className="text-sm">💰</span>}
+              icon={<Icon name="wallet" size={16} />}
               valueClassName={
                 stats.totalBase > 0 ? "text-success" : stats.totalBase < 0 ? "text-danger" : ""
               }
@@ -369,7 +370,7 @@ export default function WeeklyReviewPage() {
         <Reveal delay={150}>
           <StatCard
             label="Profit factor"
-            icon={<span className="text-sm">⚖️</span>}
+            icon={<Icon name="scale" size={16} />}
             value={
               stats.profitFactor != null
                 ? stats.profitFactor.toLocaleString("it-IT", { maximumFractionDigits: 2 })
@@ -381,7 +382,7 @@ export default function WeeklyReviewPage() {
         <Reveal delay={0}>
           <StatCard
             label="Disciplina"
-            icon={<span className="text-sm">🧭</span>}
+            icon={<Icon name="compass" size={16} />}
             value={pct(stats.disciplinePct)}
             delta={`${stats.noSetupCount} senza setup`}
             spark={daily.discipline}
@@ -391,7 +392,7 @@ export default function WeeklyReviewPage() {
         <Reveal delay={50}>
           <StatCard
             label="Ore PC"
-            icon={<span className="text-sm">💻</span>}
+            icon={<Icon name="monitor" size={16} />}
             value={minutiToOre(stats.pcMinutes)}
             delta={`${formatNumber(stats.pcMinutes)} min`}
           />
@@ -399,7 +400,7 @@ export default function WeeklyReviewPage() {
         <Reveal delay={100}>
           <StatCard
             label="Allenamenti"
-            icon={<span className="text-sm">🏋️</span>}
+            icon={<Icon name="dumbbell" size={16} />}
             value={formatNumber(stats.workouts)}
             delta="nella settimana"
           />
@@ -407,7 +408,7 @@ export default function WeeklyReviewPage() {
         <Reveal delay={150}>
           <StatCard
             label="Pagine lette"
-            icon={<span className="text-sm">📖</span>}
+            icon={<Icon name="book" size={16} />}
             value={formatNumber(stats.pagesRead)}
             delta="da libri in corso"
           />
@@ -421,7 +422,7 @@ export default function WeeklyReviewPage() {
           >
             <StatCard
               label="Ascend Day"
-              icon={<span className="text-sm">⚡</span>}
+              icon={<Icon name="zap" size={16} />}
               value={
                 <AnimatedNumber
                   key={week}
@@ -429,7 +430,15 @@ export default function WeeklyReviewPage() {
                   fmt={(n) => `${Math.round(n)}/${stats.ascordTotal}`}
                 />
               }
-              delta={perfect ? "Settimana perfetta ✨" : stats.ascordTotal > 0 ? "giorni vinti" : "nessun goal attivo"}
+              delta={
+                perfect ? (
+                  <>Settimana perfetta <Icon name="sparkles" size={12} /></>
+                ) : stats.ascordTotal > 0 ? (
+                  "giorni vinti"
+                ) : (
+                  "nessun goal attivo"
+                )
+              }
               deltaTone={perfect ? "positive" : "neutral"}
               spark={daily.ascord}
               sparkColor="#2DDF9E"
@@ -616,12 +625,12 @@ function ReflectionForm({
       <Reveal>
         <Card>
           <EmptyState
-            icon="✍️"
+            icon={<Icon name="pen" size={32} />}
             title="Nessuna review per questa settimana"
             description="Prenditi dieci minuti: cosa è andato bene, cosa no, e cosa cambierai. Le statistiche sopra sono già pronte."
             action={
               <Button glow onClick={onCompletaOggi}>
-                Completa oggi ✨
+                <Icon name="sparkles" size={14} /> Completa oggi
               </Button>
             }
           />
@@ -642,7 +651,7 @@ function ReflectionForm({
               </CardSubtitle>
             </div>
             {existing ? (
-              <Badge tone="success">✓ Salvata</Badge>
+              <Badge tone="success"><Icon name="check" size={12} /> Salvata</Badge>
             ) : (
               <Badge tone="warning">Bozza</Badge>
             )}
@@ -678,7 +687,7 @@ function ReflectionForm({
             </Button>
             {msg && (
               <span className="animate-pop inline-flex items-center gap-1.5 rounded-full border border-success/25 bg-success/10 px-3 py-1 text-xs font-semibold text-success">
-                <span className="text-emerald-300">✔</span> {msg}
+                <Icon name="check" size={12} className="text-emerald-300" /> {msg}
               </span>
             )}
           </div>

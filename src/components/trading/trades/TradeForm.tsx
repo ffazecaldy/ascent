@@ -16,6 +16,7 @@ import { rulesOfSetup } from "@/lib/compute";
 import { getAccount } from "@/lib/db";
 import { currencySymbol } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { Icon } from "@/components/ui/Icon";
 import { ScreenshotUploader } from "./ScreenshotUploader";
 import {
   isoToLocalInput,
@@ -410,7 +411,7 @@ export function TradeForm({
                             : "border-border-strong bg-elevated text-muted-foreground"
                         )}
                       >
-                        {ok ? "✓" : "✗"}
+                        <Icon name={ok ? "check" : "x"} size={10} />
                       </span>
                       <span className={cn("max-w-[230px] truncate", !ok && "opacity-70 line-through")}>{r.text}</span>
                     </button>

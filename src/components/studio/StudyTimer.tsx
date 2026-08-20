@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================
-// Zona Studio — ⏱ Timer: sessione veloce start/stop.
+// Zona Studio — Timer: sessione veloce start/stop.
 // Al fermo assegna durata = minuti trascorsi e salva subito
 // una sessione (data oggi tz, materia scelta) via useDB.
 // Un solo campo semplice: la materia.
@@ -13,7 +13,8 @@ import { todayKey } from "@/lib/dates";
 import { Card, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Field";
-import { SUBJECT_PRESETS, subjectEmoji } from "./constants";
+import { SUBJECT_PRESETS } from "./constants";
+import { Icon } from "@/components/ui/Icon";
 
 export function StudyTimer() {
   const db = useDB();
@@ -65,7 +66,10 @@ export function StudyTimer() {
     <Card hairline={running ? "accent" : "none"} scan={running}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <CardTitle>⏱ Timer — sessione veloce</CardTitle>
+          <CardTitle className="flex items-center gap-1.5">
+            <Icon name="timer" size={16} />
+            Timer — sessione veloce
+          </CardTitle>
           <CardSubtitle>
             Avvia, studia, ferma: i minuti trascorsi diventano una sessione registrata.
           </CardSubtitle>
@@ -80,7 +84,7 @@ export function StudyTimer() {
             >
               {SUBJECT_PRESETS.map((s) => (
                 <option key={s} value={s}>
-                  {subjectEmoji(s)} {s}
+                  {s}
                 </option>
               ))}
             </Select>
@@ -96,11 +100,11 @@ export function StudyTimer() {
 
           {running ? (
             <Button variant="danger" onClick={stop}>
-              ■ Stop e salva
+              <Icon name="pause" size={14} /> Stop e salva
             </Button>
           ) : (
             <Button onClick={start} glow>
-              ▶ Avvia
+              <Icon name="play" size={14} /> Avvia
             </Button>
           )}
         </div>
@@ -108,10 +112,8 @@ export function StudyTimer() {
 
       {savedAt && (
         <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-success">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
-          {savedAt} · alimenta lo streak ✓
+          <Icon name="check" size={13} strokeWidth={3} />
+          {savedAt} · alimenta lo streak
         </p>
       )}
     </Card>

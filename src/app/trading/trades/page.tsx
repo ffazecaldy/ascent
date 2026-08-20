@@ -21,6 +21,7 @@ import { Select } from "@/components/ui/Field";
 import { StatCard } from "@/components/ui/StatCard";
 import { Reveal } from "@/components/ui/Reveal";
 import { ConfirmDialog } from "@/components/ui/Modal";
+import { Icon } from "@/components/ui/Icon";
 import { TradeForm, type TradePayload } from "@/components/trading/trades/TradeForm";
 import { TradeList } from "@/components/trading/trades/TradeList";
 import { monthLabel, shiftMonth } from "@/components/trading/trades/trade-utils";
@@ -155,12 +156,12 @@ export default function TradesPage() {
             />
           )}
 
-          <StatCard label="Trade · mese" value={monthTrades.length} icon={<span>🕹</span>} />
+          <StatCard label="Trade · mese" value={monthTrades.length} icon={<Icon name="list" size={18} />} />
           <StatCard
             label="R · mese"
             value={kpiHidden ? maskKpi() : formatR(monthR)}
             valueClassName={!kpiHidden ? (monthR > 0 ? "text-success" : monthR < 0 ? "text-danger" : "") : ""}
-            icon={<span>📈</span>}
+            icon={<Icon name="chart-line" size={18} />}
           />
           {selAccount && (
             <StatCard
@@ -174,7 +175,7 @@ export default function TradesPage() {
                 !moneyHidden ? (monthNative > 0 ? "text-success" : monthNative < 0 ? "text-danger" : "") : ""
               }
               deltaTone={monthNative > 0 ? "positive" : monthNative < 0 ? "negative" : "neutral"}
-              icon={<span>💰</span>}
+              icon={<Icon name="wallet" size={18} />}
             />
           )}
         </div>
@@ -247,7 +248,7 @@ export default function TradesPage() {
       <Reveal delay={120}>
         {noAccounts ? (
           <EmptyState
-            icon="🏦"
+            icon={<Icon name="building" size={32} />}
             title="Nessun account"
             description="Prima di registrare trade serve almeno un account di trading."
             action={
@@ -260,7 +261,7 @@ export default function TradesPage() {
           />
         ) : monthTrades.length === 0 ? (
           <EmptyState
-            icon="📭"
+            icon={<Icon name="list" size={32} />}
             title={`Nessun trade in ${monthLabel(month, db.settings.locale).toLowerCase()}`}
             description="Registra il primo trade del periodo per iniziare."
             action={

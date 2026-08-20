@@ -19,6 +19,7 @@ import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button";
 import { Field, Select, TextArea } from "@/components/ui/Field";
 import { cn } from "@/lib/cn";
+import { Icon } from "@/components/ui/Icon";
 
 type Step = "account" | "csv" | "preview" | "done";
 
@@ -197,7 +198,7 @@ export default function ImportPage() {
           {activeAccounts.length === 0 ? (
             <Card>
               <EmptyState
-                icon="📥"
+                icon={<Icon name="upload" size={32} />}
                 title="Nessun account di trading"
                 description="Crea prima un account (prop o personale): i trade importati saranno associati a un account."
                 action={
@@ -283,7 +284,7 @@ export default function ImportPage() {
 
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-              📁 Carica file…
+              <Icon name="upload" size={14} /> Carica file…
             </Button>
             <span className="text-xs text-muted-foreground">
               {fileName ? `File: ${fileName}` : "Oppure incolla sotto"}
@@ -340,8 +341,8 @@ export default function ImportPage() {
           </div>
 
           {parsed.meta.unknown.length > 0 && (
-            <p className="text-xs text-secondary-text">
-              ⚠ Colonne non riconosciute (ignorate): {parsed.meta.unknown.join(", ")}
+            <p className="flex items-center gap-1.5 text-xs text-secondary-text">
+              <Icon name="alert" size={14} /> Colonne non riconosciute (ignorate): {parsed.meta.unknown.join(", ")}
             </p>
           )}
 
@@ -395,7 +396,7 @@ export default function ImportPage() {
                         <td className="max-w-[180px] px-3 py-2">
                           {warn.length > 0 ? (
                             <span className="flex items-center gap-1 text-xs text-yellow-500" title={warn.map((w) => w.message).join(" · ")}>
-                              ⚠ {warn.length}
+                              <Icon name="alert" size={12} /> {warn.length}
                             </span>
                           ) : (
                             <span className="text-muted-foreground">—</span>
@@ -452,7 +453,7 @@ export default function ImportPage() {
       {/* ============================ STEP 4: FATTO ============================ */}
       {step === "done" && (
         <Card className="p-8 text-center">
-          <div className="mb-3 text-4xl">✅</div>
+          <div className="mb-3 flex justify-center"><Icon name="check" size={40} className="text-success" /></div>
           <h2 className="text-xl font-semibold">
             {imported} trade importati su {account?.name ?? "account"}
           </h2>
@@ -460,8 +461,8 @@ export default function ImportPage() {
             I trade sono nel journal con setup non associato. Le statistiche verranno aggiornate automaticamente.
           </p>
           {parsed && parsed.skipped > 0 && (
-            <p className="mt-2 text-xs text-yellow-500">
-              ⚠ {parsed.skipped} righe scartate: non sono state importate.
+            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-yellow-500">
+              <Icon name="alert" size={14} /> {parsed.skipped} righe scartate: non sono state importate.
             </p>
           )}
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2">

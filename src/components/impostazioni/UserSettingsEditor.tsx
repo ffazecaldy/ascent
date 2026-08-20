@@ -14,6 +14,7 @@ import type { UserSettings, PrivacyMode } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Field, Input, Select } from "@/components/ui/Field";
 import { Badge } from "@/components/ui/Badge";
+import { Icon } from "@/components/ui/Icon";
 import { TZ_NAMES, WEEK_START_LABELS, CURRENCY_LABELS } from "./constants";
 
 function saveSettings(patch: Partial<UserSettings>) {
@@ -62,7 +63,7 @@ export function UserSettingsEditor() {
           <CardSubtitle>Ogni modifica viene salvata immediatamente.</CardSubtitle>
         </div>
         <Badge tone="success" pulse>
-          💾 Salvato · {savedAt}
+          <Icon name="check" size={11} /> Salvato · {savedAt}
         </Badge>
       </CardHeader>
 
@@ -150,7 +151,7 @@ export function UserSettingsEditor() {
       </div>
 
       <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-accent/25 bg-accent/5 px-3 py-2.5 text-xs leading-relaxed text-secondary-text">
-        <span className="mt-0.5 text-base">🧭</span>
+        <Icon name="compass" size={14} className="mt-0.5 shrink-0 text-accent" />
         <div>
           <span className="font-semibold text-foreground">Confini del giorno.</span> timezone e
           week_start sono la fonte unica di verità per i confini del giorno — mai inferiti dal

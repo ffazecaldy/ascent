@@ -30,6 +30,7 @@
 // ============================================================
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { useDB, updateDB, upsert, uid, nowISO } from "@/lib/storage";
 import { rulesOfSetup, tradeRespected, disciplineStats, accountBaseRate } from "@/lib/compute";
 import {
@@ -54,6 +55,7 @@ import { Modal, ConfirmDialog } from "@/components/ui/Modal";
 import { EmptyState, SectionHeader, Toggle, ProgressBar } from "@/components/ui/Misc";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { Reveal } from "@/components/ui/Reveal";
+import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
 
 // ------------------------------------------------------------
@@ -193,7 +195,7 @@ function ChevronIcon({ dir }: { dir: "up" | "down" }) {
 // ------------------------------------------------------------
 // SectionLabel — titolo di sezione secondario (ricco)
 // ------------------------------------------------------------
-function SectionLabel({ icon, title, hint }: { icon: string; title: string; hint?: string }) {
+function SectionLabel({ icon, title, hint }: { icon: ReactNode; title: string; hint?: string }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-2">
       <h2 className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
@@ -298,7 +300,7 @@ function RuleRow({
         aria-label="Elimina regola"
         className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger"
       >
-        ✕
+        <Icon name="x" size={14} />
       </button>
     </div>
   );
@@ -629,7 +631,7 @@ export default function SetupsPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-warning/30 bg-warning/10 text-base shadow-[0_0_16px_-6px_rgba(240,180,41,0.5)]">
-                ⚠️
+                <Icon name="alert" size={18} />
               </span>
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-warning">No Setup</p>
@@ -650,7 +652,7 @@ export default function SetupsPage() {
             </div>
           </div>
           <div className="mt-3 flex items-start gap-2 rounded-lg border border-warning/25 bg-warning/[0.07] px-3 py-2 text-xs text-warning">
-            <span aria-hidden>⚠️</span>
+            <Icon name="alert" size={14} className="mt-0.5 shrink-0" />
             <span>Tradare senza piano è indisciplina.</span>
           </div>
         </Card>
@@ -660,12 +662,12 @@ export default function SetupsPage() {
       <Reveal delay={300}>
         <div>
           <SectionLabel
-            icon="📋"
+            icon={<Icon name="clipboard" size={14} />}
             title="Playbook"
             hint={db.setups.length > 0 ? `${db.setups.length} setup` : undefined}
           />
           <p className="mb-3 flex items-start gap-2 rounded-lg border border-accent/20 bg-accent/[0.06] px-3 py-2.5 text-xs leading-relaxed text-secondary-text">
-            <span aria-hidden>💡</span>
+            <Icon name="sparkles" size={14} className="mt-0.5 shrink-0" />
             <span>
               Modificare il playbook non corrompe lo storico: ogni regola ha un ID stabile e i trade
               restano collegati per ID. Puoi rinominare, riordinare o disattivare le regole quando vuoi.
@@ -673,7 +675,7 @@ export default function SetupsPage() {
           </p>
           {db.setups.length === 0 ? (
             <EmptyState
-              icon="📋"
+              icon={<Icon name="clipboard" size={32} />}
               title="Nessun setup nel playbook"
               description="Crea il primo setup con le regole che definiscono il tuo edge."
               action={
@@ -710,14 +712,14 @@ export default function SetupsPage() {
       <Reveal delay={360}>
         <div>
           <SectionLabel
-            icon="🕹️"
+            icon={<Icon name="list" size={14} />}
             title="Trade del periodo"
             hint={setupTrades.length > 0 ? `${setupTrades.length} trade con setup` : undefined}
           />
           <Card>
             {setupTrades.length === 0 ? (
               <EmptyState
-                icon="🕹️"
+                icon={<Icon name="list" size={32} />}
                 title="Nessun trade con setup nel periodo"
                 description={
                   periodTrades.length === 0

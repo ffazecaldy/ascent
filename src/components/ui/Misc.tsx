@@ -107,7 +107,7 @@ export function EmptyState({
   description,
   action,
 }: {
-  icon?: string;
+  icon?: React.ReactNode;
   title: string;
   description?: string;
   action?: React.ReactNode;

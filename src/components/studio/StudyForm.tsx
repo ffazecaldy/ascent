@@ -13,7 +13,7 @@ import { todayKey } from "@/lib/dates";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Label, Select, TextArea } from "@/components/ui/Field";
-import { SUBJECT_PRESETS, subjectEmoji } from "./constants";
+import { SUBJECT_PRESETS } from "./constants";
 
 export function StudyForm({
   open,
@@ -137,7 +137,7 @@ export function StudyForm({
         <Select value={fSubject} onChange={(e) => setFSubject(e.target.value)}>
           {subjectOptions.map((t) => (
             <option key={t} value={t}>
-              {subjectEmoji(t)} {t}
+              {t}
             </option>
           ))}
         </Select>

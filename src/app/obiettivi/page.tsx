@@ -34,6 +34,7 @@ import { Badge, StatusDot } from "@/components/ui/Badge";
 import { ConfirmDialog, Modal } from "@/components/ui/Modal";
 import { Input, Select, Field } from "@/components/ui/Field";
 import { Reveal } from "@/components/ui/Reveal";
+import { Icon, type IconName } from "@/components/ui/Icon";
 
 // ------------------------------------------------------------
 // Costanti locali
@@ -55,16 +56,16 @@ const PERIOD_OPTIONS: [WeeklyGoal["period"], string][] = [
   ["month", "Mese"],
 ];
 
-const WEEKLY_ICONS: Record<WeeklyGoalType, string> = {
-  finanze_check: "💶",
-  trade_log: "🕹️",
-  lettura_minuti: "📚",
-  allenamento: "💪",
-  ore_produttive: "💻",
-  disciplina_ok: "📋",
-  workout_count: "🏋️",
-  book_pages: "📖",
-  pc_hours: "💻",
+const WEEKLY_ICONS: Record<WeeklyGoalType, IconName> = {
+  finanze_check: "coins",
+  trade_log: "activity",
+  lettura_minuti: "book-open",
+  allenamento: "dumbbell",
+  ore_produttive: "monitor",
+  disciplina_ok: "clipboard",
+  workout_count: "dumbbell",
+  book_pages: "book",
+  pc_hours: "monitor",
 };
 
 const GRAY = "#52525b"; // non met / spento (dot)
@@ -126,19 +127,7 @@ function TodayDot({ met, active }: { met: boolean; active: boolean }) {
       )}
     >
       {active && met ? (
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="animate-pulse-dot text-success"
-        >
-          <path d="M20 6 9 17l-5-5" />
-        </svg>
+        <Icon name="check" size={14} strokeWidth={3} className="animate-pulse-dot text-success" />
       ) : (
         <StatusDot color={active ? GRAY : GRAY} />
       )}
@@ -294,16 +283,13 @@ function DeadlineBadge({ deadline, today, met }: { deadline: string; today: stri
   }
   return (
     <Badge tone={tone}>
-      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-        <rect x="3" y="5" width="18" height="16" rx="2" />
-        <path d="M8 3v4M16 3v4M3 10h18" />
-      </svg>
+      <Icon name="calendar" size={9} strokeWidth={2.5} />
       {text}
     </Badge>
   );
 }
 
-/** Input type=date inline: imposta la scadenza (upsert del goal), bottone ✕ per toglierla. */
+/** Input type=date inline: imposta la scadenza (upsert del goal), bottone per toglierla. */
 function DeadlineField({
   value,
   onCommit,
@@ -329,9 +315,7 @@ function DeadlineField({
           title="Togli scadenza"
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border-strong bg-elevated text-muted-foreground transition-colors hover:border-danger/40 hover:text-danger"
         >
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M18 6 6 18M6 6l12 12" />
-          </svg>
+          <Icon name="x" size={10} strokeWidth={2.5} />
         </button>
       )}
     </span>
@@ -441,9 +425,7 @@ function DailyGoalRow({
           <GoalToggle checked={goal.active} onChange={(v) => patchGoal({ active: v })} label="Attivo" />
 
           <Button variant="ghost" size="icon" onClick={() => setConfirmDel(true)} aria-label="Elimina" className="text-muted-foreground hover:text-danger">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6" />
-            </svg>
+            <Icon name="trash" size={15} />
           </Button>
         </div>
       </div>
@@ -507,8 +489,8 @@ function WeeklyGoalRow({ goal }: { goal: WeeklyGoal }) {
       )}
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border-strong bg-elevated text-base">
-          {WEEKLY_ICONS[goal.type]}
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border-strong bg-elevated">
+          <Icon name={WEEKLY_ICONS[goal.type]} size={18} className="text-foreground" />
         </span>
 
         <Select
@@ -542,9 +524,7 @@ function WeeklyGoalRow({ goal }: { goal: WeeklyGoal }) {
         <div className="ml-auto flex items-center gap-2.5">
           <GoalToggle checked={goal.active} onChange={(v) => patchGoal({ active: v })} label="Attivo" />
           <Button variant="ghost" size="icon" onClick={() => setConfirmDel(true)} aria-label="Elimina" className="text-muted-foreground hover:text-danger">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6" />
-            </svg>
+            <Icon name="trash" size={15} />
           </Button>
         </div>
       </div>
@@ -559,7 +539,7 @@ function WeeklyGoalRow({ goal }: { goal: WeeklyGoal }) {
               <span className="text-muted-foreground">non misurabile — registra le azioni dalla sezione dedicata</span>
             ) : (
               <span className={cn("tnum font-medium", met ? "text-success" : "text-secondary-text")}>
-                {met && <span className="mr-1">✓</span>}
+                {met && <Icon name="check" size={12} className="mr-1" />}
                 {prog.value}/{prog.target} {prog.unit}
                 {" · "}
                 {pct}%
@@ -800,8 +780,8 @@ export default function ObiettiviPage() {
         <Reveal>
           <Card hairline="danger" className="space-y-3">
             <div className="flex items-center gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-danger/30 bg-danger/10 text-base">
-                ⏳
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-danger/30 bg-danger/10">
+                <Icon name="timer" size={18} className="text-danger" />
               </span>
               <div className="min-w-0">
                 <p className="text-[13px] font-semibold tracking-tight text-foreground">In scadenza</p>
@@ -825,8 +805,8 @@ export default function ObiettiviPage() {
       {/* Spiegazione — separazione formale Daily/Weekly */}
       <div className="relative overflow-hidden rounded-xl border border-accent/25 bg-accent-dim px-4 py-3">
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-accent/30 bg-accent/10 text-base">
-            🧭
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-accent/30 bg-accent/10">
+            <Icon name="compass" size={18} className="text-accent" />
           </span>
           <div className="text-[13px] leading-relaxed text-secondary-text">
             <p className="font-semibold text-foreground">Due livelli, due ruoli.</p>
@@ -840,7 +820,7 @@ export default function ObiettiviPage() {
 
       {!hasAny ? (
         <EmptyState
-          icon="🎯"
+          icon={<Icon name="target" size={34} className="text-accent" />}
           title="Nessun obiettivo: aggiungine uno o completa l'onboarding"
           description="I DailyGoal decidono se vinci l'Ascend Day ogni giorno; i WeeklyGoal tracciano il progresso su settimana o mese."
           action={
@@ -882,7 +862,7 @@ export default function ObiettiviPage() {
 
               {db.dailyGoals.length === 0 ? (
                 <EmptyState
-                  icon="🎯"
+                  icon={<Icon name="target" size={34} className="text-accent" />}
                   title="Nessun obiettivo: aggiungine uno o completa l'onboarding"
                 />
               ) : (
@@ -913,7 +893,7 @@ export default function ObiettiviPage() {
 
               {db.weeklyGoals.length === 0 ? (
                 <EmptyState
-                  icon="📊"
+                  icon={<Icon name="chart-bar" size={34} className="text-accent" />}
                   title="Nessun obiettivo: aggiungine uno o completa l'onboarding"
                 />
               ) : (

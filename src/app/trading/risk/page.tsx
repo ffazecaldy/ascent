@@ -24,6 +24,7 @@ import { Field, Select } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { Reveal } from "@/components/ui/Reveal";
+import { Icon } from "@/components/ui/Icon";
 
 // Soglie di avviso (frazione del valore assoluto del limite):
 // - card "Distanza dal limite": < 20% → stato di avviso
@@ -197,7 +198,7 @@ export default function RiskPage() {
 
       {accounts.length === 0 ? (
         <EmptyState
-          icon="🏦"
+          icon={<Icon name="building" size={32} />}
           title="Nessun account"
           description="Crea un account di trading per vedere drawdown, rischio e distanza dai limiti."
           action={
@@ -252,7 +253,7 @@ function RiskBody({ accountId }: { accountId: string }) {
   if (accountTrades.length === 0 || !stats.bestDay || !stats.worstDay) {
     return (
       <EmptyState
-        icon="🕹"
+        icon={<Icon name="list" size={32} />}
         title="Nessun trade per questo account"
         description="Registra qualche trade nel Trade log per popolare drawdown, rischio medio e distanza dai limiti."
         action={
@@ -317,15 +318,15 @@ function RiskBody({ accountId }: { accountId: string }) {
       <Reveal delay={0}>
         <Card hairline="accent" texture>
           <CardHeader>
-            <CardTitle>🕐 Confine del trading day</CardTitle>
+            <CardTitle><span className="inline-flex items-center gap-1.5"><Icon name="timer" size={14} /> Confine del trading day</span></CardTitle>
             <div className="flex flex-wrap items-center justify-end gap-1.5">
-              <Badge tone="info">📍 {tz || "—"}</Badge>
-              <Badge tone="info">🔄 rollover {account.tradingDayRolloverTime || "00:00"}</Badge>
+              <Badge tone="info"><Icon name="compass" size={12} /> {tz || "—"}</Badge>
+              <Badge tone="info"><Icon name="refresh" size={12} /> rollover {account.tradingDayRolloverTime || "00:00"}</Badge>
               <Badge
                 tone={near.length > 0 ? "warning" : "success"}
                 pulse={near.length > 0}
               >
-                {near.length > 0 ? "⚠ limite vicino" : "limiti ok"}
+                {near.length > 0 ? (<><Icon name="alert" size={12} /> limite vicino</>) : "limiti ok"}
               </Badge>
             </div>
           </CardHeader>
@@ -380,7 +381,7 @@ function RiskBody({ accountId }: { accountId: string }) {
                   );
                 })}
               </div>
-              <span className="text-xl leading-none">⚠️</span>
+              <Icon name="alert" size={20} />
             </div>
           </Card>
         </Reveal>
@@ -394,24 +395,24 @@ function RiskBody({ accountId }: { accountId: string }) {
             hairline="danger"
             value={<AnimatedNumber value={stats.dailyDrawdown} fmt={(n) => fmt(n)} className="text-danger" />}
             delta="peggior giorno chiuso"
-            icon={<span className="text-base leading-none">📉</span>}
+            icon={<Icon name="arrow-down" size={16} />}
           />
           <StatCard
             label="Max drawdown"
             hairline="danger"
             value={<AnimatedNumber value={stats.maxDrawdown} fmt={(n) => fmt(n)} className="text-danger" />}
             delta="equity cumulativa, da picco"
-            icon={<span className="text-base leading-none">💧</span>}
+            icon={<Icon name="chart-line" size={16} />}
           />
           <StatCard
             label="Rischio medio per trade"
             value={<AnimatedNumber value={stats.avgRiskPerTrade} fmt={(n) => fmt(n)} />}
             delta={losingCount > 0 ? `${losingCount} trade in perdita` : "nessuna perdita registrata"}
-            icon={<span className="text-base leading-none">🎯</span>}
+            icon={<Icon name="target" size={16} />}
           />
           <BarMetricCard
             label="Rischio cumulativo oggi"
-            icon={<span className="text-base leading-none">⏳</span>}
+            icon={<Icon name="timer" size={16} />}
             value={
               <AnimatedNumber
                 value={stats.cumulativeRiskToday}
@@ -430,7 +431,7 @@ function RiskBody({ accountId }: { accountId: string }) {
           />
           <BarMetricCard
             label="Distanza dal daily loss limit"
-            icon={<span className="text-base leading-none">🛡️</span>}
+            icon={<Icon name="shield" size={16} />}
             value={
               stats.distanceDailyLimit == null ? (
                 "—"
@@ -445,7 +446,7 @@ function RiskBody({ accountId }: { accountId: string }) {
           />
           <BarMetricCard
             label="Distanza dal max loss limit"
-            icon={<span className="text-base leading-none">🧱</span>}
+            icon={<Icon name="lock" size={16} />}
             value={
               stats.distanceMaxLimit == null ? (
                 "—"
@@ -477,7 +478,7 @@ function RiskBody({ accountId }: { accountId: string }) {
               <AnimatedNumber value={stats.bestDay.pnl} fmt={(n) => signedFmt(n)} />
             </div>
             <div className="mt-auto flex items-center gap-1.5 text-xs">
-              <span className="text-success">▲</span>
+              <Icon name="arrow-up" size={12} className="text-success" />
               <span className="text-muted-foreground">{labelDayKey(stats.bestDay.dayKey)} · picco assoluto</span>
             </div>
           </Card>
@@ -495,7 +496,7 @@ function RiskBody({ accountId }: { accountId: string }) {
               <AnimatedNumber value={stats.worstDay.pnl} fmt={(n) => signedFmt(n)} />
             </div>
             <div className="mt-auto flex items-center gap-1.5 text-xs">
-              <span className="text-danger">▼</span>
+              <Icon name="arrow-down" size={12} className="text-danger" />
               <span className="text-muted-foreground">{labelDayKey(stats.worstDay.dayKey)} · fondo assoluto</span>
             </div>
           </Card>
@@ -509,7 +510,7 @@ function RiskBody({ accountId }: { accountId: string }) {
                 tone={current === "win" ? "success" : current === "loss" ? "danger" : "default"}
                 pulse={current != null}
               >
-                {current === "win" ? "🔥 win streak" : current === "loss" ? "⚠ loss streak" : "inattiva"}
+                {current === "win" ? (<><Icon name="flame" size={12} /> win streak</>) : current === "loss" ? (<><Icon name="alert" size={12} /> loss streak</>) : "inattiva"}
               </Badge>
             </div>
             <div
@@ -520,7 +521,7 @@ function RiskBody({ accountId }: { accountId: string }) {
                 current === null && "text-muted-foreground"
               )}
             >
-              {current === "win" ? `🔥 ${wins} win` : current === "loss" ? `⚠ ${losses} loss` : "Nessuna streak in corso"}
+              {current === "win" ? (<span className="inline-flex items-center gap-1.5"><Icon name="flame" size={16} /> {wins} win</span>) : current === "loss" ? (<span className="inline-flex items-center gap-1.5"><Icon name="alert" size={16} /> {losses} loss</span>) : "Nessuna streak in corso"}
             </div>
             <div className="mt-auto text-xs tnum text-secondary-text">
               {lastTrade

@@ -12,6 +12,7 @@ import { useDB } from "@/lib/storage";
 import { SectionHeader, EmptyState } from "@/components/ui/Misc";
 import { Button } from "@/components/ui/Button";
 import { Reveal } from "@/components/ui/Reveal";
+import { Icon } from "@/components/ui/Icon";
 import {
   KpiCards,
   AccountsList,
@@ -69,7 +70,7 @@ export default function TradingOverviewPage() {
       ) : (
         <Reveal>
           <EmptyState
-            icon="📊"
+            icon={<Icon name="chart-bar" size={32} />}
             title="Il tuo trading parte da qui"
             description="Crea il primo account o registra il primo trade: qui vedrai KPI del mese, saldi live e attività recente."
             action={

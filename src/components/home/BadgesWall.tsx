@@ -12,7 +12,24 @@ import { computeNewBadges, BADGE_DEFS, badgeDef } from "@/lib/compute";
 import type { DB } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
+
+/** Icona stabile per badge (da key — l'emoji vive in compute.ts ma qui non la usiamo). */
+const BADGE_ICON: Record<string, IconName> = {
+  streak_7: "flame",
+  streak_14: "zap",
+  streak_30: "target",
+  streak_60: "trophy",
+  streak_100: "gem",
+  streak_365: "trophy",
+  first_trade: "chart-line",
+  payout_first: "wallet",
+  eval_superato: "target",
+  primo_libro: "book-open",
+  primo_allenamento: "dumbbell",
+  mese_positivo: "chart-line",
+};
 
 export function BadgesWall({ db }: { db: DB }) {
   const ownedKeys = new Set(db.badges.map((b) => b.key));
@@ -56,8 +73,9 @@ export function BadgesWall({ db }: { db: DB }) {
 
       {newKeys.length > 0 && (
         <div className="mb-4 rounded-lg border border-accent/25 bg-accent/10 p-3">
-          <p className="text-sm font-medium text-accent">
-            🎉 Nuovi traguardi da sbloccare!
+          <p className="flex items-center gap-1.5 text-sm font-medium text-accent">
+            <Icon name="sparkles" size={15} />
+            Nuovi traguardi da sbloccare!
           </p>
           <p className="mt-0.5 text-xs text-secondary-text">
             {newKeys
@@ -81,8 +99,12 @@ export function BadgesWall({ db }: { db: DB }) {
                   : "border-border bg-elevated/30 opacity-50"
               )}
             >
-              <span className={cn("text-2xl", !unlocked && "grayscale")}>
-                {unlocked ? def.emoji : "🔒"}
+              <span className={cn("flex h-9 w-9 place-items-center", !unlocked && "grayscale")}>
+                <Icon
+                  name={unlocked ? (BADGE_ICON[def.key] ?? "star") : "lock"}
+                  size={22}
+                  className={unlocked ? "text-accent" : "text-muted-foreground"}
+                />
               </span>
               <p
                 className={cn(

@@ -8,7 +8,8 @@
 import { missingToday, GOAL_LABELS } from "@/lib/compute";
 import type { DB, GoalType } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
-import { ProgressBar, EmptyState } from "@/components/ui/Misc";
+import { ProgressBar } from "@/components/ui/Misc";
+import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
 
 function valueText(type: GoalType, value: number, target: number): string {
@@ -40,11 +41,15 @@ export function MissingTodayCard({ db }: { db: DB }) {
       </CardHeader>
 
       {items.length === 0 ? (
-        <EmptyState
-          icon="🎯"
-          title="Nessun obiettivo quotidiano attivo"
-          description="Aggiungi i tuoi DailyGoal nella sezione Obiettivi: qui vedrai cosa resta da fare oggi."
-        />
+        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
+          <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
+            <Icon name="target" size={30} className="text-accent" />
+          </div>
+          <p className="text-sm font-medium text-secondary-text">Nessun obiettivo quotidiano attivo</p>
+          <p className="max-w-xs text-xs text-muted-foreground">
+            Aggiungi i tuoi DailyGoal nella sezione Obiettivi: qui vedrai cosa resta da fare oggi.
+          </p>
+        </div>
       ) : (
         <ul className="space-y-2">
           {items.map(({ goal, done: isDone, value, target }) => (
@@ -54,13 +59,13 @@ export function MissingTodayCard({ db }: { db: DB }) {
             >
               <span
                 className={cn(
-                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
                   isDone
                     ? "bg-accent text-white"
                     : "border border-border-strong text-transparent"
                 )}
               >
-                ✓
+                {isDone && <Icon name="check" size={13} strokeWidth={3} />}
               </span>
               <div className="min-w-0 flex-1">
                 <p

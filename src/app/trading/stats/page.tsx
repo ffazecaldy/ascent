@@ -20,6 +20,7 @@ import { EmptyState, SectionHeader } from "@/components/ui/Misc";
 import { LineChart, BarsChart } from "@/components/charts";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { Reveal } from "@/components/ui/Reveal";
+import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
 import {
   accountBaseRate,
@@ -380,7 +381,7 @@ export default function TradingStatsPage() {
       {trades.length === 0 ? (
         <Reveal>
           <EmptyState
-            icon="📈"
+            icon={<Icon name="chart-line" size={32} />}
             title={db.trades.length === 0 ? "Nessun trade registrato" : "Nessun trade nel periodo"}
             description={
               db.trades.length === 0
@@ -397,7 +398,7 @@ export default function TradingStatsPage() {
               <StatCard
                 label="Win rate"
                 hairline="accent"
-                icon={<span className="text-base leading-none">🎯</span>}
+                icon={<Icon name="target" size={16} />}
                 value={
                   kpiHidden
                     ? maskKpi()
@@ -419,7 +420,7 @@ export default function TradingStatsPage() {
               <StatCard
                 label="R medio"
                 hairline="accent"
-                icon={<span className="text-base leading-none">📏</span>}
+                icon={<Icon name="chart-line" size={16} />}
                 value={
                   kpiHidden
                     ? maskKpi()
@@ -439,7 +440,7 @@ export default function TradingStatsPage() {
               <StatCard
                 label="Profit factor"
                 hairline="accent"
-                icon={<span className="text-base leading-none">⚖️</span>}
+                icon={<Icon name="scale" size={16} />}
                 value={
                   kpiHidden
                     ? maskKpi()
@@ -459,7 +460,7 @@ export default function TradingStatsPage() {
               <StatCard
                 label="Expectancy (R)"
                 hairline="accent"
-                icon={<span className="text-base leading-none">🎲</span>}
+                icon={<Icon name="activity" size={16} />}
                 value={
                   kpiHidden
                     ? maskKpi()
@@ -478,7 +479,7 @@ export default function TradingStatsPage() {
               />
               <StatCard
                 label="Trade totali"
-                icon={<span className="text-base leading-none">🧾</span>}
+                icon={<Icon name="list" size={16} />}
                 value={
                   <AnimatedNumber
                     key={`n-${filterKey}`}
@@ -492,7 +493,7 @@ export default function TradingStatsPage() {
               <StatCard
                 label="P&L totale"
                 hairline={pnlHairline}
-                icon={<span className="text-base leading-none">💶</span>}
+                icon={<Icon name="coins" size={16} />}
                 value={
                   moneyHidden ? (
                     maskMoney()
@@ -513,7 +514,7 @@ export default function TradingStatsPage() {
               <StatCard
                 label="Streak corrente"
                 hairline={streak.current === "win" ? "success" : streak.current === "loss" ? "danger" : "accent"}
-                icon={<span className="text-base leading-none">🔥</span>}
+                icon={<Icon name="flame" size={16} />}
                 value={
                   streak.current === "win"
                     ? `${streak.wins} V`

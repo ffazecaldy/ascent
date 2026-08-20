@@ -18,6 +18,7 @@ import type { DB } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { ProgressBar } from "@/components/ui/Misc";
+import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
 
 export function SavingsSummaryCard({ db }: { db: DB }) {
@@ -53,8 +54,9 @@ export function SavingsSummaryCard({ db }: { db: DB }) {
 
       {/* totale versato */}
       <div className="rounded-xl border border-border bg-elevated/40 p-3.5">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          🪙 Totale versato
+        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          <Icon name="coins" size={13} />
+          Totale versato
         </span>
         <div className="mt-1">
           <AnimatedNumber
@@ -102,9 +104,7 @@ export function SavingsSummaryCard({ db }: { db: DB }) {
           href="/risparmi"
           className="flex items-center gap-2.5 rounded-xl border border-dashed border-border-strong px-3.5 py-4 transition-colors hover:border-accent/40 hover:bg-elevated/40"
         >
-          <span aria-hidden className="text-lg">
-            🎯
-          </span>
+          <Icon name="target" size={16} className="text-accent" />
           <p className="text-xs text-secondary-text">
             Nessun obiettivo di risparmio — <span className="text-accent">creane uno</span> per
             vedere la barra di avanzamento.

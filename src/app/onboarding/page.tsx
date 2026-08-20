@@ -16,6 +16,7 @@ import type { GoalType } from "@/lib/types";
 import { StepWelcome } from "@/components/onboarding/StepWelcome";
 import { StepGoals, DEFAULT_GOALS, type GoalDef } from "@/components/onboarding/StepGoals";
 import { StepConfirm } from "@/components/onboarding/StepConfirm";
+import { Icon } from "@/components/ui/Icon";
 
 const STEPS = ["Benvenuto", "Obiettivi", "Conferma"];
 
@@ -92,7 +93,11 @@ export default function OnboardingPage() {
                         : "border-border-strong bg-elevated text-muted-foreground"
                   )}
                 >
-                  {i < step ? "✓" : i + 1}
+                  {i < step ? (
+                    <Icon name="check" size={10} strokeWidth={2.5} className="text-white" />
+                  ) : (
+                    i + 1
+                  )}
                 </span>
                 <span
                   className={cn(
@@ -124,18 +129,7 @@ export default function OnboardingPage() {
           {step < STEPS.length - 1 ? (
             <Button size="lg" onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}>
               Continua
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M5 12h14m0 0-6-6m6 6-6 6" />
-              </svg>
+              <Icon name="arrow-right" size={15} strokeWidth={2.4} />
             </Button>
           ) : (
             <Button size="lg" className="grad-animated" onClick={finish}>

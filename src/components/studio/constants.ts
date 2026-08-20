@@ -6,6 +6,7 @@
 
 import type { StudySession } from "@/lib/types";
 import { addDaysKey, parseDateKey } from "@/lib/dates";
+import type { IconName } from "@/components/ui/Icon";
 
 export const SUBJECT_PRESETS = [
   "Matematica",
@@ -16,13 +17,13 @@ export const SUBJECT_PRESETS = [
   "Altro",
 ];
 
-export const SUBJECT_EMOJI: Record<string, string> = {
-  Matematica: "📐",
-  "Trading/Educazione finanziaria": "📈",
-  Inglese: "🗣️",
-  Programmazione: "💻",
-  Fisica: "⚛️",
-  Altro: "📚",
+export const SUBJECT_ICON: Record<string, IconName> = {
+  Matematica: "compass",
+  "Trading/Educazione finanziaria": "chart-line",
+  Inglese: "book-open",
+  Programmazione: "monitor",
+  Fisica: "zap",
+  Altro: "book",
 };
 
 // Palette "gradient": sequenza che va dall'accento blu al ciano/al verde —
@@ -53,8 +54,8 @@ export function subjectGradient(subject: string): string {
   return `linear-gradient(135deg, ${base}2e, ${base}14)`;
 }
 
-export function subjectEmoji(subject: string): string {
-  return SUBJECT_EMOJI[subject] ?? "📚";
+export function subjectIcon(subject: string): IconName {
+  return SUBJECT_ICON[subject] ?? "book";
 }
 
 /** Durata leggibile: 45 → "45m", 60 → "1h", 90 → "1h 30m", 120 → "2h". */

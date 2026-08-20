@@ -12,7 +12,8 @@ import { useDB } from "@/lib/storage";
 import { StatCard } from "@/components/ui/StatCard";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { todayKey, weekStartKey, monthKeyOf, labelDayKey } from "@/lib/dates";
-import { last7Minutes, subjectColor, subjectEmoji } from "./constants";
+import { Icon } from "@/components/ui/Icon";
+import { last7Minutes, subjectColor, subjectIcon } from "./constants";
 
 export function StudyKpis() {
   const db = useDB();
@@ -70,10 +71,13 @@ export function StudyKpis() {
             <span className="text-sm font-medium text-muted-foreground">min</span>
           </span>
         }
-        icon={<span className="text-lg drop-shadow-[0_0_10px_rgba(76,126,255,0.5)]">📖</span>}
+        icon={<Icon name="book-open" size={17} className="text-accent" />}
         delta={
           todayMin > 0 ? (
-            <span className="text-success">alimenta lo streak ✓</span>
+            <span className="flex items-center gap-1 text-success">
+              <Icon name="check" size={11} />
+              alimenta lo streak
+            </span>
           ) : (
             "nessuna sessione oggi"
           )
@@ -92,7 +96,7 @@ export function StudyKpis() {
             <span className="text-sm font-medium text-muted-foreground">min</span>
           </span>
         }
-        icon={<span className="text-lg">🗓️</span>}
+        icon={<Icon name="calendar" size={17} className="text-accent" />}
         delta={`dal ${labelDayKey(weekStart, locale)}`}
         deltaTone="neutral"
         hairline="accent"
@@ -108,7 +112,7 @@ export function StudyKpis() {
             <span className="text-sm font-medium text-muted-foreground">h</span>
           </span>
         }
-        icon={<span className="text-lg">⏱️</span>}
+        icon={<Icon name="timer" size={17} className="text-accent" />}
         delta={`${monthSessions.length} sessione${monthSessions.length === 1 ? "" : "i"} questo mese`}
         deltaTone="neutral"
         hairline="accent"
@@ -125,13 +129,13 @@ export function StudyKpis() {
               style={{ color: topColor, fontSize: 19, lineHeight: 1.15, fontFamily: "var(--font-ui)" }}
             >
               <span className="truncate">{topSubject.name}</span>
-              <span>{subjectEmoji(topSubject.name)}</span>
+              <Icon name={subjectIcon(topSubject.name)} size={17} className="shrink-0" />
             </span>
           ) : (
             <span style={{ fontFamily: "var(--font-ui)" }}>—</span>
           )
         }
-        icon={<span className="text-lg">🏆</span>}
+        icon={<Icon name="trophy" size={17} className="text-accent" />}
         delta={topSubject ? `${topSubject.min} min questo mese` : "nessuna sessione"}
         deltaTone="neutral"
         hairline="accent"

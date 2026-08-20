@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { TrendArrow } from "@/components/ui/Arrow";
 import { EmptyState } from "@/components/ui/Misc";
+import { Icon } from "@/components/ui/Icon";
 import { formatMoney, formatSignedMoney } from "@/lib/format";
 import { monthKeyOf, todayKey, isoToDayKey, parseDateKey } from "@/lib/dates";
 import { moneyMasked, kpiMasked, maskMoney, maskCompact } from "@/lib/privacy";
@@ -112,7 +113,7 @@ export function AccountsList({ db }: { db: DB }) {
       </CardHeader>
       {accounts.length === 0 ? (
         <EmptyState
-          icon="🏦"
+          icon={<Icon name="building" size={32} />}
           title="Nessun account"
           description="Crea un account prop o personale per iniziare a tracciare capitale, stato e trade."
           action={

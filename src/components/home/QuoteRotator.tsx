@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================
-// ASCEND — Home · Rotatore di citazioni 💬
+// ASCEND — Home · Rotatore di citazioni
 // Mostra una citazione da QUOTES (101) in loop sequenziale, una
 // ogni ~8 secondi con transizione fade + slide. Il bottone
 // "Successiva" anticipa la citazione (manuale). Nessuna dipendenza.
@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from "react";
 import { QUOTES } from "@/lib/quotes";
 import { Card } from "@/components/ui/Card";
+import { Icon } from "@/components/ui/Icon";
 
 const ROTATE_MS = 8000; // ogni ~8 secondi
 const FADE_MS = 500; // durata fade-out (poi fade-in)
@@ -61,9 +62,9 @@ export function QuoteRotator() {
       <div className="relative flex items-start gap-3">
         <span
           aria-hidden
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-accent/25 bg-accent/10 text-lg"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-accent/25 bg-accent/10 text-accent"
         >
-          💬
+          <Icon name="sparkles" size={18} />
         </span>
 
         <div className="min-w-0 flex-1">

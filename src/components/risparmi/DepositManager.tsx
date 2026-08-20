@@ -12,7 +12,7 @@ import { useDB, updateDB, removeById } from "@/lib/storage";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { EmptyState } from "@/components/ui/Misc";
+import { Icon } from "@/components/ui/Icon";
 import { ConfirmDialog } from "@/components/ui/Modal";
 import { formatMoney } from "@/lib/format";
 import { labelDayKey } from "@/lib/dates";
@@ -70,16 +70,20 @@ export function DepositManager({
       </div>
 
       {deposits.length === 0 ? (
-        <EmptyState
-          icon="🪙"
-          title="Nessun versamento"
-          description="Registra il primo versamento per iniziare la tua curva di accumulo — anche senza obiettivo (generico)."
-          action={
+        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
+          <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
+            <Icon name="coins" size={30} className="text-accent" />
+          </div>
+          <p className="text-sm font-medium text-secondary-text">Nessun versamento</p>
+          <p className="max-w-xs text-xs text-muted-foreground">
+            Registra il primo versamento per iniziare la tua curva di accumulo — anche senza obiettivo (generico).
+          </p>
+          <div className="mt-2">
             <Button size="sm" glow onClick={() => onNew()}>
               ＋ Registra il primo versamento
             </Button>
-          }
-        />
+          </div>
+        </div>
       ) : (
         <Card className="overflow-hidden p-0">
           <div className="overflow-x-auto">

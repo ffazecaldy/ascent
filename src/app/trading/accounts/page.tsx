@@ -40,6 +40,7 @@ import { Card } from "@/components/ui/Card";
 import { ConfirmDialog, Modal } from "@/components/ui/Modal";
 import { Field, Input, Select } from "@/components/ui/Field";
 import { EmptyState, ProgressBar, SectionHeader, Toggle } from "@/components/ui/Misc";
+import { Icon } from "@/components/ui/Icon";
 import { StatCard } from "@/components/ui/StatCard";
 import { Reveal } from "@/components/ui/Reveal";
 
@@ -243,7 +244,7 @@ function EvalProgressRow({ progress, currency, masked }: { progress: EvalProgres
         <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Obiettivo eval</span>
         <span className={cn("tnum text-xs font-semibold", reached ? "text-success" : "text-accent")}>
           {formatPercent(pct, pctDigits)}
-          {reached ? " 🎉" : ""}
+          {reached ? <Icon name="sparkles" size={11} className="ml-1" /> : null}
         </span>
       </div>
       <ProgressBar value={progress.saldo} max={progress.target} tone={reached ? "success" : "accent"} className="mt-1.5 h-2" />
@@ -618,10 +619,10 @@ function FxRateRow({
             )}
           </span>
           <Button size="sm" variant="primary" glow onClick={onQuote} disabled={quoting}>
-            {quoting ? "Quotazione…" : "⚡ Quota tasso"}
+            {quoting ? "Quotazione…" : (<><Icon name="zap" size={14} /> Quota tasso</>)}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setEditing(true)} title="Inserisci a mano">
-            ✎
+            <Icon name="pencil" size={16} />
           </Button>
         </>
       )}
@@ -698,7 +699,7 @@ function AccountCard({
             <Badge tone={TYPE_META[acc.type].tone}>{TYPE_META[acc.type].label}</Badge>
             <Badge tone={STATUS_META[acc.status].tone} pulse={isFunded}>
               {STATUS_META[acc.status].label}
-              {acc.status === "superato" ? " 🎯" : ""}
+              {acc.status === "superato" ? <Icon name="target" size={12} /> : null}
             </Badge>
             {acc.archived && <Badge tone="default">Archiviato</Badge>}
           </div>
@@ -708,13 +709,13 @@ function AccountCard({
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <Button size="icon" variant="ghost" onClick={onEdit} title="Modifica">
-            ✏️
+            <Icon name="pencil" size={16} />
           </Button>
           <Button size="icon" variant="ghost" onClick={onArchive} title={acc.archived ? "Ripristina" : "Archivia"}>
-            {acc.archived ? "↩️" : "📦"}
+            {acc.archived ? <Icon name="refresh" size={16} /> : <Icon name="download" size={16} />}
           </Button>
           <Button size="icon" variant="ghost" onClick={onDelete} title="Elimina" className="text-danger hover:text-danger">
-            🗑️
+            <Icon name="trash" size={16} />
           </Button>
         </div>
       </div>
@@ -1078,7 +1079,7 @@ export default function AccountsPage() {
         <Reveal>
           <div className="animate-pop relative flex items-start gap-3.5 overflow-hidden rounded-[--radius] border border-success/40 bg-success/[0.08] px-4 py-3.5 shadow-[0_0_45px_-12px_rgba(45,223,158,0.55)]">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-success/15 text-xl shadow-[0_0_18px_-4px_rgba(45,223,158,0.7)]">
-              🎉
+              <Icon name="sparkles" size={22} />
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-success">
@@ -1105,7 +1106,7 @@ export default function AccountsPage() {
               aria-label="Chiudi avviso"
               title="Chiudi"
             >
-              ✕
+              <Icon name="x" size={14} />
             </button>
           </div>
         </Reveal>
@@ -1115,7 +1116,7 @@ export default function AccountsPage() {
       {toast && (
         <div className="pointer-events-none fixed inset-x-0 top-4 z-[60] flex justify-center px-4">
           <div className="animate-pop pointer-events-auto flex items-center gap-3 rounded-2xl border border-success/40 bg-card px-4 py-3 shadow-[0_0_50px_-10px_rgba(45,223,158,0.6)]">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-success/15 text-lg">🎉</span>
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-success/15 text-lg"><Icon name="sparkles" size={20} /></span>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-success">
                 Obiettivo raggiunto: account promosso a Finanziato
@@ -1132,7 +1133,7 @@ export default function AccountsPage() {
               className="ml-2 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-elevated hover:text-foreground"
               aria-label="Chiudi"
             >
-              ✕
+              <Icon name="x" size={14} />
             </button>
           </div>
         </div>
@@ -1144,7 +1145,7 @@ export default function AccountsPage() {
         subtitle="Account prop & personali: capitale, saldo live con i trade chiusi, limiti e confine del trading day."
         action={
           <Button onClick={openNew} glow>
-            <span aria-hidden>＋</span> Nuovo account
+            <Icon name="plus" size={16} /> Nuovo account
           </Button>
         }
       />
@@ -1156,7 +1157,7 @@ export default function AccountsPage() {
           value={
             <AnimatedNumber value={totals.count} fmt={(n) => String(Math.round(n))} className="tnum" />
           }
-          icon="🏦"
+          icon={<Icon name="building" size={18} />}
         />
         <StatCard
           label={`Capitale${base ? ` (${base})` : ""}`}
@@ -1173,12 +1174,12 @@ export default function AccountsPage() {
       {/* Elenco attivi */}
       {activeRows.length === 0 ? (
         <EmptyState
-          icon="🏦"
+          icon={<Icon name="building" size={32} />}
           title="Nessun account di trading"
           description="Crea il primo account prop o personale per tracciare capitale, trade e limiti."
           action={
             <Button variant="outline" size="sm" onClick={openNew}>
-              ＋ Crea account
+              <Icon name="plus" size={14} /> Crea account
             </Button>
           }
         />
