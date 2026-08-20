@@ -1,13 +1,13 @@
 "use client";
 
 // ============================================================
-// ASCEND — Home dashboard (spec v3 §4.1)
-// Hero streak · Ascend Day · heatmap · cosa manca oggi ·
-// riepilogo rapido · best/worst settimana · muro traguardi.
+// ASCEND — Home dashboard (spec v3 §4.1) · v2 rich+animated
+// Stile myfundedbook: denso, glow, reveal on scroll, count-up.
 // ============================================================
 
 import { useDB } from "@/lib/storage";
-import { SectionHeader } from "@/components/ui/Misc";
+import { SectionHeader, ProgressBar } from "@/components/ui/Misc";
+import { Reveal } from "@/components/ui/Reveal";
 import { StreakHero } from "@/components/home/StreakHero";
 import { AscendDayCard } from "@/components/home/AscendDayCard";
 import { ActivityHeatmapCard } from "@/components/home/ActivityHeatmapCard";
@@ -21,25 +21,41 @@ export default function HomePage() {
 
   return (
     <div className="space-y-6">
-      <SectionHeader title="Home" subtitle="Tutto quello che conta oggi, in un colpo d'occhio." />
+      <SectionHeader
+        kicker="Dashboard"
+        title="Oggi conta."
+        subtitle="Sistema operativo per la crescita personale — tutto quello che conta, in un colpo d'occhio."
+      />
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <StreakHero />
+      <Reveal>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <StreakHero />
+          </div>
+          <AscendDayCard db={db} />
         </div>
-        <AscendDayCard db={db} />
-      </div>
+      </Reveal>
 
-      <ActivityHeatmapCard db={db} />
+      <Reveal delay={80}>
+        <ActivityHeatmapCard db={db} />
+      </Reveal>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <MissingTodayCard db={db} />
-        <BestWorstCard db={db} />
+        <Reveal delay={0}>
+          <MissingTodayCard db={db} />
+        </Reveal>
+        <Reveal delay={80}>
+          <BestWorstCard db={db} />
+        </Reveal>
       </div>
 
-      <QuickSummary db={db} />
+      <Reveal delay={60}>
+        <QuickSummary db={db} />
+      </Reveal>
 
-      <BadgesWall db={db} />
+      <Reveal delay={100}>
+        <BadgesWall db={db} />
+      </Reveal>
     </div>
   );
 }

@@ -1,10 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Space_Grotesk } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
+const inter = Inter({
+  variable: "--font-ui",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const jetbrains = JetBrains_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
   display: "swap",
 });
@@ -25,7 +31,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="it" className={`${spaceGrotesk.variable} h-full antialiased`} suppressHydrationWarning>
+    <html
+      lang="it"
+      className={`${inter.variable} ${jetbrains.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
       <body className="min-h-screen bg-background text-foreground">
         <AppShell>{children}</AppShell>
       </body>

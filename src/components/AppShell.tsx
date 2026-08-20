@@ -1,10 +1,7 @@
 "use client";
 // ============================================================
-// ASCEND — Shell dell'app: sidebar + header globale.
-// - Streak pill sempre visibile (derivato a runtime)
-// - Privacy toggle (standard / completa)
-// - Onboarding gate: se non completato → /onboarding
-// - Registrazione service worker (PWA)
+// ASCEND — Shell: sidebar + header. Stile myfundedbook, più animato:
+// brand in gradiente, nav con pill attiva, streak con glow, blur header.
 // ============================================================
 
 import React, { useEffect, useState } from "react";
@@ -19,15 +16,11 @@ import { QuickLogButton } from "@/components/QuickLog";
 interface NavItem {
   href: string;
   label: string;
-  icon: string; // emoji
-  section?: string;
+  icon: string;
 }
 
 const NAV: { group: string; items: NavItem[] }[] = [
-  {
-    group: "",
-    items: [{ href: "/", label: "Home", icon: "🏠" }],
-  },
+  { group: "", items: [{ href: "/", label: "Home", icon: "🏠" }] },
   {
     group: "Finanze",
     items: [{ href: "/finanze", label: "Finanze", icon: "💶" }],
@@ -38,12 +31,12 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/trading", label: "Panoramica", icon: "📊" },
       { href: "/trading/accounts", label: "Account", icon: "🏦" },
       { href: "/trading/trades", label: "Trade log", icon: "🕹" },
-      { href: "/trading/setups", label: "Playbook & Disciplina", icon: "📋" },
+      { href: "/trading/setups", label: "Playbook · Disciplina", icon: "📋" },
       { href: "/trading/import", label: "Import storico", icon: "📥" },
       { href: "/trading/stats", label: "Statistiche", icon: "📈" },
       { href: "/trading/calendar", label: "Calendario P&L", icon: "🗓" },
       { href: "/trading/risk", label: "Risk Dashboard", icon: "🛡" },
-      { href: "/trading/payouts", label: "Payout & Certificati", icon: "🏆" },
+      { href: "/trading/payouts", label: "Payout · Certificati", icon: "🏆" },
       { href: "/trading/review", label: "Weekly review", icon: "✍️" },
     ],
   },
@@ -78,11 +71,19 @@ function StreakPill() {
     <Link
       href="/"
       title="Activity Streak — calcolato a runtime"
-      className="flex items-center gap-1.5 rounded-full border border-accent/25 bg-accent/10 px-3 py-1.5 text-sm font-semibold text-accent hover:bg-accent/20"
+      className={cn(
+        "group flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold transition-all",
+        streak.days > 0
+          ? "border-accent/40 bg-accent/10 text-accent hover:bg-accent/20"
+          : "border-border-strong bg-elevated text-muted-foreground hover:text-foreground"
+      )}
     >
-      <span>🔥</span>
+      <span className={cn("text-sm", streak.days > 0 && "animate-pulse-dot")}>🔥</span>
       <span className="tnum">{streak.days}</span>
-      <span className="text-[11px] font-medium text-accent/70">giorni{streak.freezeUsed ? " (freeze)" : ""}</span>
+      <span className="text-[11px] font-medium opacity-70">
+        {streak.days === 1 ? "giorno" : "giorni"}
+        {streak.freezeUsed ? " · freeze" : ""}
+      </span>
     </Link>
   );
 }
@@ -97,20 +98,19 @@ function PrivacyToggle() {
       settings: { ...d.settings, privacyMode: next, updatedAt: new Date().toISOString() },
     }));
   };
-  const label = mode === "standard" ? "Privacy: cifre" : "Privacy: totale";
   return (
     <button
       onClick={cycle}
       title="Maschera i dati per screenshot/condivisione (Standard: cifre · Completa: cifre+KPI+percentuali+calendario)"
       className={cn(
-        "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+        "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
         mode === "complete"
           ? "border-danger/30 bg-danger/10 text-danger"
-          : "border-border-strong bg-elevated text-secondary-text hover:text-foreground"
+          : "border-border-strong bg-elevated text-secondary-text hover:border-accent/40 hover:text-foreground"
       )}
     >
       <span>{mode === "complete" ? "🕶" : "👁"}</span>
-      {label}
+      <span className="hidden sm:inline">{mode === "complete" ? "Privacy totale" : "Privacy"}</span>
     </button>
   );
 }
@@ -120,7 +120,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Onboarding gate — primo accesso
   useEffect(() => {
     if (!db.settings.onboardingDone && pathname !== "/onboarding") {
       router.replace("/onboarding");
@@ -128,7 +127,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [db.settings.onboardingDone, pathname]);
 
-  // Service worker (PWA)
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
@@ -140,15 +138,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
       {/* Sidebar desktop */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-card lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-[--bg-elev-1]/60 backdrop-blur-xl lg:flex">
         <SidebarContent pathname={pathname} />
       </aside>
 
       {/* Drawer mobile */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-black/70" onClick={() => setSidebarOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-64 border-r border-border bg-card">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+          <aside className="animate-rise absolute inset-y-0 left-0 w-64 border-r border-border bg-[--bg-elev-1]">
             <SidebarContent pathname={pathname} onNavigate={() => setSidebarOpen(false)} />
           </aside>
         </div>
@@ -156,9 +154,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col lg:pl-60">
-        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background/80 px-4 py-3 backdrop-blur-md lg:px-6">
+        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background/75 px-4 py-3 backdrop-blur-xl lg:px-6">
           <button
-            className="rounded-md p-1.5 text-secondary-text hover:bg-elevated lg:hidden"
+            className="rounded-lg p-1.5 text-secondary-text hover:bg-elevated lg:hidden"
             onClick={() => setSidebarOpen(true)}
             aria-label="Menu"
           >
@@ -167,7 +165,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </svg>
           </button>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold tracking-tight">Ascend</p>
+            <p className="truncate text-sm font-semibold tracking-tight">
+              Ascend
+              <span className="ml-2 hidden text-xs font-normal text-muted-foreground sm:inline">
+                · {new Date().toLocaleDateString(db.settings.locale || "it-IT", { weekday: "long", day: "numeric", month: "long" })}
+              </span>
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <QuickLogButton size="sm" />
@@ -175,52 +178,58 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <PrivacyToggle />
           </div>
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 lg:px-6">{children}</main>
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-7 lg:px-6">{children}</main>
       </div>
     </div>
   );
 }
 
-function SidebarContent({
-  pathname,
-  onNavigate,
-}: {
-  pathname: string;
-  onNavigate?: () => void;
-}) {
+function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
   return (
     <nav className="flex h-full flex-col overflow-y-auto p-3">
-      <div className="mb-4 flex items-center gap-2 px-2 pt-1">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-base font-bold text-white">A</span>
-        <span className="text-lg font-semibold tracking-tight">Ascend</span>
+      {/* Brand */}
+      <div className="mb-5 flex items-center gap-2.5 px-2 pt-1">
+        <div className="relative flex h-9 w-9 items-center justify-center">
+          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-accent via-accent-2 to-accent-3 opacity-90 blur-[6px]" />
+          <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-accent-2 text-base font-bold text-white shadow-lg">
+            A
+          </div>
+        </div>
+        <span className="text-lg font-bold tracking-tight">
+          Ascend<span className="grad-text">.</span>
+        </span>
       </div>
+
       <div className="flex-1 space-y-4">
         {NAV.map((group, gi) => (
           <div key={gi}>
             {group.group && (
-              <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              <p className="mb-1 px-2 text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                 {group.group}
               </p>
             )}
             <div className="space-y-0.5">
               {group.items.map((item) => {
                 const active =
-                  item.href === "/"
-                    ? pathname === "/"
-                    : pathname === item.href || pathname.startsWith(item.href + "/");
+                  item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(item.href + "/");
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     onClick={onNavigate}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors",
+                      "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-all duration-150",
                       active
-                        ? "bg-accent/12 text-accent"
+                        ? "bg-accent/15 text-accent"
                         : "text-secondary-text hover:bg-elevated hover:text-foreground"
                     )}
                   >
-                    <span className="text-sm">{item.icon}</span>
+                    {active && (
+                      <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-gradient-to-b from-accent to-accent-3 shadow-[0_0_8px_var(--accent-glow)]" />
+                    )}
+                    <span className="text-sm opacity-90 transition-transform duration-150 group-hover:scale-110">
+                      {item.icon}
+                    </span>
                     {item.label}
                   </Link>
                 );
@@ -228,6 +237,12 @@ function SidebarContent({
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="mt-4 rounded-xl border border-border bg-elevated/60 p-3">
+        <p className="text-[10px] leading-relaxed text-muted-foreground">
+          Un sistema, un solo dato di verità: <span className="text-secondary-text">sto diventando una versione migliore, giorno dopo giorno.</span>
+        </p>
       </div>
     </nav>
   );

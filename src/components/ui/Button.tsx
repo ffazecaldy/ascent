@@ -9,27 +9,30 @@ type Size = "sm" | "md" | "lg" | "icon";
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
+  /** alone luminoso (accentuato) — solo su primary */
+  glow?: boolean;
 }
 
 const variantCls: Record<Variant, string> = {
-  // ACCENTO SEMPRE BLU — mai verde (riservato ai valori positivi)
-  primary: "bg-accent text-white hover:bg-accent-hover shadow-sm",
-  outline: "border border-border-strong text-foreground hover:bg-elevated",
+  primary:
+    "bg-gradient-to-r from-accent to-accent-2 text-white font-semibold shadow-[0_4px_18px_-6px_var(--accent-glow)] hover:shadow-[0_8px_28px_-6px_var(--accent-glow)] hover:brightness-110",
+  outline: "border border-border-strong text-foreground hover:border-accent/50 hover:bg-accent-dim transition-colors",
   ghost: "text-secondary-text hover:bg-elevated hover:text-foreground",
-  danger: "bg-danger/10 text-danger hover:bg-danger/20 border border-danger/20",
-  subtle: "bg-elevated text-secondary-text hover:text-foreground",
+  danger: "bg-danger/10 text-danger hover:bg-danger/20 border border-danger/25",
+  subtle: "bg-elevated text-secondary-text hover:bg-elevated-2 hover:text-foreground",
 };
 
 const sizeCls: Record<Size, string> = {
-  sm: "h-7 px-2.5 text-xs rounded-md gap-1",
-  md: "h-9 px-3.5 text-sm rounded-lg gap-1.5",
-  lg: "h-11 px-5 text-sm rounded-lg gap-2",
-  icon: "h-8 w-8 rounded-md",
+  sm: "h-7 px-2.5 text-xs rounded-lg gap-1",
+  md: "h-9 px-3.5 text-sm rounded-[10px] gap-1.5",
+  lg: "h-11 px-5 text-sm rounded-xl gap-2",
+  icon: "h-8 w-8 rounded-lg",
 };
 
 export function Button({
   variant = "primary",
   size = "md",
+  glow,
   className,
   children,
   disabled,
@@ -41,9 +44,10 @@ export function Button({
       type={type}
       disabled={disabled}
       className={cn(
-        "inline-flex items-center justify-center font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 disabled:opacity-40 disabled:cursor-not-allowed select-none",
+        "relative inline-flex select-none items-center justify-center whitespace-nowrap font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed",
         variantCls[variant],
         sizeCls[size],
+        glow && variant === "primary" && "animate-glow",
         className
       )}
       {...rest}

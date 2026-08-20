@@ -1,85 +1,184 @@
 @import "tailwindcss";
 
 /* ============================================================
-   ASCEND — Design System (specifica v3 §3)
-   dark #0B0B0C · card #151517 · accento BLU #4C7EFF (mai verde per CTA)
-   verde/rosso SOLO per P&L / entrate-uscite / win-loss
+   ASCEND — Design System v2 (stile myfundedbook.com, più animato)
+   BG #0b0b0c · testo #f5f5f7 · superfici #141416/#1d1d20
+   Accento BLU #4C7EFF (mai verde per CTA — verde = solo P&L positivo #2ddf9e)
+   Font Inter (UI) + JetBrains Mono (numeri tabular)
+   Ricco di micro-animazioni: rise, shimmer, glow, gradient shift,
+   reveal on scroll, count-up.
    ============================================================ */
 
 :root {
-  --bg-primary: #0b0b0c;
-  --bg-card: #151517;
-  --bg-elevated: #1b1b1e;
-  --bg-input: #101012;
-  --border: #232327;
-  --border-strong: #303034;
-  --text-primary: #ededef;
-  --text-secondary: #a0a0a8;
-  --text-muted: #6b6b72;
+  --bg: #0b0b0c;
+  --bg-elev-1: #141416;
+  --bg-elev-2: #1d1d20;
+  --bg-elev-3: #26262b;
+  --bg-input: #101013;
+  --border: #232328;
+  --border-strong: #3a3a44;
+  --text-1: #f5f5f7;
+  --text-2: #a3a3ab;
+  --text-3: #6f6f78;
   --accent: #4c7eff;
-  --accent-hover: #3b6beb;
+  --accent-2: #8a6bff;
+  --accent-3: #2fd4ff;
+  --accent-glow: rgba(76, 126, 255, 0.35);
   --accent-dim: rgba(76, 126, 255, 0.12);
-  --success: #22c55e;
-  --danger: #ef4444;
-  --radius: 0.625rem;
+  --success: #2ddf9e;   /* POSITIVO (P&L, win) — stile myfundedbook */
+  --danger: #ff5c5c;    /* NEGATIVO (perdita, loss) */
+  --warning: #f0b429;
+  --radius-sm: 0.45rem;
+  --radius: 0.7rem;
+  --radius-lg: 0.95rem;
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 30px -12px rgba(0, 0, 0, 0.6);
+  --shadow-pop: 0 20px 60px -20px rgba(0, 0, 0, 0.8);
+  --font-ui: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
 }
 
 @theme inline {
-  --color-background: var(--bg-primary);
-  --color-foreground: var(--text-primary);
-  --color-card: var(--bg-card);
-  --color-card-foreground: var(--text-primary);
-  --color-elevated: var(--bg-elevated);
+  --color-background: var(--bg);
+  --color-foreground: var(--text-1);
+  --color-card: var(--bg-elev-1);
+  --color-card-foreground: var(--text-1);
+  --color-elevated: var(--bg-elev-2);
+  --color-elevated-2: var(--bg-elev-3);
   --color-muted: var(--bg-input);
-  --color-muted-foreground: var(--text-muted);
-  --color-secondary-text: var(--text-secondary);
+  --color-muted-foreground: var(--text-3);
+  --color-secondary-text: var(--text-2);
   --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
+  --color-accent-2: var(--accent-2);
+  --color-accent-3: var(--accent-3);
   --color-accent-dim: var(--accent-dim);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-success: var(--success);
   --color-danger: var(--danger);
-  --font-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", monospace;
-  --radius: 0.625rem;
+  --color-warning: var(--warning);
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-mono);
+  --radius: var(--radius);
 }
 
-* {
-  border-color: var(--border);
-}
+* { border-color: var(--border); }
 
-html {
-  color-scheme: dark;
-}
+html { color-scheme: dark; scroll-behavior: smooth; }
 
 body {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  font-feature-settings: "ss01" on;
+  text-rendering: optimizeLegibility;
+  background-image:
+    radial-gradient(1200px 600px at 15% -10%, rgba(76, 126, 255, 0.07), transparent 60%),
+    radial-gradient(1000px 500px at 100% 0%, rgba(138, 107, 255, 0.05), transparent 55%);
+  background-attachment: fixed;
 }
 
-/* Numeri allineati ovunque */
+::selection { background: rgba(76, 126, 255, 0.35); color: #fff; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg-elev-3); border-radius: 8px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+input, select, textarea { color-scheme: dark; }
+
+/* Numeri tabular (JetBrains Mono) per allineamento perfetto */
 .tnum {
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
+  letter-spacing: -0.01em;
 }
 
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+/* ============================================================
+   ANIMAZIONI
+   ============================================================ */
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: 6px;
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  50% { box-shadow: 0 0 22px 4px var(--accent-glow); }
+}
+@keyframes gradientX {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes popIn {
+  0% { opacity: 0; transform: scale(0.96) translateY(8px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes scan {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+@keyframes spinSlow { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+@keyframes pulseDot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(45, 223, 158, 0.45); }
+  70% { box-shadow: 0 0 0 7px rgba(45, 223, 158, 0); }
 }
 
-input,
-select,
-textarea {
-  color-scheme: dark;
+/* Reveal on scroll — usa <Reveal> component o classe .reveal */
+.reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+.reveal.revealed { opacity: 1; transform: translateY(0); }
+
+/* Micro-interazioni */
+.animate-rise { animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-pop { animation: popIn 0.25s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-glow { animation: glowPulse 2.4s ease-in-out infinite; }
+.animate-pulse-dot { animation: pulseDot 2s ease-out infinite; }
+
+.hover-lift { transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease, border-color 0.25s ease; }
+.hover-lift:hover { transform: translateY(-2px); border-color: var(--border-strong); box-shadow: 0 12px 34px -14px rgba(0, 0, 0, 0.7); }
+
+/* Shimmer su gradienti e progress */
+.shimmer {
+  background-image: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.18) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: shimmer 2.2s linear infinite;
+}
+
+/* Gradiente animato (CTA, brand) */
+.grad-animated {
+  background: linear-gradient(110deg, var(--accent), var(--accent-2), var(--accent-3), var(--accent));
+  background-size: 300% 100%;
+  animation: gradientX 8s ease infinite;
+}
+
+.grad-text {
+  background: linear-gradient(110deg, var(--accent), var(--accent-3));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Scan line su card "live" */
+.scan-line::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  width: 60%;
+  background: linear-gradient(90deg, transparent, rgba(76, 126, 255, 0.06), transparent);
+  animation: scan 3.5s ease-in-out infinite;
+}
+
+/* Grid texture dentro le card trading */
+.grid-texture {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 22px 22px;
 }

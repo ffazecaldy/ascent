@@ -7,29 +7,33 @@ type Tone = "default" | "info" | "success" | "danger" | "warning";
 
 const toneCls: Record<Tone, string> = {
   default: "bg-elevated text-secondary-text border border-border-strong",
-  info: "bg-accent/12 text-accent border border-accent/25",
-  success: "bg-success/12 text-success border border-success/25",
-  danger: "bg-danger/12 text-danger border border-danger/25",
-  warning: "bg-yellow-500/12 text-yellow-500 border border-yellow-500/25",
+  info: "bg-accent/15 text-accent border border-accent/30",
+  success: "bg-success/15 text-success border border-success/30",
+  danger: "bg-danger/15 text-danger border border-danger/30",
+  warning: "bg-warning/15 text-warning border border-warning/30",
 };
 
 export function Badge({
   tone = "default",
   className,
   children,
+  pulse,
 }: {
   tone?: Tone;
   className?: string;
   children: React.ReactNode;
+  /** pulsazione (stato live) */
+  pulse?: boolean;
 }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap",
+        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap",
         toneCls[tone],
         className
       )}
     >
+      {pulse && <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse-dot" />}
       {children}
     </span>
   );
