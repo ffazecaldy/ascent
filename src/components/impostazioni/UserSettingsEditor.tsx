@@ -143,6 +143,7 @@ export function UserSettingsEditor() {
             value={s.privacyMode}
             onChange={(e) => saveSettings({ privacyMode: e.target.value as PrivacyMode })}
           >
+            <option value="off">Off — tutto visibile</option>
             <option value="standard">Standard — nasconde le cifre</option>
             <option value="complete">Completa — nasconde anche KPI e calendario</option>
           </Select>

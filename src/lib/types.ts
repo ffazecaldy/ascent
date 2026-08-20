@@ -4,7 +4,7 @@
 // Nessuna entità definita altrove. NON modificare senza aggiornare db.ts e compute.ts.
 // ============================================================
 
-export type PrivacyMode = "standard" | "complete";
+export type PrivacyMode = "off" | "standard" | "complete";
 
 export interface UserSettings {
   baseCurrency: string; // es. "EUR"
@@ -287,4 +287,4 @@ export interface DB {
   badges: Badge[];
 }
 
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;

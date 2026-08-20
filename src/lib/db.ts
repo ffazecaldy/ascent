@@ -13,7 +13,7 @@ export function defaultSettings(): UserSettings {
     timezone: "Europe/Rome",
     weekStart: 1,
     locale: "it-IT",
-    privacyMode: "standard",
+    privacyMode: "off",
     onboardingDone: false,
     updatedAt: nowISO(),
   };

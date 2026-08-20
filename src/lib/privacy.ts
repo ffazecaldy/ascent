@@ -1,9 +1,9 @@
 // ============================================================
-// ASCEND — Privacy mode (due livelli)
-// Standard:  maschera le CIFRE monetarie (€2.430 → •••)
-// Completa:  maschera anche KPI finanziari (win rate, Disciplina %,
+// ASCEND — Privacy mode (tre livelli)
+// off:       nessun mascheramento (uso normale quotidiano)
+// standard:  maschera le CIFRE monetarie (€2.430 → •••)
+// completa:  maschera anche KPI finanziari (win rate, Disciplina %,
 //            +R, percentuali) e neutralizza il calendario P&L.
-// In entrambe le modalità le cifre monetarie sono mascherate.
 // ============================================================
 
 import type { PrivacyMode } from "./types";
@@ -20,9 +20,9 @@ export function maskCompact(): string {
   return "••";
 }
 
-/** true se le cifre monetarie vanno mascherate (entrambe le modalità). */
-export function moneyMasked(_mode: PrivacyMode): boolean {
-  return true;
+/** true se le cifre monetarie vanno mascherate (standard o completa). */
+export function moneyMasked(mode: PrivacyMode): boolean {
+  return mode !== "off";
 }
 
 /** true se i KPI/percentuali vanno mascherati (solo "complete"). */
@@ -34,3 +34,12 @@ export function kpiMasked(mode: PrivacyMode): boolean {
 export function calendarNeutral(mode: PrivacyMode): boolean {
   return mode === "complete";
 }
+
+/** Etichette per il toggle/seléttore. */
+export const PRIVACY_LABELS: Record<PrivacyMode, string> = {
+  off: "Off — tutto visibile",
+  standard: "Standard — cifre nascoste",
+  complete: "Completa — cifre + KPI + calendario",
+};
+
+export const PRIVACY_ORDER: PrivacyMode[] = ["off", "standard", "complete"];

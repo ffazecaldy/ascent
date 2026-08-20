@@ -4,13 +4,14 @@
 // brand in gradiente, nav con pill attiva, streak con glow, blur header.
 // ============================================================
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useDB, updateDB } from "@/lib/storage";
-import { activityStreak } from "@/lib/compute";
+import { activityStreak, evalProgress } from "@/lib/compute";
 import { cn } from "@/lib/cn";
 import type { PrivacyMode } from "@/lib/types";
+import { PRIVACY_ORDER } from "@/lib/privacy";
 import { QuickLogButton } from "@/components/QuickLog";
 
 interface NavItem {
@@ -96,25 +97,29 @@ function PrivacyToggle() {
   const db = useDB();
   const mode: PrivacyMode = db.settings.privacyMode;
   const cycle = () => {
-    const next: PrivacyMode = mode === "standard" ? "complete" : "standard";
+    const next = PRIVACY_ORDER[(PRIVACY_ORDER.indexOf(mode) + 1) % PRIVACY_ORDER.length];
     updateDB((d) => ({
       ...d,
       settings: { ...d.settings, privacyMode: next, updatedAt: new Date().toISOString() },
     }));
   };
+  const icon = mode === "off" ? "👁" : mode === "standard" ? "🔒" : "🕶";
+  const label = mode === "off" ? "Privacy off" : mode === "standard" ? "Cifre" : "Totale";
   return (
     <button
       onClick={cycle}
-      title="Maschera i dati per screenshot/condivisione (Standard: cifre · Completa: cifre+KPI+percentuali+calendario)"
+      title="Privacy: Off (tutto visibile) · Standard (cifre nascoste) · Completa (anche KPI e calendario)"
       className={cn(
         "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
         mode === "complete"
           ? "border-danger/30 bg-danger/10 text-danger"
-          : "border-border-strong bg-elevated text-secondary-text hover:border-accent/40 hover:text-foreground"
+          : mode === "standard"
+            ? "border-warning/30 bg-warning/10 text-warning"
+            : "border-border-strong bg-elevated text-secondary-text hover:border-accent/40 hover:text-foreground"
       )}
     >
-      <span>{mode === "complete" ? "🕶" : "👁"}</span>
-      <span className="hidden sm:inline">{mode === "complete" ? "Privacy totale" : "Privacy"}</span>
+      <span>{icon}</span>
+      <span className="hidden sm:inline">{label}</span>
     </button>
   );
 }
@@ -136,6 +141,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
   }, []);
+
+  // PROMOZIONE EVAL → FINANZIATO (globale: scatta da qualunque pagina)
+  const [evalToast, setEvalToast] = useState<string | null>(null);
+  const promotedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const acc of db.accounts) {
+      if (acc.status !== "eval") {
+        promotedRef.current.delete(acc.id);
+        continue;
+      }
+      if (promotedRef.current.has(acc.id)) continue;
+      const p = evalProgress(db, acc);
+      if (p.reached) {
+        promotedRef.current.add(acc.id);
+        updateDB((d) => ({
+          ...d,
+          accounts: d.accounts.map((a) =>
+            a.id === acc.id ? { ...a, status: "finanziato" as const, evalTarget: null } : a
+          ),
+        }));
+        setEvalToast(`🎉 ${acc.name} ha raggiunto l'obiettivo: promosso a Finanziato`);
+      }
+    }
+  }, [db]);
+  useEffect(() => {
+    if (!evalToast) return;
+    const t = setTimeout(() => setEvalToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [evalToast]);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -193,6 +227,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-7 lg:px-6">{children}</main>
       </div>
+
+      {/* Toast promozione eval */}
+      {evalToast && (
+        <div className="animate-pop fixed left-1/2 top-4 z-[60] w-[min(92vw,420px)] -translate-x-1/2 rounded-xl border border-success/30 bg-[--bg-elev-1] px-4 py-3 shadow-[--shadow-pop]">
+          <div className="flex items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-success/15 text-lg">🎉</span>
+            <p className="text-sm font-medium text-foreground">{evalToast}</p>
+            <button
+              onClick={() => setEvalToast(null)}
+              className="ml-auto rounded-md p-1 text-muted-foreground hover:text-foreground"
+              aria-label="Chiudi"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

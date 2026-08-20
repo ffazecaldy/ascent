@@ -20,7 +20,7 @@ const emptyDB = (): DB => ({
     timezone: "Europe/Rome",
     weekStart: 1,
     locale: "it-IT",
-    privacyMode: "standard",
+    privacyMode: "off",
     onboardingDone: false,
     updatedAt: new Date().toISOString(),
   },
@@ -59,6 +59,14 @@ export function loadDB(): DB {
     } else {
       const parsed = JSON.parse(raw) as DB;
       cache = { ...emptyDB(), ...parsed, settings: { ...emptyDB().settings, ...parsed.settings } };
+      // Migrazione: da v3 in giù la privacy non aveva lo stato "off" (i soldi erano
+      // sempre mascherati). Con l'introduzione di "off", qui riportiamo a "off"
+      // così i dati tornano visibili (l'utente può riattivare standard/completa dal toggle).
+      if ((parsed.version ?? 0) < 4) {
+        cache = { ...cache, version: DB_VERSION, settings: { ...cache.settings, privacyMode: "off" } };
+        saveDB(cache);
+        return cache;
+      }
     }
   } catch {
     cache = emptyDB();
