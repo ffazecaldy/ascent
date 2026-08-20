@@ -7,16 +7,16 @@
 
 import { useMemo, useState } from "react";
 import { useDB, updateDB, upsert, removeById, uid, nowISO } from "@/lib/storage";
-import type { PCUsageLog } from "@/lib/types";
+import type { PCUsageLog, PCAppCategoryMap } from "@/lib/types";
 import { todayKey, addDaysKey, weekStartKey, monthKeyOf } from "@/lib/dates";
-import { pcMinutesInWeek, pcMinutesOnDay } from "@/lib/compute";
+import { pcMinutesInWeek } from "@/lib/compute";
 import { minutiToOre } from "@/lib/format";
 import { SectionHeader } from "@/components/ui/Misc";
 import { Card, CardTitle, CardHeader, CardSubtitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { Modal, ConfirmDialog } from "@/components/ui/Modal";
-import { Field, Input, Select, TextArea, Label } from "@/components/ui/Field";
+import { Modal } from "@/components/ui/Modal";
+import { Field, Input, Select, TextArea } from "@/components/ui/Field";
 import { ProgressBar, EmptyState, Tabs } from "@/components/ui/Misc";
 import { BarsChart, DonutChart } from "@/components/charts";
 
@@ -41,6 +41,15 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 const PRODUCTIVE = ["Lavoro", "Sviluppo", "Studio"];
+
+/** Data valida in formato yyyy-MM-dd (e giorno reale del calendario). */
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+function isValidDayKey(dk: string): boolean {
+  if (!ISO_DATE_RE.test(dk)) return false;
+  const [y, m, d] = dk.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+}
 
 export default function UsoPcPage() {
   const db = useDB();
@@ -133,7 +142,6 @@ export default function UsoPcPage() {
   const [csvOpen, setCsvOpen] = useState(false);
   const [csvText, setCsvText] = useState("");
   const [csvPreview, setCsvPreview] = useState<{ date: string; category: string; minutes: number; ok: boolean; err?: string }[]>([]);
-  const [csvTarget, setCsvTarget] = useState("manuale");
 
   const parseCsv = () => {
     const lines = csvText.split(/\r?\n/).filter((l) => l.trim());
@@ -141,18 +149,28 @@ export default function UsoPcPage() {
     const out: typeof csvPreview = [];
     lines.forEach((line) => {
       const parts = line.split(sep).map((s) => s.trim());
-      if (parts.length < 2) return;
-      const date = parts[0];
-      const category = parts[1];
-      const minutes = Number(parts[2]);
-      if (!date || !category || isNaN(minutes) || minutes <= 0) {
-        out.push({ date, category, minutes, ok: false, err: "formato non valido" });
+      const date = parts[0] ?? "";
+      const category = parts[1] ?? "";
+      const minutesRaw = parts[2] ?? "";
+      const minutes = Number(minutesRaw);
+      let err: string | undefined;
+      if (parts.length < 3 || !date || !category || !minutesRaw) {
+        err = "riga incompleta: servono data,categoria,minuti";
+      } else if (!isValidDayKey(date)) {
+        err = `data non valida: "${date}" (usa yyyy-MM-dd)`;
+      } else if (isNaN(minutes) || minutes <= 0 || !Number.isInteger(minutes)) {
+        err = "minuti non validi: intero positivo atteso";
+      } else {
+        out.push({ date, category, minutes, ok: true });
         return;
       }
-      out.push({ date, category, minutes, ok: true });
+      out.push({ date, category, minutes, ok: false, err });
     });
     setCsvPreview(out);
   };
+
+  const validCount = csvPreview.filter((r) => r.ok).length;
+  const errCount = csvPreview.length - validCount;
 
   const importCsv = () => {
     const valid = csvPreview.filter((r) => r.ok);
@@ -166,7 +184,7 @@ export default function UsoPcPage() {
           date: r.date,
           categoryId: r.category,
           minutes: r.minutes,
-          source: (csvTarget === "activitywatch" ? "activitywatch" : "csv") as PCUsageLog["source"],
+          source: "csv" as PCUsageLog["source"],
           createdAt: nowISO(),
         })),
       ],
@@ -180,18 +198,24 @@ export default function UsoPcPage() {
   const [mapOpen, setMapOpen] = useState(false);
   const [appName, setAppName] = useState("");
   const [appCat, setAppCat] = useState(DEFAULT_CATEGORIES[0]);
+  const [editMapId, setEditMapId] = useState<string | null>(null);
 
-  const addMap = () => {
+  const saveMap = () => {
     if (!appName.trim()) return;
     updateDB((d) => ({
       ...d,
-      pcAppCategoryMap: upsert(d.pcAppCategoryMap, {
-        id: uid(),
-        appName: appName.trim(),
-        category: appCat,
-      }),
+      pcAppCategoryMap: upsert(d.pcAppCategoryMap, editMapId
+        ? { id: editMapId, appName: appName.trim(), category: appCat }
+        : { id: uid(), appName: appName.trim(), category: appCat }),
     }));
     setAppName("");
+    setEditMapId(null);
+  };
+
+  const startEditMap = (m: PCAppCategoryMap) => {
+    setEditMapId(m.id);
+    setAppName(m.appName);
+    setAppCat(m.category);
   };
 
   return (
@@ -377,8 +401,8 @@ export default function UsoPcPage() {
         footer={<>
           <Button variant="ghost" onClick={() => setCsvOpen(false)}>Annulla</Button>
           <Button onClick={parseCsv} variant="outline">Anteprima</Button>
-          <Button onClick={importCsv} disabled={csvPreview.filter((r) => r.ok).length === 0}>
-            Importa {csvPreview.filter((r) => r.ok).length || 0} log
+          <Button onClick={importCsv} disabled={validCount === 0}>
+            Importa {validCount || 0} log
           </Button>
         </>}>
         <p className="mb-2 text-xs text-muted-foreground">
@@ -387,12 +411,17 @@ export default function UsoPcPage() {
         <TextArea value={csvText} onChange={(e) => setCsvText(e.target.value)} placeholder={"2026-08-20,Lavoro,240\n2026-08-20,Gaming,90"} />
         {csvPreview.length > 0 && (
           <div className="mt-3 max-h-48 space-y-1 overflow-y-auto rounded-lg border border-border p-2">
+            <p className="mb-1 flex items-center gap-2 text-xs">
+              <span className="text-success">{validCount} valide</span>
+              <span>·</span>
+              <span className={errCount > 0 ? "text-danger" : "text-muted-foreground"}>{errCount} con errore</span>
+            </p>
             {csvPreview.map((r, i) => (
               <div key={i} className="flex items-center gap-2 text-xs">
                 <span className={r.ok ? "text-success" : "text-danger"}>{r.ok ? "✓" : "✗"}</span>
-                <span className="tnum">{r.date}</span>
-                <span>{r.category}</span>
-                <span className="tnum text-muted-foreground">{r.minutes}min</span>
+                <span className="tnum">{r.date || "—"}</span>
+                <span>{r.category || "—"}</span>
+                <span className="tnum text-muted-foreground">{r.ok ? `${r.minutes}min` : "—"}</span>
                 {r.err && <span className="text-danger">{r.err}</span>}
               </div>
             ))}
@@ -401,9 +430,9 @@ export default function UsoPcPage() {
       </Modal>
 
       {/* Modal mapping app */}
-      <Modal open={mapOpen} onClose={() => setMapOpen(false)} title="Mapping app → categoria" width="max-w-md">
+      <Modal open={mapOpen} onClose={() => { setMapOpen(false); setEditMapId(null); setAppName(""); }} title="Mapping app → categoria" width="max-w-md">
         <div className="mb-3 flex items-end gap-2">
-          <Field label="App" className="flex-1">
+          <Field label={editMapId ? "Modifica app" : "App"} className="flex-1">
             <Input value={appName} onChange={(e) => setAppName(e.target.value)} placeholder="es. Chrome" />
           </Field>
           <Field label="Categoria" className="w-40">
@@ -411,7 +440,14 @@ export default function UsoPcPage() {
               {categories.map((c) => <option key={c} value={c}>{c}</option>)}
             </Select>
           </Field>
-          <Button size="sm" onClick={addMap} disabled={!appName.trim()}>+</Button>
+          <Button size="sm" onClick={saveMap} disabled={!appName.trim()}>
+            {editMapId ? "Aggiorna" : "+"}
+          </Button>
+          {editMapId && (
+            <Button size="sm" variant="ghost" onClick={() => { setEditMapId(null); setAppName(""); }}>
+              Annulla
+            </Button>
+          )}
         </div>
         <p className="mb-2 text-[11px] text-muted-foreground">
           Usato dal futuro connettore ActivityWatch (V2) per categorizzare automaticamente le app.
@@ -422,8 +458,16 @@ export default function UsoPcPage() {
               <span className="font-medium">{m.appName}</span>
               <span className="flex items-center gap-2">
                 <Badge>{m.category}</Badge>
-                <button onClick={() => updateDB((d) => ({ ...d, pcAppCategoryMap: removeById(d.pcAppCategoryMap, m.id) }))}
-                  className="text-muted-foreground hover:text-danger">✕</button>
+                <button onClick={() => startEditMap(m)} className="text-muted-foreground hover:text-accent" aria-label="Modifica">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => updateDB((d) => ({ ...d, pcAppCategoryMap: removeById(d.pcAppCategoryMap, m.id) }))}
+                  className="text-muted-foreground hover:text-danger"
+                  aria-label="Elimina"
+                >✕</button>
               </span>
             </div>
           ))}

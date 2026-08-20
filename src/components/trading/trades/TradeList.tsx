@@ -13,7 +13,7 @@ import { Badge, StatusDot } from "@/components/ui/Badge";
 import { getAccount, setupName } from "@/lib/db";
 import { formatR, formatSignedMoney } from "@/lib/format";
 import { kpiMasked, moneyMasked, maskMoney, maskKpi } from "@/lib/privacy";
-import { tradeRespected } from "@/lib/compute";
+import { tradeRespected, rulesOfSetup } from "@/lib/compute";
 import { cn } from "@/lib/cn";
 import { formatCloseDate } from "./trade-utils";
 import { Lightbox } from "./Lightbox";
@@ -46,6 +46,12 @@ export function TradeList({
           disc === true ? "Disciplina rispettata" : disc === false ? "Regola del setup non rispettata" : "Non valutabile";
         const rn = t.resultNative;
         const pseudo = Boolean(t.screenshots?.length);
+        // stato disciplina PER REGOLA (regole attive del setup selezionato)
+        const setupRules = t.setupId ? rulesOfSetup(db, t.setupId).filter((r) => r.active) : [];
+        const ruleRespected = (ruleId: string): boolean => {
+          const entry = db.tradeSetupRules.find((x) => x.tradeId === t.id && x.ruleId === ruleId);
+          return entry ? entry.respected : false;
+        };
 
         return (
           <Card key={t.id} className="p-3.5">
@@ -174,6 +180,20 @@ export function TradeList({
                 {t.emotion && <span className="mr-2 rounded bg-elevated px-1.5 py-0.5 text-[11px]">😐 {t.emotion}</span>}
                 {t.description}
               </p>
+            )}
+
+            {setupRules.length > 0 && (
+              <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-2">
+                {setupRules.map((r) => {
+                  const ok = ruleRespected(r.id);
+                  return (
+                    <span key={r.id} className="inline-flex max-w-full items-center gap-1 text-[11px] text-muted-foreground tnum">
+                      <span className={cn("text-xs font-semibold", !ok && "text-muted-foreground")}>{kpiHidden ? "•" : ok ? "✓" : "✗"}</span>
+                      <span className="truncate">{r.text}</span>
+                    </span>
+                  );
+                })}
+              </div>
             )}
           </Card>
         );
