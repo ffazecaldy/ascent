@@ -16,7 +16,7 @@ import { QuickLogButton } from "@/components/QuickLog";
 interface NavItem {
   href: string;
   label: string;
-  icon: string;
+  icon: string | { img: string; alt: string };
 }
 
 const NAV: { group: string; items: NavItem[] }[] = [
@@ -50,6 +50,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
   {
     group: "Personale",
     items: [
+      { href: "/studio", label: "Studio", icon: { img: "/icons/studio.png", alt: "Studio" } },
       { href: "/libri", label: "Libri", icon: "📚" },
       { href: "/sport", label: "Sport", icon: "💪" },
     ],
@@ -139,7 +140,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="relative flex min-h-screen">
+      {/* Semi-sfondo: wallpaper che svanisce gradualmente verso l'alto (a malapena visibile) */}
+      <div aria-hidden className="wallpaper-fade pointer-events-none fixed inset-0 z-0" />
+
       {/* Sidebar desktop */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-[--bg-elev-1]/60 backdrop-blur-xl lg:flex">
         <SidebarContent pathname={pathname} />
@@ -156,7 +160,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Main */}
-      <div className="flex min-w-0 flex-1 flex-col lg:pl-60">
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col lg:pl-60">
         <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background/75 px-4 py-3 backdrop-blur-xl lg:px-6">
           <button
             className="rounded-lg p-1.5 text-secondary-text hover:bg-elevated lg:hidden"
@@ -239,9 +243,17 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
                     {active && (
                       <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-gradient-to-b from-accent to-accent-3 shadow-[0_0_8px_var(--accent-glow)]" />
                     )}
-                    <span className="text-sm opacity-90 transition-transform duration-150 group-hover:scale-110">
-                      {item.icon}
-                    </span>
+                    {typeof item.icon === "string" ? (
+                      <span className="text-sm opacity-90 transition-transform duration-150 group-hover:scale-110">
+                        {item.icon}
+                      </span>
+                    ) : (
+                      <img
+                        src={item.icon.img}
+                        alt={item.icon.alt}
+                        className="h-4 w-4 rounded object-cover transition-transform duration-150 group-hover:scale-110"
+                      />
+                    )}
                     {item.label}
                   </Link>
                 );

@@ -40,6 +40,7 @@ const emptyDB = (): DB => ({
   pcAppCategoryMap: [],
   books: [],
   workouts: [],
+  studySessions: [],
   savingsGoals: [],
   savingsDeposits: [],
   badges: [],

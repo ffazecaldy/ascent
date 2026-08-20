@@ -47,6 +47,7 @@ export function actionsOnDay(db: DB, dayKey: string): string[] {
   if (db.trades.some((t) => isoToDayKey(t.closeDate, tz) === dayKey)) actions.push("trade");
   if (db.workouts.some((w) => w.date === dayKey)) actions.push("allenamento");
   if (db.pcUsageLogs.some((p) => p.date === dayKey)) actions.push("pc");
+  if (db.studySessions.some((s) => s.date === dayKey)) actions.push("studio");
   const bookToday = new Date(dayKey + "T12:00:00");
   const bStart = new Date(bookToday); bStart.setHours(0,0,0,0);
   const bEnd = new Date(bookToday); bEnd.setHours(23,59,59,999);
@@ -83,6 +84,7 @@ export function activityStreak(db: DB): StreakInfo {
   db.trades.forEach((t) => active.add(isoToDayKey(t.closeDate, tz)));
   db.workouts.forEach((w) => active.add(w.date));
   db.pcUsageLogs.forEach((p) => active.add(p.date));
+  db.studySessions.forEach((s) => active.add(s.date));
   const bStart = new Date(); bStart.setHours(0,0,0,0);
   db.books.forEach((b) => { const u = new Date(b.updatedAt); if (u >= bStart) active.add(today); });
   // includi anni precedenti fino a 370 giorni fa
@@ -832,6 +834,32 @@ export function drawdownSeries(trades: Trade[]): { date: string; value: number }
     if (cum > peak) peak = cum;
     return { date: t.closeDate, value: Math.min(0, cum - peak) };
   });
+}
+
+export interface EvalProgress {
+  target: number | null; // saldo obiettivo (valuta nativa)
+  capital: number;
+  pnl: number; // pnl chiuso (valuta nativa)
+  saldo: number; // capitale + pnl
+  progressPct: number | null;
+  reached: boolean;
+}
+
+export function evalProgress(db: DB, account: TradingAccount): EvalProgress {
+  const pnl = db.trades
+    .filter((t) => t.accountId === account.id)
+    .reduce((s, t) => s + t.resultNative, 0);
+  const saldo = account.capital + pnl;
+  const target =
+    account.status === "eval" && account.evalTarget != null ? account.evalTarget : null;
+  return {
+    target,
+    capital: account.capital,
+    pnl,
+    saldo,
+    progressPct: target && target !== 0 ? Math.min(100, (saldo / target) * 100) : null,
+    reached: target != null && saldo >= target,
+  };
 }
 
 export function weeklyReviewStats(db: DB, weekStart: string): Record<string, unknown> {

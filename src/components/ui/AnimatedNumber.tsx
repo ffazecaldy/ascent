@@ -1,6 +1,8 @@
 "use client";
-// AnimatedNumber — count-up da 0 al valore quando entra in viewport.
-// Formatta tramite una funzione `fmt`.
+// AnimatedNumber — count-up che RI-ANIMA a ogni cambio di `value`
+// (non solo al primo mount): i dati risultano sempre "live".
+// Anima dal valore precedente a quello nuovo; se l'elemento è
+// fuori viewport, attende il primo intersection.
 
 import React, { useEffect, useRef, useState } from "react";
 
@@ -17,36 +19,56 @@ export function AnimatedNumber({
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [display, setDisplay] = useState(0);
-  const started = useRef(false);
+  const prevRef = useRef(0);
+  const frameRef = useRef(0);
 
   useEffect(() => {
     const el = ref.current;
-    if (!el || typeof IntersectionObserver === "undefined") {
+    if (!el) return;
+    cancelAnimationFrame(frameRef.current);
+
+    if (typeof IntersectionObserver === "undefined" || typeof window === "undefined") {
       setDisplay(value);
+      prevRef.current = value;
       return;
     }
-    const obs = new IntersectionObserver(
+
+    const from = prevRef.current || 0;
+    let obs: IntersectionObserver | null = null;
+
+    const animate = () => {
+      const t0 = performance.now();
+      const tick = (now: number) => {
+        const p = Math.min(1, (now - t0) / duration);
+        const eased = 1 - Math.pow(1 - p, 3);
+        setDisplay(from + (value - from) * eased);
+        if (p < 1) {
+          frameRef.current = requestAnimationFrame(tick);
+        } else {
+          setDisplay(value);
+          prevRef.current = value;
+        }
+      };
+      tick(t0);
+    };
+
+    obs = new IntersectionObserver(
       (entries) => {
         entries.forEach((e) => {
-          if (e.isIntersecting && !started.current) {
-            started.current = true;
-            const t0 = performance.now();
-            const tick = (now: number) => {
-              const p = Math.min(1, (now - t0) / duration);
-              const eased = 1 - Math.pow(1 - p, 3);
-              setDisplay(value * eased);
-              if (p < 1) requestAnimationFrame(tick);
-              else setDisplay(value);
-            };
-            requestAnimationFrame(tick);
-            obs.disconnect();
+          if (e.isIntersecting) {
+            obs?.disconnect();
+            animate();
           }
         });
       },
-      { threshold: 0.3 }
+      { threshold: 0.2 }
     );
     obs.observe(el);
-    return () => obs.disconnect();
+
+    return () => {
+      obs?.disconnect();
+      cancelAnimationFrame(frameRef.current);
+    };
   }, [value, duration]);
 
   return (

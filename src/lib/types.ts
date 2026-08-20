@@ -59,6 +59,8 @@ export interface TradingAccount {
   tradingDayRolloverTime: string; // "17:00"
   dailyLossLimit?: number | null; // valuta nativa
   maxLossLimit?: number | null; // valuta nativa
+  /** OBBIETTIVO per account in 'eval': saldo (capitale+pnl chiusi) da raggiungere per la promozione a 'finanziato' */
+  evalTarget?: number | null;
   // Convenienza app-level (non nel modello doc): tasso nativo→base quotato
   // quando ≠ base, usato SOLO per aggregare trade in valuta base (il trade
   // non porta valuta: deriva dall'account). Se assente, gli aggregati cross-currency usano 1.
@@ -223,6 +225,16 @@ export interface Workout {
   createdAt: string;
 }
 
+/** Zona Studio — sessioni di studio tracciate */
+export interface StudySession {
+  id: string;
+  date: string; // "yyyy-MM-dd"
+  subject: string; // materia
+  minutes: number;
+  note?: string;
+  createdAt: string;
+}
+
 /** Risparmi — conto di accumulo progressivo per investimenti futuri */
 export interface SavingsGoal {
   id: string;
@@ -269,9 +281,10 @@ export interface DB {
   pcAppCategoryMap: PCAppCategoryMap[];
   books: Book[];
   workouts: Workout[];
+  studySessions: StudySession[];
   savingsGoals: SavingsGoal[];
   savingsDeposits: SavingsDeposit[];
   badges: Badge[];
 }
 
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;

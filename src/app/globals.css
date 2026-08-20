@@ -182,3 +182,14 @@ input, select, textarea { color-scheme: dark; }
     linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
   background-size: 22px 22px;
 }
+
+/* Semi-sfondo wallpaper: visibile in basso, svanisce gradualmente verso l'alto */
+.wallpaper-fade {
+  background-image: url("/wallpapers/adam-wallpaper.jpg");
+  background-size: cover;
+  background-position: center 100%;
+  opacity: 0.16;
+  -webkit-mask-image: linear-gradient(to top, black 22%, rgba(0, 0, 0, 0.4) 48%, transparent 72%);
+  mask-image: linear-gradient(to top, black 22%, rgba(0, 0, 0, 0.4) 48%, transparent 72%);
+  filter: saturate(0.85);
+}
