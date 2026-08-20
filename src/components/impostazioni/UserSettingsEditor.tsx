@@ -103,7 +103,7 @@ export function UserSettingsEditor() {
                 <option key={tz} value={tz} />
               ))}
             </datalist>
-            <div className="mt-2 text-xs text-muted-foreground">
+            <div className="mt-2 text-xs leading-relaxed text-muted-foreground">
               {now ? (
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span>Oggi in</span>

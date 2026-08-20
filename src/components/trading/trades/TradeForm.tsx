@@ -377,7 +377,7 @@ export function TradeForm({
                 Regole del setup — rispettate?
               </p>
               {activeRules.length > 0 && (
-                <span className="tnum rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
+                <span className="tnum rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">
                   {respectedCount}/{activeRules.length}
                 </span>
               )}
@@ -396,7 +396,7 @@ export function TradeForm({
                       onClick={() => toggleRespect(r.id)}
                       aria-pressed={ok}
                       className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all duration-200 active:scale-[0.97]",
+                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-[color,background-color,border-color,box-shadow,transform] duration-200 active:scale-[0.97]",
                         ok
                           ? "border-accent/60 bg-accent/15 text-foreground shadow-[0_0_16px_-2px_var(--accent-glow)]"
                           : "border-border-strong bg-muted/60 text-muted-foreground hover:border-danger/40 hover:text-secondary-text"
@@ -404,7 +404,7 @@ export function TradeForm({
                     >
                       <span
                         className={cn(
-                          "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] font-bold transition-colors",
+                          "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold transition-colors",
                           ok
                             ? "border-accent bg-accent text-white shadow-[0_0_8px_var(--accent-glow)]"
                             : "border-border-strong bg-elevated text-muted-foreground"

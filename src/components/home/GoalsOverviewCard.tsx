@@ -194,7 +194,7 @@ export function GoalsOverviewCard({ db }: { db: DB }) {
                 <div className="flex items-center gap-2.5">
                   <span
                     className={cn(
-                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold transition-all duration-300",
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold transition-[background-color,box-shadow,color] duration-300",
                       met
                         ? "bg-success text-[#0b0b0c] shadow-[0_0_12px_-2px_rgba(45,223,158,0.6)]"
                         : "border border-border-strong bg-elevated text-transparent"
@@ -241,7 +241,7 @@ export function GoalsOverviewCard({ db }: { db: DB }) {
                 <div className="flex items-center gap-2.5">
                   <span
                     className={cn(
-                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold transition-all duration-300",
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold transition-[background-color,box-shadow,color] duration-300",
                       met
                         ? "bg-success text-[#0b0b0c] shadow-[0_0_12px_-2px_rgba(45,223,158,0.6)]"
                         : "border border-border-strong bg-elevated text-transparent"

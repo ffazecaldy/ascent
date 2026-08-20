@@ -246,7 +246,7 @@ export default function WeeklyReviewPage() {
                 Settimana del {labelDayKey(week, locale)}
               </p>
               <div className="mt-0.5 flex flex-wrap items-center justify-center gap-2">
-                <span className="text-[11px] text-muted-foreground tnum">
+                <span className="text-[11px] text-secondary-text tnum">
                   {keyToLabel(week)} → {keyToLabel(weekEnd)}
                 </span>
                 {isCurrent && (
@@ -462,7 +462,7 @@ export default function WeeklyReviewPage() {
                 fmt={money}
                 className="mt-1.5 block font-mono text-lg font-semibold text-success sm:text-xl"
               />
-              <p className="mt-1 text-[10px] text-muted-foreground">incassi della settimana</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">incassi della settimana</p>
             </div>
             <div className="px-2 text-center">
               <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -474,7 +474,7 @@ export default function WeeklyReviewPage() {
                 fmt={money}
                 className="mt-1.5 block font-mono text-lg font-semibold text-danger sm:text-xl"
               />
-              <p className="mt-1 text-[10px] text-muted-foreground">spese della settimana</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">spese della settimana</p>
             </div>
             <div className="px-2 text-center">
               <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -489,7 +489,7 @@ export default function WeeklyReviewPage() {
                   stats.net > 0 ? "text-success" : stats.net < 0 ? "text-danger" : "text-foreground"
                 )}
               />
-              <p className="mt-1 text-[10px] text-muted-foreground">
+              <p className="mt-1 text-[11px] text-muted-foreground">
                 {stats.net > 0 ? "avanzo" : stats.net < 0 ? "deficit" : "in pari"} della settimana
               </p>
             </div>
@@ -540,10 +540,10 @@ function QuestionPanel({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="mt-3 min-h-[88px] rounded-xl border-border-strong/70 bg-muted/50 text-[13px] leading-relaxed transition-all hover:border-border-strong focus:border-accent/50 focus:bg-muted"
+        className="mt-3 min-h-[88px] rounded-xl border-border-strong/70 bg-muted/50 text-[13px] leading-relaxed transition-colors hover:border-border-strong focus:border-accent/50 focus:bg-muted"
       />
       {value.trim().length > 0 && (
-        <p className="mt-1.5 text-right text-[10px] text-muted-foreground/60">
+        <p className="mt-1.5 text-right text-[11px] text-muted-foreground">
           {value.trim().length} caratteri
         </p>
       )}

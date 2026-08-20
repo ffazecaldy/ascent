@@ -201,7 +201,7 @@ function LimitChip({
             <span className={cn("tnum text-xs font-semibold", pctCls)}>{formatPercent(pct, dtype(pct))}</span>
           </div>
           <ProgressBar value={util.used} max={util.limit} tone={tone} className="mt-1.5 h-1.5" />
-          <p className="mt-1 truncate text-[10px] text-muted-foreground">
+          <p className="mt-1 truncate text-[11px] text-secondary-text">
             dist. <Amount value={util.distance} currency={currency} masked={masked} /> · lim.{" "}
             <Amount value={util.limit} currency={currency} masked={masked} />
           </p>
@@ -247,7 +247,7 @@ function EvalProgressRow({ progress, currency, masked }: { progress: EvalProgres
         </span>
       </div>
       <ProgressBar value={progress.saldo} max={progress.target} tone={reached ? "success" : "accent"} className="mt-1.5 h-2" />
-      <p className="mt-1 flex flex-wrap items-baseline gap-x-1 text-[11px] text-muted-foreground">
+      <p className="mt-1 flex flex-wrap items-baseline gap-x-1 text-[11px] text-secondary-text">
         saldo <Amount value={progress.saldo} currency={currency} masked={masked} /> / obiettivo{" "}
         <Amount value={progress.target} currency={currency} masked={masked} />
         {reached && <span className="font-semibold text-success">· raggiunto</span>}
@@ -812,11 +812,11 @@ function AccountCard({
             <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
             {acc.tradingDayTimezone || "UTC"}
           </span>
-          <span className="rounded-md border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent tnum">
+          <span className="rounded-md border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-accent tnum">
             rollover {acc.tradingDayRolloverTime}
           </span>
         </div>
-        <p className="mt-1.5 text-[10px] text-muted-foreground">
+        <p className="mt-1.5 text-[11px] text-secondary-text">
           Trading day corrente ·{" "}
           <span className="tnum text-secondary-text">{labelDayKey(tradingDayKey(new Date().toISOString(), acc))}</span>
         </p>

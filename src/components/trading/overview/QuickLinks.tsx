@@ -86,18 +86,18 @@ export function QuickLinks() {
           <Link
             key={l.href}
             href={l.href}
-            className="group flex items-start gap-3 rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[0_14px_34px_-16px_rgba(0,0,0,0.75)]"
+            className="group flex items-start gap-3 rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[0_14px_34px_-16px_rgba(0,0,0,0.75)]"
           >
             <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent-dim text-lg leading-none transition-transform duration-200 group-hover:scale-110">
               {l.icon}
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground">{l.title}</p>
-              <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+              <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-secondary-text">
                 {l.desc}
               </p>
             </div>
-            <span className="mt-1 shrink-0 text-sm text-accent opacity-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:opacity-100">
+            <span className="mt-1 shrink-0 text-sm text-accent opacity-0 transition-[transform,opacity] duration-200 group-hover:translate-x-0.5 group-hover:opacity-100">
               →
             </span>
           </Link>

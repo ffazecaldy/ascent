@@ -231,7 +231,7 @@ export function MonthOverview({
               </div>
             </CardHeader>
             {masked ? (
-              <div className="flex h-[200px] items-center justify-center rounded-lg border border-dashed border-border-strong text-xs text-muted-foreground">
+              <div className="flex h-[200px] items-center justify-center rounded-lg border border-dashed border-border-strong text-xs text-secondary-text">
                 Grafico nascosto in modalità privacy
               </div>
             ) : (
@@ -286,7 +286,7 @@ export function MonthOverview({
               </div>
             </CardHeader>
             {donutData.length === 0 ? (
-              <div className="flex h-[200px] items-center justify-center rounded-lg border border-dashed border-border-strong text-xs text-muted-foreground">
+              <div className="flex h-[200px] items-center justify-center rounded-lg border border-dashed border-border-strong text-xs text-secondary-text">
                 Nessuna {donutType === "expense" ? "uscita" : "entrata"} in questo mese
               </div>
             ) : masked ? (
@@ -324,7 +324,7 @@ export function MonthOverview({
             </div>
           </CardHeader>
           {masked ? (
-            <div className="flex h-[180px] items-center justify-center rounded-lg border border-dashed border-border-strong text-xs text-muted-foreground">
+            <div className="flex h-[180px] items-center justify-center rounded-lg border border-dashed border-border-strong text-xs text-secondary-text">
               Grafico nascosto in modalità privacy
             </div>
           ) : (

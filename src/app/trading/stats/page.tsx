@@ -170,7 +170,7 @@ function LineAt({
     <div aria-hidden className="pointer-events-none absolute inset-x-1" style={{ top: y, height: 1 }}>
       <div className="h-px w-full border-t border-dashed" style={{ borderColor: `${hex}55` }} />
       <span
-        className="absolute -top-4 right-0 rounded bg-card px-1 text-[9px] font-medium"
+        className="absolute -top-4 right-0 rounded bg-card px-1 text-[10px] font-medium"
         style={{ color: hex }}
       >
         {label}
@@ -356,7 +356,7 @@ export default function TradingStatsPage() {
                     type="button"
                     onClick={() => setPeriod(p.id)}
                     className={cn(
-                      "flex-1 rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap transition-all",
+                      "flex-1 rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap transition-[color,background-color,box-shadow]",
                       period === p.id
                         ? "bg-accent text-white shadow-[0_0_14px_-2px_var(--accent-glow)]"
                         : "text-muted-foreground hover:text-secondary-text"
@@ -598,7 +598,7 @@ export default function TradingStatsPage() {
               <div className="mt-4 overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-left text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                    <tr className="text-left text-[11px] uppercase tracking-[0.14em] text-secondary-text">
                       <th className="px-2 py-1 font-semibold">Setup</th>
                       <th className="px-2 py-1 text-right font-semibold">Trade</th>
                       <th className="px-2 py-1 text-right font-semibold">Win rate</th>
@@ -614,7 +614,7 @@ export default function TradingStatsPage() {
                         <tr key={r.id || i} className="transition-colors hover:bg-elevated/40">
                           <td className="px-2 py-1.5">
                             <div className="flex items-center gap-2">
-                              <span className="tnum text-[10px] text-muted-foreground">
+                              <span className="tnum text-[11px] text-secondary-text">
                                 {String(i + 1).padStart(2, "0")}
                               </span>
                               <span className="max-w-40 truncate font-medium text-foreground">
@@ -674,7 +674,7 @@ export default function TradingStatsPage() {
                   <BarsChart data={weekdayData} showValue={!moneyHidden} height={CHART_H} />
                   <ZeroBaseline data={weekdayData} height={CHART_H} />
                 </div>
-                <div className="mt-2 flex items-center gap-4 text-[10px] text-muted-foreground">
+                <div className="mt-2 flex items-center gap-4 text-[11px] text-secondary-text">
                   <span className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-sm bg-accent" /> profitto
                   </span>
@@ -699,7 +699,7 @@ export default function TradingStatsPage() {
                   <BarsChart data={hourData} showValue={!moneyHidden} height={CHART_H} />
                   <ZeroBaseline data={hourData} height={CHART_H} />
                 </div>
-                <div className="mt-2 flex items-center gap-4 text-[10px] text-muted-foreground">
+                <div className="mt-2 flex items-center gap-4 text-[11px] text-secondary-text">
                   <span className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-sm bg-accent" /> profitto
                   </span>
@@ -753,7 +753,7 @@ export default function TradingStatsPage() {
                   {rMonths.map((m) => (
                     <div key={m.x} className="rounded-lg bg-elevated px-2.5 py-1.5">
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className="text-[10px] font-medium text-muted-foreground">
+                        <span className="text-[11px] font-medium text-secondary-text">
                           {monthLabel(m.x)}
                         </span>
                         <span
@@ -765,7 +765,7 @@ export default function TradingStatsPage() {
                           {kpiHidden ? maskKpi() : formatR(m.r)}
                         </span>
                       </div>
-                      <div className="tnum text-[10px] text-secondary-text">
+                      <div className="tnum text-[11px] text-secondary-text">
                         {m.wins} V · {m.count - m.wins} P · su {m.count}
                       </div>
                     </div>
@@ -835,7 +835,7 @@ export default function TradingStatsPage() {
                 height={CHART_H}
                 yFormatter={moneyHidden ? () => maskMoney() : undefined}
               />
-              <div className="mt-1 flex items-center gap-4 text-[10px] text-muted-foreground">
+              <div className="mt-1 flex items-center gap-4 text-[11px] text-secondary-text">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-danger" /> drawdown (≤ 0)
                 </span>

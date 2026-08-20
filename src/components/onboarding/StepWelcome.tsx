@@ -19,7 +19,7 @@ export function StepWelcome() {
         <h1 className="text-3xl font-semibold tracking-tight">
           Benvenuto su <span className="grad-text">Ascend</span>
         </h1>
-        <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
           Un unico sistema quotidiano per costruire la versione di te che vuoi essere — con dati, non
           promesse.
         </p>

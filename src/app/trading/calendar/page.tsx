@@ -105,14 +105,14 @@ function CalGrid({
           isToday && "ring-1 ring-accent shadow-[0_0_14px_-3px_var(--accent-glow)]"
         )}
       >
-        <span className={cn("text-[9px] font-medium leading-none", hasPnl ? "text-black/70" : "text-muted-foreground")}>
+        <span className={cn("text-[11px] font-medium leading-none", hasPnl ? "text-black/70" : "text-muted-foreground")}>
           {d}
         </span>
         {hasPnl &&
           (neutral ? (
-            <span className="text-[9px] font-semibold leading-none text-black/40">••</span>
+            <span className="text-[11px] font-semibold leading-none text-black/40">••</span>
           ) : (
-            <span className="text-[9px] font-semibold leading-none text-black/85">{fmt(pnl)}</span>
+            <span className="text-[11px] font-semibold leading-none text-black/85">{fmt(pnl)}</span>
           ))}
       </div>
     );
@@ -293,7 +293,7 @@ export default function TradingCalendarPage() {
                   nativeCurrency={account!.nativeCurrency}
                   neutral={calendarNeutral(db.settings.privacyMode)}
                 />
-                <div className="mt-3 flex items-center gap-4 border-t border-border pt-3 text-[10px] text-muted-foreground">
+                <div className="mt-3 flex items-center gap-4 border-t border-border pt-3 text-[11px] text-secondary-text">
                   <span className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: "rgba(34,197,94,0.55)" }} />
                     Positivo
@@ -348,7 +348,7 @@ export default function TradingCalendarPage() {
                   </div>
                   <Badge tone="warning">fine sessione</Badge>
                 </div>
-                <p className="rounded-lg border border-border/60 bg-elevated/40 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                <p className="rounded-lg border border-border/60 bg-elevated/40 px-2.5 py-2 text-[11px] leading-relaxed text-secondary-text">
                   Il limite giornaliero si azzera al rollover della sessione (es. 17:00
                   America/Chicago per futures CME), non a mezzanotte.
                 </p>

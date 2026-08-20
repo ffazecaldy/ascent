@@ -56,12 +56,12 @@ export function AscendDayCard({ db }: { db: DB }) {
                 <div key={dk} className="flex flex-1 flex-col items-center gap-1">
                   <div
                     className={
-                      "h-2.5 w-full rounded-full transition-all duration-500 " +
+                      "h-2.5 w-full rounded-full transition-colors duration-500 " +
                       (d === true ? "bg-gradient-to-r from-success to-emerald-400 shadow-[0_0_8px_rgba(45,223,158,0.5)]" :
                        d === false ? "bg-elevated" : "bg-border")
                     }
                   />
-                  <span className={"text-[9px] tnum " + (isToday ? "font-bold text-accent" : "text-muted-foreground")}>
+                  <span className={"text-[11px] tnum " + (isToday ? "font-bold text-accent" : "text-muted-foreground")}>
                     {["L","M","M","G","V","S","D"][new Date(dk + "T12:00:00").getDay()]}
                   </span>
                 </div>

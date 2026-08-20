@@ -76,7 +76,7 @@ export function StudyLog({ onEdit }: { onEdit: (s: StudySession) => void }) {
 
                 <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-0.5">
                   {s.note && (
-                    <span className="max-w-[320px] truncate text-[11px] text-muted-foreground">
+                    <span className="max-w-[320px] truncate text-[11px] text-secondary-text">
                       {s.note}
                     </span>
                   )}

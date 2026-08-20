@@ -369,7 +369,7 @@ function BookCard({
                 <Star key={i} filled={i <= rating} size={14} onClick={() => onRating(book, rating === i ? 0 : i)} />
               ))}
             </div>
-            <span className="tnum text-[10px] text-muted-foreground">{rating > 0 ? `${rating}/5` : "da valutare"}</span>
+            <span className="tnum text-[11px] text-muted-foreground">{rating > 0 ? `${rating}/5` : "da valutare"}</span>
           </div>
         </div>
       </div>
@@ -814,7 +814,7 @@ export default function LibriPage() {
         }
       >
         <p className="mb-2 text-xs text-muted-foreground">Una riga per libro. Formati supportati:</p>
-        <div className="mb-3 space-y-0.5 rounded-lg border border-border bg-muted px-3 py-2 font-mono text-[11px] leading-5 text-secondary-text">
+        <div className="mb-3 space-y-0.5 rounded-lg border border-border bg-muted px-3 py-2 font-mono text-[11px] leading-relaxed text-secondary-text">
           <div>Titolo</div>
           <div>Titolo — Autore</div>
           <div>Titolo — Autore — 320</div>

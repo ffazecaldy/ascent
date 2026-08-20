@@ -59,7 +59,7 @@ export function DataZone() {
           <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
             <span className="text-base">🔥</span> Zona pericolosa
           </p>
-          <p className="mt-0.5 text-xs text-secondary-text">
+          <p className="mt-0.5 text-xs leading-relaxed text-secondary-text">
             Il reset totale cancella tutto e riporta Ascend allo stato iniziale.
           </p>
         </div>

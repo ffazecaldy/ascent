@@ -69,7 +69,7 @@ export function QuoteRotator() {
         <div className="min-w-0 flex-1">
           <div className="min-h-[72px] sm:min-h-[56px]">
             <p
-              className={`font-serif text-[15px] italic leading-relaxed text-foreground/90 transition-all duration-500 ease-out ${
+              className={`font-serif text-[15px] italic leading-relaxed text-foreground/90 transition-[transform,opacity] duration-500 ease-out ${
                 shown ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
               }`}
             >
@@ -78,7 +78,7 @@ export function QuoteRotator() {
           </div>
 
           <div
-            className={`mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border/70 pt-2 transition-all duration-500 delay-75 ease-out ${
+            className={`mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border/70 pt-2 transition-[transform,opacity] duration-500 delay-75 ease-out ${
               shown ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
             }`}
           >
@@ -87,14 +87,14 @@ export function QuoteRotator() {
               {quote.author}
             </p>
             <div className="flex items-center gap-2">
-              <span className="tnum text-[10px] text-muted-foreground">
+              <span className="tnum text-[11px] text-muted-foreground">
                 {index + 1}/{QUOTES.length}
               </span>
               <button
                 type="button"
                 onClick={nextManual}
                 aria-label="Cita successiva"
-                className="rounded-md border border-border-strong bg-elevated px-2 py-0.5 text-[11px] font-medium text-secondary-text transition-colors hover:border-accent/50 hover:text-accent"
+                className="rounded-md border border-border-strong bg-elevated px-2 py-0.5 text-xs font-medium text-secondary-text transition-colors hover:border-accent/50 hover:text-accent"
               >
                 Successiva →
               </button>

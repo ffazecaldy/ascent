@@ -74,7 +74,7 @@ export function StudyCharts() {
               centerValue={String(monthTotal)}
             />
           ) : (
-            <p className="text-sm text-muted-foreground">Nessuna sessione questo mese.</p>
+            <p className="text-sm text-secondary-text">Nessuna sessione questo mese.</p>
           )}
         </Card>
       </Reveal>

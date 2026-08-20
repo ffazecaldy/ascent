@@ -124,7 +124,7 @@ export function RecentTrades({ db }: { db: DB }) {
               {recent.length > 0 && (
                 <tr className="border-b border-border/60">
                   <th colSpan={7} className="pb-2 text-right font-normal">
-                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-elevated px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-elevated px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                       Δ vs mese prec
                       <TrendArrow value={pnlDelta} size={10} />
                       {!moneyHide && (
@@ -145,7 +145,7 @@ export function RecentTrades({ db }: { db: DB }) {
                   </th>
                 </tr>
               )}
-              <tr className="border-b border-border text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <tr className="border-b border-border text-left text-[11px] font-semibold uppercase tracking-wider text-secondary-text">
                 <th className="pb-2 pr-3">Data</th>
                 <th className="pb-2 pr-3">Strumento</th>
                 <th className="pb-2 pr-3">Direzione</th>
@@ -165,7 +165,7 @@ export function RecentTrades({ db }: { db: DB }) {
                     key={t.id}
                     className="group border-b border-border/60 transition-colors last:border-0 hover:bg-elevated/50"
                   >
-                    <td className="py-1.5 pr-3 whitespace-nowrap text-muted-foreground tnum">
+                    <td className="py-1.5 pr-3 whitespace-nowrap text-secondary-text tnum">
                       {formatClose(t.closeDate, tz, locale)}
                     </td>
                     <td className="py-1.5 pr-3 whitespace-nowrap font-medium">

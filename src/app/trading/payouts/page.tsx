@@ -211,7 +211,7 @@ function FxRate({
     return <span className="text-muted-foreground/60">—</span>;
   }
   return (
-    <span className="inline-flex items-center gap-1 whitespace-nowrap text-[10px]">
+    <span className="inline-flex items-center gap-1 whitespace-nowrap text-[11px]">
       <span className="text-muted-foreground">1 {currency}</span>
       <span className="text-muted-foreground/50">≈</span>
       <span className="tnum text-secondary-text">
@@ -340,7 +340,7 @@ function ItemModal({
   // Badge fonte del tasso (pipeline FX)
   const sourceEl =
     sameBase ? (
-      <span className="text-[10px] text-muted-foreground">tasso 1 · stessa valuta della base</span>
+      <span className="text-[11px] text-muted-foreground">tasso 1 · stessa valuta della base</span>
     ) : quoting ? (
       <Badge tone="info" pulse>API · quotazione…</Badge>
     ) : quoteSrc === "api" ? (
@@ -494,7 +494,7 @@ function ItemModal({
           <div className="mt-1.5 flex items-center justify-between gap-2">
             <div>{sourceEl}</div>
             {amountValid && rateValid && (
-              <span className="tnum text-[11px] text-muted-foreground">
+              <span className="tnum text-[11px] text-secondary-text">
                 ≈ {hidden ? maskMoney() : formatMoney(amountNum * (sameBase ? 1 : rateNum), baseCurrency, locale)}
               </span>
             )}
@@ -682,7 +682,7 @@ export default function PayoutsPage() {
         <section>
           <div className="mb-4">
             <h2 className="text-lg font-semibold tracking-tight">Muro dei certificati</h2>
-            <p className="mt-0.5 text-sm text-muted-foreground">
+            <p className="mt-0.5 text-sm leading-relaxed text-secondary-text">
               Eval superate, payout incassati e capitale sotto gestione.
             </p>
           </div>
@@ -750,7 +750,7 @@ export default function PayoutsPage() {
         <section>
           <div className="mb-4">
             <h2 className="text-lg font-semibold tracking-tight">Dettaglio per account</h2>
-            <p className="mt-0.5 text-sm text-muted-foreground">
+            <p className="mt-0.5 text-sm leading-relaxed text-secondary-text">
               Payout e spese firm, con netto reale convertito in {base}.
             </p>
           </div>
@@ -812,7 +812,7 @@ export default function PayoutsPage() {
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-secondary-text">
                           <span className="text-sm leading-none">💰</span> Payout
-                          <span className="tnum rounded bg-elevated px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">
+                          <span className="tnum rounded bg-elevated px-1.5 py-0.5 text-[11px] font-normal text-secondary-text">
                             {accPayouts.length}
                           </span>
                         </div>
@@ -845,7 +845,7 @@ export default function PayoutsPage() {
                           <div className="overflow-x-auto">
                             <table className="w-full min-w-[26rem] border-collapse text-xs">
                               <thead>
-                                <tr className="border-b border-border-strong bg-elevated/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                                <tr className="border-b border-border-strong bg-elevated/50 text-[11px] uppercase tracking-[0.12em] text-secondary-text">
                                   <th className="py-1.5 pl-2.5 pr-2 text-left font-semibold">Data</th>
                                   <th className="px-2 py-1.5 text-right font-semibold">Importo</th>
                                   <th className="px-2 py-1.5 text-right font-semibold">Tasso FX</th>
@@ -856,7 +856,7 @@ export default function PayoutsPage() {
                               <tbody className="divide-y divide-border/70">
                                 {accPayouts.map((p) => (
                                   <tr key={p.id} className="group/row transition-colors hover:bg-elevated/70">
-                                    <td className="whitespace-nowrap py-1.5 pl-2.5 pr-2 text-muted-foreground">
+                                    <td className="whitespace-nowrap py-1.5 pl-2.5 pr-2 text-secondary-text">
                                       {labelDayKey(p.date, locale)}
                                     </td>
                                     <td className="whitespace-nowrap px-2 py-1.5 text-right tnum font-semibold text-success">
@@ -895,7 +895,7 @@ export default function PayoutsPage() {
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-secondary-text">
                           <span className="text-sm leading-none">🧾</span> Spese firm
-                          <span className="tnum rounded bg-elevated px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">
+                          <span className="tnum rounded bg-elevated px-1.5 py-0.5 text-[11px] font-normal text-secondary-text">
                             {accExpenses.length}
                           </span>
                         </div>
@@ -928,7 +928,7 @@ export default function PayoutsPage() {
                           <div className="overflow-x-auto">
                             <table className="w-full min-w-[26rem] border-collapse text-xs">
                               <thead>
-                                <tr className="border-b border-border-strong bg-elevated/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                                <tr className="border-b border-border-strong bg-elevated/50 text-[11px] uppercase tracking-[0.12em] text-secondary-text">
                                   <th className="py-1.5 pl-2.5 pr-2 text-left font-semibold">Data</th>
                                   <th className="px-2 py-1.5 text-right font-semibold">Importo</th>
                                   <th className="px-2 py-1.5 text-right font-semibold">Tasso FX</th>
@@ -939,7 +939,7 @@ export default function PayoutsPage() {
                               <tbody className="divide-y divide-border/70">
                                 {accExpenses.map((e) => (
                                   <tr key={e.id} className="group/row transition-colors hover:bg-elevated/70">
-                                    <td className="whitespace-nowrap py-1.5 pl-2.5 pr-2 text-muted-foreground">
+                                    <td className="whitespace-nowrap py-1.5 pl-2.5 pr-2 text-secondary-text">
                                       {labelDayKey(e.date, locale)}
                                     </td>
                                     <td className="whitespace-nowrap px-2 py-1.5 text-right tnum font-semibold text-danger">
@@ -950,7 +950,7 @@ export default function PayoutsPage() {
                                     </td>
                                     <td className="hidden px-2 py-1.5 sm:table-cell">
                                       <div className="flex flex-wrap items-center gap-1.5">
-                                        <Badge className="px-1.5 text-[9px]">{EXPENSE_TYPE_LABEL[e.type]}</Badge>
+                                        <Badge className="px-1.5 text-[11px]">{EXPENSE_TYPE_LABEL[e.type]}</Badge>
                                         {e.currency !== base && (
                                           <span className="tnum text-[11px] text-danger/80">
                                             ≈ {M(convertToBase(e.amount, e.exchangeRate), base)}

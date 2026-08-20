@@ -60,7 +60,7 @@ function LiveBadge() {
       onClick={ping}
       title="I numeri si aggiornano da soli quando registri o elimini una transazione. Clicca per confermare."
       className={cn(
-        "group inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] transition-all",
+        "group inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] transition-[color,background-color,border-color,box-shadow]",
         ok
           ? "border-success/40 bg-success/10 text-success shadow-[0_0_14px_-4px_rgba(34,197,94,0.6)]"
           : "border-border-strong bg-elevated text-secondary-text hover:border-success/40 hover:text-success"
@@ -107,7 +107,7 @@ function PuntoDiPartenza({ base }: { base: string }) {
             Primo passo
           </p>
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Punto di partenza</h2>
-          <p className="mt-1.5 text-sm text-muted-foreground">
+          <p className="mt-1.5 text-sm text-secondary-text leading-relaxed">
             Inserisci il tuo punto di partenza: il saldo iniziale del conto personale in{" "}
             <b className="text-secondary-text">{base}</b>. Da lì il patrimonio si calcola in automatico.
           </p>

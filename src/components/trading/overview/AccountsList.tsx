@@ -153,7 +153,7 @@ export function AccountsList({ db }: { db: DB }) {
               <Link
                 key={acc.id}
                 href="/trading/accounts"
-                className="group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-card/70 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[0_12px_30px_-14px_rgba(0,0,0,0.7)]"
+                className="group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-card/70 p-3 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[0_12px_30px_-14px_rgba(0,0,0,0.7)]"
               >
                 {active && (
                   <span className="pointer-events-none absolute inset-y-0 left-0 w-[2px] bg-gradient-to-b from-accent via-accent-2 to-transparent" />

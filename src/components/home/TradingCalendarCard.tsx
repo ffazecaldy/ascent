@@ -92,7 +92,7 @@ export function TradingCalendarCard({ db }: { db: DB }) {
       </CardHeader>
 
       {/* intestazione giorni */}
-      <div className="grid grid-cols-7 gap-1 text-center text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         {DOW_LABELS.map((d, i) => (
           <span key={i}>{d}</span>
         ))}
@@ -119,7 +119,7 @@ export function TradingCalendarCard({ db }: { db: DB }) {
                   : dk
               }
               className={cn(
-                "relative flex aspect-[0.86] min-h-12 flex-col rounded-lg border p-1.5 transition-all duration-300",
+                "relative flex aspect-[0.86] min-h-12 flex-col rounded-lg border p-1.5 transition-colors duration-300",
                 hasPnl
                   ? positive
                     ? "border-success/70 bg-success/10 hover:border-success"
@@ -141,7 +141,7 @@ export function TradingCalendarCard({ db }: { db: DB }) {
               <div className="flex items-start justify-between leading-none">
                 <span
                   className={cn(
-                    "tnum text-[9px]",
+                    "tnum text-[11px]",
                     isToday ? "font-bold text-accent" : "text-muted-foreground"
                   )}
                 >
@@ -161,7 +161,7 @@ export function TradingCalendarCard({ db }: { db: DB }) {
                   >
                     {masked ? maskMoney() : compactMoney(agg!.pnlBase)}
                   </span>
-                  <span className="tnum text-[10px] font-medium leading-none text-secondary-text">
+                  <span className="tnum text-[11px] font-medium leading-none text-secondary-text">
                     {agg!.count} tr
                   </span>
                 </div>
@@ -172,7 +172,7 @@ export function TradingCalendarCard({ db }: { db: DB }) {
       </div>
 
       {/* legenda */}
-      <div className="mt-3 flex items-center justify-between border-t border-border pt-2.5 text-[10px] text-muted-foreground">
+      <div className="mt-3 flex items-center justify-between border-t border-border pt-2.5 text-[11px] text-muted-foreground">
         <span>
           ▲ verde · giorno positivo&ensp;|&ensp;▼ rossa · giorno negativo
         </span>

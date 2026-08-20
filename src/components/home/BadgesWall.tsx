@@ -92,7 +92,7 @@ export function BadgesWall({ db }: { db: DB }) {
               >
                 {def.label}
               </p>
-              <p className="text-[10px] leading-tight text-muted-foreground">
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
                 {def.description}
               </p>
             </div>

@@ -84,7 +84,7 @@ export default function OnboardingPage() {
               <div className="flex flex-col items-center gap-1.5">
                 <span
                   className={cn(
-                    "flex h-5 w-5 items-center justify-center rounded-full border text-[9px] font-semibold transition-all duration-500",
+                    "flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-semibold transition-[background-color,border-color,color,transform] duration-500",
                     i < step
                       ? "border-accent bg-accent text-white"
                       : i === step
@@ -96,7 +96,7 @@ export default function OnboardingPage() {
                 </span>
                 <span
                   className={cn(
-                    "text-[9px] font-medium uppercase tracking-wider transition-colors duration-300",
+                    "text-[10px] font-medium uppercase tracking-wider transition-colors duration-300",
                     i === step ? "text-accent" : "text-muted-foreground"
                   )}
                 >

@@ -76,7 +76,7 @@ export default function RisparmiPage() {
             </div>
             <div>
               <h2 className="text-lg font-semibold tracking-tight">Inizia a risparmiare</h2>
-              <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+              <p className="mx-auto mt-1 max-w-sm text-sm text-secondary-text leading-relaxed">
                 Definisci un obiettivo di accumulo e versa con costanza: vedrai la tua parabola
                 crescere, versamento dopo versamento.
               </p>

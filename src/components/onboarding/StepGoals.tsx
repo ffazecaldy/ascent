@@ -98,7 +98,7 @@ export function StepGoals({
             <Card
               key={g.type}
               className={cn(
-                "overflow-hidden p-4 transition-all duration-300",
+                "overflow-hidden p-4 transition-[box-shadow,opacity] duration-300",
                 g.active
                   ? "ring-1 ring-accent/40 shadow-[0_0_30px_-10px_var(--accent-glow)]"
                   : "opacity-90 hover:opacity-100"
@@ -114,11 +114,11 @@ export function StepGoals({
                   </span>
                   <div>
                     <p className="text-sm font-semibold text-foreground">{g.label}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{g.description}</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{g.description}</p>
                     {!adjustable && (
                       <span
                         className={cn(
-                          "mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider",
+                          "mt-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider",
                           g.target === 0
                             ? "bg-accent/10 text-accent"
                             : "text-muted-foreground"

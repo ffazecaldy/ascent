@@ -343,7 +343,7 @@ export default function ExportPage() {
               </Button>
             ))}
           </div>
-          <p className="mt-3 text-xs text-muted-foreground">
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
             Sezioni vuote generano comunque il file con la sola intestazione.
           </p>
         </Card>
@@ -385,7 +385,7 @@ export default function ExportPage() {
               if (file) void handleFileObject(file);
             }}
             className={cn(
-              "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-all duration-300",
+              "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-[border-color,background-color,box-shadow] duration-300",
               dragOver
                 ? "border-accent bg-accent-dim shadow-[0_0_30px_-8px_var(--accent-glow)]"
                 : "border-border-strong bg-muted/30 hover:border-accent/40 hover:bg-accent-dim/40"
@@ -393,13 +393,13 @@ export default function ExportPage() {
           >
             <span
               className={cn(
-                "flex h-11 w-11 items-center justify-center rounded-xl text-xl transition-all duration-300",
+                "flex h-11 w-11 items-center justify-center rounded-xl text-xl transition-[transform,background-color] duration-300",
                 dragOver ? "scale-110 bg-accent/20" : "bg-elevated"
               )}
             >
               {dragOver ? "📂" : "📁"}
             </span>
-            <p className="text-sm font-medium text-secondary-text">
+            <p className="text-sm font-medium leading-relaxed text-secondary-text">
               {dragOver ? "Rilascia il file qui" : "Trascina il file .json qui o clicca per sceglierlo"}
             </p>
             <p className="text-xs text-muted-foreground">

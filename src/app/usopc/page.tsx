@@ -396,10 +396,10 @@ export default function UsoPcPage() {
                 {goalMin > 0 ? (
                   <>
                     <ProgressBar value={pcMinutesWeek} max={goalMin} className="h-1.5" />
-                    <span className="mt-1 block text-[10px] tnum text-muted-foreground">{weekPct}% della meta</span>
+                    <span className="mt-1 block text-[11px] tnum text-muted-foreground">{weekPct}% della meta</span>
                   </>
                 ) : (
-                  <span className="text-[10px] text-muted-foreground">Configura il goal in Obiettivi</span>
+                  <span className="text-[11px] text-muted-foreground">Configura il goal in Obiettivi</span>
                 )}
               </div>
               <TinySpark data={last7TotalsMin} />
@@ -462,7 +462,7 @@ export default function UsoPcPage() {
                             </span>
                             <span className="flex items-center gap-2">
                               <span className="tnum font-medium">{minutiToOre(c.value)}</span>
-                              <span className="tnum w-9 text-right text-[10px] text-muted-foreground">{pctDay}%</span>
+                              <span className="tnum w-9 text-right text-[11px] text-muted-foreground">{pctDay}%</span>
                             </span>
                           </div>
                         );
@@ -516,11 +516,11 @@ export default function UsoPcPage() {
                   <div className="flex items-center gap-2.5">
                     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[p.categoryId] ?? "#64748b" }} />
                     <Badge>{p.categoryId}</Badge>
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{p.source}</span>
+                    <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{p.source}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-semibold tnum">{minutiToOre(p.minutes)}</span>
-                    <span className="hidden text-[10px] tnum text-muted-foreground group-hover:inline">{p.minutes} min</span>
+                    <span className="hidden text-[11px] tnum text-muted-foreground group-hover:inline">{p.minutes} min</span>
                     <button onClick={() => delLog(p.id)} className="text-muted-foreground transition-colors hover:text-danger" aria-label="Elimina">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
@@ -571,7 +571,7 @@ export default function UsoPcPage() {
             </Button>
           </>
         }>
-        <p className="mb-2 text-xs text-muted-foreground">
+        <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
           Una riga per log: <code className="rounded bg-muted px-1 py-0.5 text-accent">data,categoria,minuti</code>{" "}
           (es. <code className="rounded bg-muted px-1 py-0.5 text-accent">2026-08-20,Lavoro,240</code>). Separatore , ; o tab.
         </p>
@@ -600,7 +600,7 @@ export default function UsoPcPage() {
               <span className="text-[10px] uppercase tracking-wide text-muted-foreground">anteprima</span>
             </div>
             {/* intestazione colonne */}
-            <div className="grid grid-cols-[88px_1fr_64px_1.4fr] gap-2 border-b border-border/60 px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="grid grid-cols-[88px_1fr_64px_1.4fr] gap-2 border-b border-border/60 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
               <span>Data</span>
               <span>Categoria</span>
               <span className="text-right">Minuti</span>

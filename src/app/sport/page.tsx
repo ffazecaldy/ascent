@@ -335,7 +335,7 @@ export default function SportPage() {
                   </div>
                 </>
               ) : (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm leading-relaxed text-muted-foreground">
                   Nessun obiettivo settimanale attivo di tipo “allenamento”. Impostalo dalla sezione{" "}
                   Obiettivi per vederne i progressi qui.
                 </p>

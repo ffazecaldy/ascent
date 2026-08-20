@@ -137,7 +137,7 @@ function BarMetricCard({
           <>
             <ProgressBar value={clamped} max={100} tone={tone} className="h-1.5" shimmer={clamped > 4} />
             {pct?.label && (
-              <span className="tnum w-12 shrink-0 text-right text-[10px] text-muted-foreground">{pct.label}</span>
+              <span className="tnum w-12 shrink-0 text-right text-[11px] text-secondary-text">{pct.label}</span>
             )}
           </>
         ) : (
@@ -522,7 +522,7 @@ function RiskBody({ accountId }: { accountId: string }) {
             >
               {current === "win" ? `🔥 ${wins} win` : current === "loss" ? `⚠ ${losses} loss` : "Nessuna streak in corso"}
             </div>
-            <div className="mt-auto text-xs tnum text-muted-foreground">
+            <div className="mt-auto text-xs tnum text-secondary-text">
               {lastTrade
                 ? `ultimo trade: ${formatR(lastTrade.resultR)} · ${labelDayKey(tradingDayKey(lastTrade.closeDate, account))}`
                 : "nessun trade chiuso"}

@@ -25,7 +25,7 @@ export function StepConfirm({ goals }: { goals: GoalDef[] }) {
 
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Tutto pronto</h2>
-        <p className="mx-auto mt-1.5 max-w-sm text-sm text-muted-foreground">
+        <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-muted-foreground">
           {active.length > 0 ? (
             <>
               Da oggi userai Ascend per tenere fede a{" "}
@@ -45,7 +45,7 @@ export function StepConfirm({ goals }: { goals: GoalDef[] }) {
           {active.map((g) => (
             <span
               key={g.type}
-              className="inline-flex items-center gap-1.5 rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-xs font-medium text-accent transition-all duration-200 hover:border-accent/50 hover:shadow-[0_0_16px_-6px_var(--accent-glow)]"
+              className="inline-flex items-center gap-1.5 rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-xs font-medium text-accent transition-[border-color,box-shadow] duration-200 hover:border-accent/50 hover:shadow-[0_0_16px_-6px_var(--accent-glow)]"
             >
               <span>{g.icon}</span>
               <span className="tnum">

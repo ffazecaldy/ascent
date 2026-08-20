@@ -101,7 +101,7 @@ export function SavingsKpi({ totals, spark }: { totals: SavingsTotals; spark: nu
           )}
         </div>
         <ProgressBar value={pctOverall} tone="success" />
-        <div className="text-xs text-muted-foreground">
+        <div className="text-xs text-secondary-text">
           {doneAll
             ? "Obiettivo complessivo raggiunto 🎉"
             : totals.target > 0

@@ -94,7 +94,7 @@ function GoalToggle({
     >
       <span
         className={cn(
-          "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-all duration-300",
+          "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-[background-color,border-color,box-shadow] duration-300",
           checked
             ? "bg-gradient-to-r from-accent to-accent-2 shadow-[0_0_14px_-2px_var(--accent-glow)]"
             : "border border-border-strong bg-elevated group-hover:border-accent/40"
@@ -120,7 +120,7 @@ function TodayDot({ met, active }: { met: boolean; active: boolean }) {
   return (
     <span
       className={cn(
-        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-all duration-300",
+        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-[background-color,border-color,box-shadow] duration-300",
         active && met
           ? "border-success/50 bg-success/15 shadow-[0_0_16px_-2px_rgba(45,223,158,0.5)]"
           : "border-border-strong bg-elevated"
@@ -320,7 +320,7 @@ function DeadlineField({
         onChange={(e) => onCommit(e.target.value || null)}
         aria-label="Scadenza (opzionale)"
         title="Scadenza (opzionale)"
-        className="h-7 w-[8.6rem] rounded-lg border border-border-strong bg-muted px-2 text-[11px] text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
+        className="h-7 w-[8.6rem] rounded-lg border border-border-strong bg-muted px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
       />
       {value && (
         <button
@@ -371,7 +371,7 @@ function DailyGoalRow({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-xl border bg-card p-3 transition-all duration-300",
+        "relative overflow-hidden rounded-xl border bg-card p-3 transition-[border-color,background-color] duration-300",
         goal.active ? "border-accent/25 hover:border-accent/40" : "border-border bg-muted/40"
       )}
     >
@@ -498,7 +498,7 @@ function WeeklyGoalRow({ goal }: { goal: WeeklyGoal }) {
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-xl border bg-card p-3 transition-all duration-300",
+        "relative overflow-hidden rounded-xl border bg-card p-3 transition-[border-color,background-color] duration-300",
         goal.active ? "border-accent/25 hover:border-accent/40" : "border-border bg-muted/40"
       )}
     >
@@ -629,7 +629,7 @@ function DeadlineRow({ item }: { item: DeadlineItem }) {
         >
           {item.daysLeft}
         </span>
-        <span className="mt-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">gg</span>
+        <span className="mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">gg</span>
       </div>
 
       <div className="min-w-0 flex-1">

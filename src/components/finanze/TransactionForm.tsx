@@ -249,7 +249,7 @@ export function TransactionForm() {
                 ))}
               </Select>
             ) : (
-              <div className="flex items-center gap-2 rounded-lg border border-border-strong bg-muted px-3 py-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 rounded-lg border border-border-strong bg-muted px-3 py-2 text-sm text-secondary-text">
                 Nessuna per “{type === "income" ? "Entrata" : "Uscita"}”
                 <Button size="sm" variant="subtle" onClick={scrollToCategories}>
                   + Nuova

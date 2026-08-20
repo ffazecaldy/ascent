@@ -73,7 +73,7 @@ export function MonthlyPnl({ db }: { db: DB }) {
         </div>
       </CardHeader>
       {!hasPnl ? (
-        <p className="py-8 text-center text-xs text-muted-foreground">
+        <p className="py-8 text-center text-xs text-secondary-text">
           Nessun P&L registrato nei mesi precedenti.
         </p>
       ) : (
@@ -85,7 +85,7 @@ export function MonthlyPnl({ db }: { db: DB }) {
             negativeColor={NEG}
             showValue={!moneyHide}
           />
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-secondary-text">
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-secondary-text">
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: POS }} />
               profitto

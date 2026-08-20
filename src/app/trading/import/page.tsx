@@ -173,7 +173,7 @@ export default function ImportPage() {
               <span className={cn("flex items-center gap-1.5", reached ? "text-accent" : "")}>
                 <span
                   className={cn(
-                    "inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px]",
+                    "inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px]",
                     completed
                       ? "bg-accent text-white"
                       : reached
@@ -333,14 +333,14 @@ export default function ImportPage() {
               <span className="mt-1 block text-2xl font-semibold tnum">
                 {parsed.meta.separator === "\t" ? "tab" : `«${parsed.meta.separator}»`}
               </span>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-secondary-text">
                 {parsed.meta.recognized.length}/{parsed.meta.columnCount} colonne riconosciute
               </span>
             </Card>
           </div>
 
           {parsed.meta.unknown.length > 0 && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-secondary-text">
               ⚠ Colonne non riconosciute (ignorate): {parsed.meta.unknown.join(", ")}
             </p>
           )}
@@ -354,7 +354,7 @@ export default function ImportPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <tr className="border-b border-border text-[11px] uppercase tracking-wide text-secondary-text">
                     <th className="px-3 py-2 font-medium">#</th>
                     <th className="px-3 py-2 font-medium">Data apertura</th>
                     <th className="px-3 py-2 font-medium">Strumento</th>
@@ -371,7 +371,7 @@ export default function ImportPage() {
                     const warn = r.issues.filter((x) => x.severity === "warning");
                     return (
                       <tr key={r.rowIndex} className={cn("border-b border-border/50", warn.length > 0 && "bg-yellow-500/5")}>
-                        <td className="px-3 py-2 tnum text-muted-foreground">{r.rowIndex}</td>
+                        <td className="px-3 py-2 tnum text-secondary-text">{r.rowIndex}</td>
                         <td className="px-3 py-2 tnum text-secondary-text">{r.openDate ? fmtDateTime(r.openDate) : "—"}</td>
                         <td className="px-3 py-2 font-medium">{r.instrument}</td>
                         <td className="px-3 py-2">
@@ -428,7 +428,7 @@ export default function ImportPage() {
               <ul className="max-h-56 space-y-1 overflow-y-auto px-5 pb-5">
                 {skippedRows.slice(0, 100).map((e, i) => (
                   <li key={i} className="flex items-start gap-2 text-xs">
-                    <span className="mt-px shrink-0 rounded bg-danger/10 px-1.5 py-0.5 text-[10px] font-semibold text-danger">
+                    <span className="mt-px shrink-0 rounded bg-danger/10 px-1.5 py-0.5 text-[11px] font-semibold text-danger">
                       riga {e.line}
                     </span>
                     <span className="text-secondary-text">{e.message}</span>
@@ -456,7 +456,7 @@ export default function ImportPage() {
           <h2 className="text-xl font-semibold">
             {imported} trade importati su {account?.name ?? "account"}
           </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-secondary-text">
             I trade sono nel journal con setup non associato. Le statistiche verranno aggiornate automaticamente.
           </p>
           {parsed && parsed.skipped > 0 && (

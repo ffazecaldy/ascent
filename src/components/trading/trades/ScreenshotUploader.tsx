@@ -104,7 +104,7 @@ export function ScreenshotUploader({
           if (e.dataTransfer?.files?.length) void add(Array.from(e.dataTransfer.files));
         }}
         className={cn(
-          "group relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-7 text-center transition-all duration-200",
+          "group relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-7 text-center transition-[border-color,background-color,box-shadow,transform] duration-200",
           dragOver
             ? "scale-[1.01] border-accent bg-accent/10 shadow-[0_0_28px_-6px_var(--accent-glow)]"
             : "border-border-strong bg-muted/30 hover:border-accent/60 hover:bg-accent/[0.05] hover:shadow-[0_0_22px_-8px_var(--accent-glow)]"
@@ -115,16 +115,16 @@ export function ScreenshotUploader({
         </div>
         <p className="text-xs font-medium text-secondary-text">Trascina gli screenshot qui</p>
         <div className="flex items-center gap-1.5">
-          <kbd className="rounded-md border border-border-strong bg-elevated px-1.5 py-0.5 font-mono text-[10px] font-semibold text-accent">
+          <kbd className="rounded-md border border-border-strong bg-elevated px-1.5 py-0.5 font-mono text-[11px] font-semibold text-accent">
             Ctrl
           </kbd>
-          <span className="text-[10px] text-muted-foreground">+</span>
-          <kbd className="rounded-md border border-border-strong bg-elevated px-1.5 py-0.5 font-mono text-[10px] font-semibold text-accent">
+          <span className="text-[11px] text-muted-foreground">+</span>
+          <kbd className="rounded-md border border-border-strong bg-elevated px-1.5 py-0.5 font-mono text-[11px] font-semibold text-accent">
             V
           </kbd>
-          <span className="text-[10px] text-muted-foreground">per incollare</span>
+          <span className="text-[11px] text-muted-foreground">per incollare</span>
         </div>
-        <p className="text-[10px] text-muted-foreground">
+        <p className="text-[11px] text-secondary-text">
           oppure clicca per selezionare · {value.length}/{MAX} · compresse automaticamente
         </p>
       </div>
@@ -153,12 +153,12 @@ export function ScreenshotUploader({
                 src={s}
                 alt={`Screenshot ${i + 1}`}
                 onClick={() => setView(s)}
-                className="h-16 w-full cursor-zoom-in rounded-md border border-border-strong object-cover transition-all duration-200 group-hover/thumb:z-10 group-hover/thumb:scale-[1.35] group-hover/thumb:border-accent/60 group-hover/thumb:shadow-[0_12px_28px_-8px_rgba(0,0,0,0.85)]"
+                className="h-16 w-full cursor-zoom-in rounded-md border border-border-strong object-cover transition-[transform,border-color,box-shadow] duration-200 group-hover/thumb:z-10 group-hover/thumb:scale-[1.35] group-hover/thumb:border-accent/60 group-hover/thumb:shadow-[0_12px_28px_-8px_rgba(0,0,0,0.85)]"
               />
               <button
                 onClick={() => remove(i)}
                 aria-label="Rimuovi screenshot"
-                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-border-strong bg-card text-[10px] text-muted-foreground opacity-0 shadow transition-all hover:bg-danger/20 hover:text-danger group-hover/thumb:opacity-100"
+                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-border-strong bg-card text-[10px] text-muted-foreground opacity-0 shadow transition-[color,background-color,opacity] hover:bg-danger/20 hover:text-danger group-hover/thumb:opacity-100"
               >
                 ✕
               </button>

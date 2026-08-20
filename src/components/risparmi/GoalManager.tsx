@@ -183,13 +183,13 @@ export function GoalManager({
                     label={kpiHidden ? maskKpi() : `${Math.round(pct)}%`}
                   />
                   <div className="min-w-0 flex-1 space-y-1.5">
-                    <div className="tnum text-xs text-muted-foreground">
+                    <div className="tnum text-xs text-secondary-text">
                       {hidden ? maskMoney() : formatMoney(deposited, base, locale)}
                       <span className="mx-1 text-muted-foreground/50">/</span>
                       <span className="font-semibold text-secondary-text">
                         {hidden ? maskMoney() : formatMoney(goal.target, base, locale)}
                       </span>
-                      <span className="ml-1.5 text-[10px] text-muted-foreground/60">
+                      <span className="ml-1.5 text-[11px] text-muted-foreground/60">
                         {kpiHidden ? maskKpi() : `· ${formatPercent(pct, 0)}`}
                       </span>
                     </div>

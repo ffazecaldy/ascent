@@ -107,7 +107,7 @@ export function LiveFeed({ db }: { db: DB }) {
           </div>
           <div className="flex items-end justify-between gap-3 border-t border-border/60 pt-3">
             <div>
-              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-secondary-text">
                 Risultato
               </p>
               <p
@@ -126,7 +126,7 @@ export function LiveFeed({ db }: { db: DB }) {
               </p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-secondary-text">
                 P&L
               </p>
               <p

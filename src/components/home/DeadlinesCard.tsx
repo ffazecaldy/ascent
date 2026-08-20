@@ -87,7 +87,7 @@ export function DeadlinesCard({ db }: { db: DB }) {
                       <span className={cn("tnum text-2xl font-bold leading-none", numColor[urgency])}>
                         {d.daysLeft}
                       </span>
-                      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                         {suffix}
                       </span>
                     </div>
@@ -101,7 +101,7 @@ export function DeadlinesCard({ db }: { db: DB }) {
                   {/* barra urgenza */}
                   <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-elevated">
                     <div
-                      className={cn("h-full rounded-full transition-all duration-700", barCls[urgency])}
+                      className={cn("h-full rounded-full transition-[background-color,box-shadow] duration-700", barCls[urgency])}
                       style={{ width: `${pct}%` }}
                     />
                   </div>

@@ -128,7 +128,7 @@ export function CategoriesManager() {
                     list.map((cat) => (
                       <div
                         key={cat.id}
-                        className="group flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-2.5 py-2 transition-all duration-200 hover:border-accent/40 hover:bg-muted/60 hover:shadow-[0_0_18px_-8px_var(--accent-glow)]"
+                        className="group flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-2.5 py-2 transition-[border-color,background-color,box-shadow] duration-200 hover:border-accent/40 hover:bg-muted/60 hover:shadow-[0_0_18px_-8px_var(--accent-glow)]"
                       >
                         <span className="text-lg leading-none transition-transform duration-200 group-hover:scale-110">
                           {cat.icon}
@@ -139,7 +139,7 @@ export function CategoriesManager() {
                         </span>
                         {/* dot colore — si accende all'hover */}
                         <span
-                          className="flex h-3.5 w-3.5 items-center justify-center rounded-full transition-all duration-200 group-hover:scale-125"
+                          className="flex h-3.5 w-3.5 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-125"
                           style={{ boxShadow: `0 0 0 1px ${cat.color}55` }}
                           title={`Colore: ${cat.color}`}
                         >
@@ -233,7 +233,7 @@ export function CategoriesManager() {
                   type="button"
                   onClick={() => setIcon(em)}
                   className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-md text-base transition-all duration-150 hover:scale-110",
+                    "flex h-8 w-8 items-center justify-center rounded-md text-base transition-[transform,background-color,box-shadow] duration-150 hover:scale-110",
                     icon === em
                       ? "bg-accent/20 ring-2 ring-accent shadow-[0_0_10px_-2px_var(--accent-glow)]"
                       : "bg-elevated hover:bg-border-strong"
@@ -254,7 +254,7 @@ export function CategoriesManager() {
                   type="button"
                   onClick={() => setColor(c)}
                   className={cn(
-                    "aspect-square w-full rounded-full transition-all duration-150 hover:scale-110",
+                    "aspect-square w-full rounded-full transition-[transform,box-shadow] duration-150 hover:scale-110",
                     color === c && "ring-2 ring-white/80 scale-110 shadow-[0_0_10px_1px_var(--accent-glow)]"
                   )}
                   style={{ backgroundColor: c }}

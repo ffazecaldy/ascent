@@ -57,7 +57,7 @@ function LevelCard({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-xl border p-4 transition-all duration-300",
+        "relative overflow-hidden rounded-xl border p-4 transition-[border-color,background-color,box-shadow] duration-300",
         active
           ? "border-accent/40 bg-accent/5 shadow-[0_0_28px_-10px_var(--accent-glow)]"
           : "border-border-strong bg-muted/40 hover:border-border-strong"

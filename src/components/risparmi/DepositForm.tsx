@@ -136,7 +136,7 @@ export function DepositForm({
           <span className="tnum text-xs font-medium text-foreground">
             {hidden ? maskMoney() : formatMoney(goalDeposited + amountNum, base, locale)}
             <span className="mx-1 text-muted-foreground/60">/</span>
-            <span className="text-muted-foreground">
+            <span className="text-secondary-text">
               {hidden ? maskMoney() : formatMoney(selGoal.target, base, locale)}
             </span>
           </span>

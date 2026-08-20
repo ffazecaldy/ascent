@@ -235,7 +235,7 @@ function RuleRow({
   return (
     <div
       className={cn(
-        "group flex items-center gap-2.5 rounded-xl border px-2.5 py-2 transition-all duration-200",
+        "group flex items-center gap-2.5 rounded-xl border px-2.5 py-2 transition-[border-color,background-color,box-shadow,opacity] duration-200",
         rule.active
           ? "border-accent/25 bg-accent/[0.05] shadow-[0_0_16px_-8px_var(--accent-glow)]"
           : "border-border bg-muted/40 opacity-60"
@@ -244,7 +244,7 @@ function RuleRow({
       {/* Pill numerata */}
       <span
         className={cn(
-          "grid h-7 w-8 shrink-0 place-items-center rounded-lg border text-[10px] font-semibold tnum",
+          "grid h-7 w-8 shrink-0 place-items-center rounded-lg border text-[11px] font-semibold tnum",
           rule.active
             ? "border-accent/30 bg-accent/15 text-accent shadow-[0_0_12px_-4px_var(--accent-glow)]"
             : "border-border bg-elevated text-muted-foreground"
@@ -611,7 +611,7 @@ export default function SetupsPage() {
                   tone={discTone ?? "accent"}
                   shimmer
                 />
-                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5 text-xs text-secondary-text">
                   <StatusDot color={kpiMasked(privacy) ? "#6b6b72" : discColor} className={!kpiMasked(privacy) && discTone === "success" ? "animate-pulse-dot" : ""} />
                   {dStats.respected} / {dStats.count} trade con setup rispettati
                   {discTone === "danger" && <span className="text-danger">· sotto soglia</span>}
@@ -664,7 +664,7 @@ export default function SetupsPage() {
             title="Playbook"
             hint={db.setups.length > 0 ? `${db.setups.length} setup` : undefined}
           />
-          <p className="mb-3 flex items-start gap-2 rounded-lg border border-accent/20 bg-accent/[0.06] px-3 py-2.5 text-xs text-secondary-text">
+          <p className="mb-3 flex items-start gap-2 rounded-lg border border-accent/20 bg-accent/[0.06] px-3 py-2.5 text-xs leading-relaxed text-secondary-text">
             <span aria-hidden>💡</span>
             <span>
               Modificare il playbook non corrompe lo storico: ogni regola ha un ID stabile e i trade
@@ -745,7 +745,7 @@ export default function SetupsPage() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">
                           {t.instrument}
-                          <span className="text-xs font-normal text-muted-foreground">
+                          <span className="text-xs font-normal text-secondary-text">
                             {" "}· {dayLabel(t.closeDate, tz)}
                           </span>
                         </p>
@@ -760,7 +760,7 @@ export default function SetupsPage() {
                                 : "Non valutabile"}
                           </Badge>
                           <Badge tone="info">{name}</Badge>
-                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          <span className="text-[11px] uppercase tracking-wide text-secondary-text">
                             {t.direction === "long" ? "long" : "short"}
                           </span>
                         </div>
@@ -778,7 +778,7 @@ export default function SetupsPage() {
                 })}
               </ul>
             )}
-            <div className="mt-3 flex flex-wrap gap-4 border-t border-border pt-3 text-xs text-muted-foreground">
+            <div className="mt-3 flex flex-wrap gap-4 border-t border-border pt-3 text-xs text-secondary-text">
               <span className="flex items-center gap-1.5">
                 <StatusDot color={DISC_COLOR.success} /> Rispettato
               </span>

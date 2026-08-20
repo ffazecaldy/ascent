@@ -74,7 +74,7 @@ export function TransactionTable({ month }: { month: string }) {
             </div>
             <div>
               <p className="text-sm font-semibold text-secondary-text">Nessuna transazione in questo mese</p>
-              <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+              <p className="mt-1 max-w-xs text-xs text-secondary-text leading-relaxed">
                 Questo mese è ancora tutto da scrivere: registra la prima voce dal form qui sopra e il
                 saldo inizierà a raccontare la tua storia.
               </p>
@@ -93,7 +93,7 @@ export function TransactionTable({ month }: { month: string }) {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[580px] text-[13px]">
             <thead>
-              <tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+              <tr className="border-b border-border text-left text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
                 <th className="pb-2 pr-3 font-medium">Data</th>
                 <th className="pb-2 pr-3 font-medium">Categoria</th>
                 <th className="pb-2 pr-3 font-medium">Nota</th>

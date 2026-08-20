@@ -157,7 +157,7 @@ export function EquityCurve({ db }: { db: DB }) {
         </div>
       </CardHeader>
       {data.length === 0 ? (
-        <p className="py-8 text-center text-xs text-muted-foreground">
+        <p className="py-8 text-center text-xs text-secondary-text">
           Chiudi un trade per vedere la tua curva
         </p>
       ) : (

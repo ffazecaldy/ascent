@@ -92,7 +92,7 @@ export function TradeList({
                     )}
                   />
                   {t.screenshots.length > 1 && (
-                    <span className="absolute -bottom-1 -right-1 rounded bg-black/70 px-1 py-0.5 text-[8px] font-semibold text-secondary-text tnum backdrop-blur">
+                    <span className="absolute -bottom-1 -right-1 rounded bg-black/70 px-1 py-0.5 text-[11px] font-semibold text-secondary-text tnum backdrop-blur">
                       +{t.screenshots.length - 1}
                     </span>
                   )}
@@ -102,7 +102,7 @@ export function TradeList({
               {/* Colonna dati */}
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="text-[11px] text-muted-foreground tnum">{formatDayTime(t.closeDate, db.settings.locale)}</span>
+                  <span className="text-[11px] text-secondary-text tnum">{formatDayTime(t.closeDate, db.settings.locale)}</span>
                   {showAccount && acc && (
                     <span className="max-w-28 truncate text-[11px] text-muted-foreground">{acc.name}</span>
                   )}
@@ -144,7 +144,7 @@ export function TradeList({
                                   : "bg-muted-foreground/60"
                               )}
                             />
-                            <span className="pointer-events-none absolute bottom-full left-1/2 z-40 mb-1.5 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-border-strong bg-card px-2 py-1 text-[10px] shadow-[--shadow-pop] group-hover/rule:block">
+                            <span className="pointer-events-none absolute bottom-full left-1/2 z-40 mb-1.5 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-border-strong bg-card px-2 py-1 text-[11px] shadow-[--shadow-pop] group-hover/rule:block">
                               <span className={ok ? "text-success" : "text-danger"}>{ok ? "✓" : "✗"}</span>{" "}
                               {r.text}
                             </span>
@@ -163,7 +163,7 @@ export function TradeList({
 
                 {/* Prezzi + descrizione: sottile, una riga */}
                 {(prices || t.description) && (
-                  <div className="mt-1.5 flex min-w-0 items-center gap-2 text-[10px] text-muted-foreground tnum">
+                  <div className="mt-1.5 flex min-w-0 items-center gap-2 text-[11px] text-secondary-text tnum">
                     {prices && (
                       <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
                         {t.entry != null && <span>E {t.entry}</span>}

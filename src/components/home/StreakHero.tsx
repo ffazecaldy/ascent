@@ -49,17 +49,17 @@ export function StreakHero() {
           style={{ background: `conic-gradient(#4c7eff ${pct}%, rgba(255,255,255,0.06) 0)` }}
         />
         <div
-          className="absolute inset-0 rounded-full transition-all duration-1000"
+          className="absolute inset-0 rounded-full transition-[background] duration-1000"
           style={{ background: `conic-gradient(#4c7eff ${pct}%, rgba(255,255,255,0.06) 0)` }}
         />
         <div className="absolute inset-[9px] flex flex-col items-center justify-center rounded-full bg-card">
-          <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Streak</span>
+          <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Streak</span>
           <AnimatedNumber
             value={streak.days}
             className="tnum text-4xl font-bold leading-tight"
             fmt={(n) => String(Math.round(n))}
           />
-          <span className="text-[10px] text-muted-foreground">{streak.days === 1 ? "giorno" : "giorni"}</span>
+          <span className="text-[11px] text-muted-foreground">{streak.days === 1 ? "giorno" : "giorni"}</span>
         </div>
       </div>
 
@@ -94,12 +94,12 @@ export function StreakHero() {
       </div>
 
       <div className="w-full max-w-[180px] sm:w-40">
-        <div className="mb-1 flex justify-between text-[10px] text-muted-foreground">
+        <div className="mb-1 flex justify-between text-[11px] text-muted-foreground">
           <span>verso {milestone} gg</span>
           <span className="tnum">{Math.round(pct)}%</span>
         </div>
         <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-elevated">
-          <div className={`absolute inset-y-0 left-0 h-full rounded-full bg-gradient-to-r ${grad} transition-all duration-700`} style={{ width: `${pct}%` }}>
+          <div className={`absolute inset-y-0 left-0 h-full rounded-full bg-gradient-to-r ${grad} transition-[background-color,box-shadow] duration-700`} style={{ width: `${pct}%` }}>
             <div className="shimmer absolute inset-0" />
           </div>
         </div>
