@@ -8,7 +8,7 @@
 // + hover con glow, anteprime con hover zoom.
 // ============================================================
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { compressImage, readAsDataURL } from "./trade-utils";
 import { Lightbox } from "./Lightbox";

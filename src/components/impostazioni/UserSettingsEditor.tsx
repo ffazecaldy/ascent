@@ -11,7 +11,6 @@ import { COMMON_CURRENCIES } from "@/lib/fx";
 import { currencySymbol } from "@/lib/format";
 import { dayKeyNow } from "@/lib/dates";
 import type { UserSettings, PrivacyMode } from "@/lib/types";
-import { cn } from "@/lib/cn";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Field, Input, Select } from "@/components/ui/Field";
 import { Badge } from "@/components/ui/Badge";

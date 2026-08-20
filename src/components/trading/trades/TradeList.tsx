@@ -7,7 +7,7 @@
 // disciplina per regola · thumbnail con hover zoom) · azioni.
 // ============================================================
 
-import React, { useState } from "react";
+import { useState } from "react";
 import type { DB, Trade } from "@/lib/types";
 import { Badge, StatusDot } from "@/components/ui/Badge";
 import { getAccount, setupName } from "@/lib/db";

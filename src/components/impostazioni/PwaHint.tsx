@@ -4,7 +4,6 @@
 // "Usa Install app di Chrome/Edge per usare Ascend come app."
 // ============================================================
 
-import React from "react";
 import { Card } from "@/components/ui/Card";
 
 export function PwaHint() {

@@ -15,11 +15,6 @@ export function currencySymbol(code: string): string {
   return CURRENCY_SYMBOL[code.toUpperCase()] ?? code.toUpperCase() + " ";
 }
 
-function decimalIt(n: string, locale: string): string {
-  // "563.92" → "563,92"
-  return n.replace(".", locale === "it-IT" ? "," : ".");
-}
-
 /** Semplice formattazione smart di una cifra monetaria. */
 export function formatMoney(
   amount: number,
@@ -29,7 +24,6 @@ export function formatMoney(
   const sign = amount < 0 ? "−" : "";
   const abs = Math.abs(amount);
   const sym = currencySymbol(currency);
-  const euro = sym === "€";
 
   if (abs >= 1_000_000) return `${sign}${sym}${(abs / 1_000_000).toLocaleString(locale, { maximumFractionDigits: 2 })}M`;
   if (abs >= 10_000) return `${sign}${sym}${(abs / 1000).toLocaleString(locale, { maximumFractionDigits: 1 })}k`;

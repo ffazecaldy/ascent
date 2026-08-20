@@ -17,11 +17,9 @@ import {
   addDaysKey,
   isoToDayKey,
   monthKeyOf,
-  parseDateKey,
   todayKey,
   tradingDayKey,
   weekStartKey,
-  dateKey,
 } from "./dates";
 
 // ------------------------------------------------------------
@@ -79,7 +77,6 @@ export function activityStreak(db: DB): StreakInfo {
   const today = todayKey(tz);
   // insieme di giorni attivi
   const active = new Set<string>();
-  const { y } = parseDateKey(today);
   db.transactions.forEach((t) => active.add(t.date));
   db.trades.forEach((t) => active.add(isoToDayKey(t.closeDate, tz)));
   db.workouts.forEach((w) => active.add(w.date));
@@ -523,13 +520,13 @@ export function financesByCategory(db: DB, monthKey: string) {
 // ------------------------------------------------------------
 // Uso PC
 // ------------------------------------------------------------
-export function pcMinutesOnDay(db: DB, dayKey: string, productiveCategories?: string[]): number {
+export function pcMinutesOnDay(db: DB, dayKey: string): number {
   return db.pcUsageLogs
     .filter((p) => p.date === dayKey)
     .reduce((s, p) => s + p.minutes, 0);
 }
 
-export function pcMinutesInWeek(db: DB, weekStart: string, weekStartDay: number): number {
+export function pcMinutesInWeek(db: DB, weekStart: string): number {
   let total = 0;
   for (let i = 0; i < 7; i++) {
     const dk = addDaysKey(weekStart, i);
@@ -867,7 +864,7 @@ export function weeklyReviewStats(db: DB, weekStart: string): Record<string, unk
   const trades = tradesBetween(db, weekStart, weekEnd);
   const st = tradingStats(trades);
   const disc = disciplineStats(db, trades.map((t) => t.id));
-  const pc = pcMinutesInWeek(db, weekStart, db.settings.weekStart);
+  const pc = pcMinutesInWeek(db, weekStart);
   const workouts = workoutsInWeek(db, weekStart);
   const txs = db.transactions.filter((t) => t.date >= weekStart && t.date <= weekEnd);
   let income = 0, expense = 0;

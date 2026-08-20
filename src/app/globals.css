@@ -209,6 +209,17 @@ input, select, textarea { color-scheme: dark; }
   border-radius: 6px;
 }
 
+/* Cursore di testo on-brand nei campi */
+input,
+textarea,
+select {
+  caret-color: var(--accent);
+}
+/* Sottolineatura link coerente e non sporgente */
+a {
+  text-underline-offset: 0.18em;
+}
+
 /* Selezione tintata on-brand */
 ::selection {
   background: rgba(76, 126, 255, 0.35);

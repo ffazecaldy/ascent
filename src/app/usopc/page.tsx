@@ -178,7 +178,7 @@ export default function UsoPcPage() {
 
   const weeklyGoal = db.weeklyGoals.find((g) => g.type === "pc_hours" && g.active);
   const weekStart = weekStartKey(today, db.settings.weekStart);
-  const pcMinutesWeek = pcMinutesInWeek(db, weekStart, db.settings.weekStart);
+  const pcMinutesWeek = pcMinutesInWeek(db, weekStart);
   const goalMin = weeklyGoal ? weeklyGoal.targetValue * 60 : 0;
   const weekPct = goalMin > 0 ? Math.min(100, Math.round((pcMinutesWeek / goalMin) * 100)) : 0;
 

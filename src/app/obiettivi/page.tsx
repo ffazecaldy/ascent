@@ -8,7 +8,7 @@
 // **Non** è mai ammessa una logica ibrida: qui sono due liste distinte.
 // ============================================================
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useDB, updateDB, uid, removeById } from "@/lib/storage";
 import {
   ascordDay,
@@ -67,7 +67,6 @@ const WEEKLY_ICONS: Record<WeeklyGoalType, string> = {
   pc_hours: "💻",
 };
 
-const GREEN = "#22c55e"; // met (dot)
 const GRAY = "#52525b"; // non met / spento (dot)
 
 // ------------------------------------------------------------
@@ -176,7 +175,7 @@ function weeklyProgress(db: DB, g: WeeklyGoal): PeriodProgress {
 
   // — Raccolta dati per il periodo —
   let pcMin: number;
-  if (g.period === "week") pcMin = pcMinutesInWeek(db, start, db.settings.weekStart);
+  if (g.period === "week") pcMin = pcMinutesInWeek(db, start);
   else pcMin = db.pcUsageLogs.filter((p) => inRange(p.date)).reduce((s, p) => s + p.minutes, 0);
 
   let workouts: number;

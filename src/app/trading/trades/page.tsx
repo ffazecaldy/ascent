@@ -7,7 +7,7 @@
 // con sparkline (ultimi N trade) + hairline, barra filtri stile Select.
 // ============================================================
 
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { Trade } from "@/lib/types";
 import { useDB, updateDB, upsert, removeById, uid, nowISO } from "@/lib/storage";

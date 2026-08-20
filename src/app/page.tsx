@@ -6,7 +6,7 @@
 // ============================================================
 
 import { useDB } from "@/lib/storage";
-import { SectionHeader, ProgressBar } from "@/components/ui/Misc";
+import { SectionHeader } from "@/components/ui/Misc";
 import { Reveal } from "@/components/ui/Reveal";
 import { StreakHero } from "@/components/home/StreakHero";
 import { AscendDayCard } from "@/components/home/AscendDayCard";

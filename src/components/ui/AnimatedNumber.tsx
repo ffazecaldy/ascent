@@ -4,7 +4,7 @@
 // Anima dal valore precedente a quello nuovo; se l'elemento è
 // fuori viewport, attende il primo intersection.
 
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function AnimatedNumber({
   value,

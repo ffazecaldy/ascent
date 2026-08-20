@@ -2,7 +2,6 @@
 // TrendArrow — freccia di movimento: ▲ verde (aumento) / ▼ rossa (diminuzione)
 // / — neutro. Design decision: verde/rosso SOLO per direzione del movimento.
 
-import React from "react";
 import { cn } from "@/lib/cn";
 
 export type ArrowDir = "up" | "down" | "flat";

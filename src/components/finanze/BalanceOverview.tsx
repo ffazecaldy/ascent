@@ -151,7 +151,7 @@ function PuntoDiPartenza({ base }: { base: string }) {
 // ------------------------------------------------------------------
 // Card "Saldo iniziale" — valore + edit inline (updateDB → settings.initialBalance)
 // ------------------------------------------------------------------
-function SaldoInizialeCard({ money }: { money: (v: number) => string }) {
+function SaldoInizialeCard() {
   const db = useDB();
   const base = db.settings.baseCurrency.toUpperCase();
   const locale = db.settings.locale;
@@ -411,7 +411,7 @@ export function BalanceOverview() {
             }
           />
           <div className="sm:col-span-2 lg:col-span-1">
-            <SaldoInizialeCard money={money} />
+            <SaldoInizialeCard />
           </div>
         </div>
       </Reveal>

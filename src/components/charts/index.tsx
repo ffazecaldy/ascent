@@ -5,7 +5,7 @@
 // ACCENTO: blu #4C7EFF. Verde/rosso SOLO per valori P&L.
 // ============================================================
 
-import React, { useId } from "react";
+import { useId } from "react";
 
 export const ACCENT = "#4C7EFF";
 export const SUCCESS = "#22c55e";
@@ -288,7 +288,6 @@ export function ActivityHeatmap({
   weekLabels?: string[];
   onPick?: (date: string) => void;
 }) {
-  const cols = weeks.length;
   return (
     <div className="flex gap-1 overflow-x-auto">
       <div className="flex flex-col justify-between py-0.5 pr-1 text-[10px] text-muted-foreground">

@@ -60,7 +60,7 @@ function weeklyProgress(db: DB, g: WeeklyGoal): PeriodProgress {
   const inRange = (dk: string) => dk >= start && dk <= end;
 
   let pcMin: number;
-  if (g.period === "week") pcMin = pcMinutesInWeek(db, start, db.settings.weekStart);
+  if (g.period === "week") pcMin = pcMinutesInWeek(db, start);
   else pcMin = db.pcUsageLogs.filter((p) => inRange(p.date)).reduce((s, p) => s + p.minutes, 0);
 
   let workouts: number;
@@ -231,8 +231,6 @@ export function GoalsOverviewCard({ db }: { db: DB }) {
             const prog = weeklyProgress(db, g);
             const met =
               prog.value !== null && prog.target > 0 ? prog.value >= prog.target : false;
-            const pct =
-              prog.value !== null ? Math.min(100, (prog.value / (prog.target || 1)) * 100) : 0;
             return (
               <li
                 key={g.id}

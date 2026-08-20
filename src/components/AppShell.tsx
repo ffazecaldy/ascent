@@ -12,58 +12,59 @@ import { activityStreak, evalProgress } from "@/lib/compute";
 import { cn } from "@/lib/cn";
 import type { PrivacyMode } from "@/lib/types";
 import { PRIVACY_ORDER } from "@/lib/privacy";
+import { Icon, type IconName } from "@/components/ui/Icon";
 
 interface NavItem {
   href: string;
   label: string;
-  icon: string | { img: string; alt: string };
+  icon: IconName | { img: string; alt: string };
 }
 
 const NAV: { group: string; items: NavItem[] }[] = [
-  { group: "", items: [{ href: "/", label: "Home", icon: "🏠" }] },
+  { group: "", items: [{ href: "/", label: "Home", icon: "home" }] },
   {
     group: "Finanze",
     items: [
-      { href: "/finanze", label: "Finanze", icon: "💶" },
-      { href: "/risparmi", label: "Risparmi", icon: "💰" },
+      { href: "/finanze", label: "Finanze", icon: "wallet" },
+      { href: "/risparmi", label: "Risparmi", icon: "coins" },
     ],
   },
   {
     group: "Trading",
     items: [
-      { href: "/trading", label: "Panoramica", icon: "📊" },
-      { href: "/trading/accounts", label: "Account", icon: "🏦" },
-      { href: "/trading/trades", label: "Trade log", icon: "🕹" },
-      { href: "/trading/setups", label: "Playbook · Disciplina", icon: "📋" },
-      { href: "/trading/import", label: "Import storico", icon: "📥" },
-      { href: "/trading/stats", label: "Statistiche", icon: "📈" },
-      { href: "/trading/calendar", label: "Calendario P&L", icon: "🗓" },
-      { href: "/trading/risk", label: "Risk Dashboard", icon: "🛡" },
-      { href: "/trading/payouts", label: "Payout · Certificati", icon: "🏆" },
-      { href: "/trading/review", label: "Weekly review", icon: "✍️" },
+      { href: "/trading", label: "Panoramica", icon: "chart-line" },
+      { href: "/trading/accounts", label: "Account", icon: "building" },
+      { href: "/trading/trades", label: "Trade log", icon: "list" },
+      { href: "/trading/setups", label: "Playbook · Disciplina", icon: "clipboard" },
+      { href: "/trading/import", label: "Import storico", icon: "upload" },
+      { href: "/trading/stats", label: "Statistiche", icon: "activity" },
+      { href: "/trading/calendar", label: "Calendario P&L", icon: "calendar" },
+      { href: "/trading/risk", label: "Risk Dashboard", icon: "shield" },
+      { href: "/trading/payouts", label: "Payout · Certificati", icon: "trophy" },
+      { href: "/trading/review", label: "Weekly review", icon: "pen" },
     ],
   },
   {
     group: "Uso del PC",
-    items: [{ href: "/usopc", label: "Uso del PC", icon: "💻" }],
+    items: [{ href: "/usopc", label: "Uso del PC", icon: "monitor" }],
   },
   {
     group: "Personale",
     items: [
       { href: "/studio", label: "Studio", icon: { img: "/icons/studio.png", alt: "Studio" } },
-      { href: "/libri", label: "Libri", icon: "📚" },
-      { href: "/sport", label: "Sport", icon: "💪" },
+      { href: "/libri", label: "Libri", icon: "book-open" },
+      { href: "/sport", label: "Sport", icon: "dumbbell" },
     ],
   },
   {
     group: "Progressione",
-    items: [{ href: "/obiettivi", label: "Obiettivi", icon: "🎯" }],
+    items: [{ href: "/obiettivi", label: "Obiettivi", icon: "target" }],
   },
   {
     group: "Sistema",
     items: [
-      { href: "/export", label: "Backup / Export", icon: "📤" },
-      { href: "/impostazioni", label: "Impostazioni", icon: "⚙️" },
+      { href: "/export", label: "Backup / Export", icon: "download" },
+      { href: "/impostazioni", label: "Impostazioni", icon: "settings" },
     ],
   },
 ];
@@ -82,7 +83,7 @@ function StreakPill() {
           : "border-border-strong bg-elevated text-muted-foreground hover:text-foreground"
       )}
     >
-      <span className={cn("text-sm", streak.days > 0 && "animate-pulse-dot")}>🔥</span>
+      <Icon name="flame" size={14} className={cn(streak.days > 0 ? "text-accent animate-pulse-dot" : "text-muted-foreground")} />
       <span className="tnum">{streak.days}</span>
       <span className="text-[11px] font-medium opacity-70">
         {streak.days === 1 ? "giorno" : "giorni"}
@@ -102,7 +103,7 @@ function PrivacyToggle() {
       settings: { ...d.settings, privacyMode: next, updatedAt: new Date().toISOString() },
     }));
   };
-  const icon = mode === "off" ? "👁" : mode === "standard" ? "🔒" : "🕶";
+  const icon: IconName = mode === "off" ? "eye" : mode === "standard" ? "lock" : "shield";
   const label = mode === "off" ? "Privacy off" : mode === "standard" ? "Cifre" : "Totale";
   return (
     <button
@@ -117,7 +118,7 @@ function PrivacyToggle() {
             : "border-border-strong bg-elevated text-secondary-text hover:border-accent/40 hover:text-foreground"
       )}
     >
-      <span>{icon}</span>
+      <Icon name={icon} size={14} />
       <span className="hidden sm:inline">{label}</span>
     </button>
   );
@@ -303,9 +304,14 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
                       <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-gradient-to-b from-accent to-accent-3 shadow-[0_0_8px_var(--accent-glow)]" />
                     )}
                     {typeof item.icon === "string" ? (
-                      <span className="text-sm opacity-90 transition-transform duration-150 group-hover:scale-110">
-                        {item.icon}
-                      </span>
+                      <Icon
+                        name={item.icon as IconName}
+                        size={18}
+                        className={cn(
+                          "shrink-0 transition-colors",
+                          active ? "text-accent" : "text-secondary-text group-hover:text-foreground"
+                        )}
+                      />
                     ) : (
                       <img
                         src={item.icon.img}
