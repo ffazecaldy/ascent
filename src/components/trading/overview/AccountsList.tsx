@@ -19,9 +19,11 @@ import type {
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { TrendArrow } from "@/components/ui/Arrow";
 import { EmptyState } from "@/components/ui/Misc";
 import { formatMoney, formatSignedMoney } from "@/lib/format";
-import { moneyMasked, maskMoney, maskCompact } from "@/lib/privacy";
+import { monthKeyOf, todayKey, isoToDayKey, parseDateKey } from "@/lib/dates";
+import { moneyMasked, kpiMasked, maskMoney, maskCompact } from "@/lib/privacy";
 
 const TYPE_LABEL: Record<AccountType, string> = {
   prop: "Prop",
@@ -64,10 +66,30 @@ function closedNative(db: DB, accountId: string): number {
     .reduce((s, t) => s + t.resultNative, 0);
 }
 
+/** P&L nativo chiuso di un account in un dato mese ("yyyy-MM"). */
+function pnlInMonth(db: DB, accountId: string, monthKey: string): number {
+  return db.trades
+    .filter(
+      (t) =>
+        t.accountId === accountId &&
+        monthKeyOf(isoToDayKey(t.closeDate, db.settings.timezone)) === monthKey
+    )
+    .reduce((s, t) => s + t.resultNative, 0);
+}
+
+/** Month key "yyyy-MM" spostata di `offset` mesi (negativo = indietro). */
+function monthOffsetKey(monthKey: string, offset: number): string {
+  const { y, m } = parseDateKey(monthKey + "-01");
+  const d = new Date(y, m - 1 + offset, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export function AccountsList({ db }: { db: DB }) {
   const accounts = db.accounts.filter((a) => !a.archived);
   const locale = db.settings.locale;
   const moneyHide = moneyMasked(db.settings.privacyMode);
+  const kpiHide = kpiMasked(db.settings.privacyMode);
+  const monthKey = monthKeyOf(todayKey(db.settings.timezone));
 
   const subtitle =
     accounts.length === 0
@@ -107,6 +129,13 @@ export function AccountsList({ db }: { db: DB }) {
             const closed = closedNative(db, acc.id);
             const saldo = acc.capital + closed;
             const active = ACTIVE.includes(acc.status);
+            const monthly = pnlInMonth(db, acc.id, monthKey);
+            const prevMonthly = pnlInMonth(
+              db,
+              acc.id,
+              monthOffsetKey(monthKey, -1)
+            );
+            const monthlyDelta = monthly - prevMonthly;
             const saldoTone = moneyHide
               ? "text-secondary-text"
               : closed > 0
@@ -114,6 +143,12 @@ export function AccountsList({ db }: { db: DB }) {
                 : closed < 0
                   ? "text-danger"
                   : "text-foreground";
+            const monthlyTone =
+              monthly > 0
+                ? "text-success"
+                : monthly < 0
+                  ? "text-danger"
+                  : "text-muted-foreground";
             return (
               <Link
                 key={acc.id}
@@ -149,19 +184,23 @@ export function AccountsList({ db }: { db: DB }) {
                   <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                     Saldo
                   </p>
-                  <p
-                    className={cn(
-                      "text-base font-semibold tnum leading-tight",
-                      saldoTone
-                    )}
-                  >
-                    {moneyHide
-                      ? maskMoney()
-                      : formatMoney(saldo, acc.nativeCurrency, locale)}
+                  <p className="inline-flex items-center justify-end gap-1">
+                    <span
+                      className={cn(
+                        "text-base font-semibold tnum leading-tight",
+                        saldoTone
+                      )}
+                    >
+                      {moneyHide
+                        ? maskMoney()
+                        : formatMoney(saldo, acc.nativeCurrency, locale)}
+                    </span>
+                    {/* delta saldo − capitale = P&L chiuso (freccia di movimento) */}
+                    {!kpiHide && <TrendArrow value={closed} size={12} />}
                   </p>
                   <p
                     className={cn(
-                      "text-[11px] tnum",
+                      "inline-flex items-center justify-end gap-1 text-[11px] tnum",
                       moneyHide
                         ? "text-muted-foreground"
                         : closed > 0
@@ -171,9 +210,23 @@ export function AccountsList({ db }: { db: DB }) {
                             : "text-muted-foreground"
                     )}
                   >
-                    {moneyHide
-                      ? maskCompact()
-                      : `${formatSignedMoney(closed, acc.nativeCurrency, locale)} chiusi`}
+                    {moneyHide ? (
+                      maskCompact()
+                    ) : (
+                      formatSignedMoney(closed, acc.nativeCurrency, locale)
+                    )}{" "}
+                    chiusi · mese{" "}
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-0.5",
+                        moneyHide ? "text-muted-foreground" : monthlyTone
+                      )}
+                    >
+                      {!kpiHide && <TrendArrow value={monthlyDelta} size={10} />}
+                      {moneyHide
+                        ? maskCompact()
+                        : formatSignedMoney(monthly, acc.nativeCurrency, locale)}
+                    </span>
                   </p>
                 </div>
               </Link>

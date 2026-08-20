@@ -16,7 +16,7 @@
 //    anche senza transazioni (solo capitale iniziale).
 // ============================================================
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDB, updateDB, nowISO } from "@/lib/storage";
 import { financesMonth, financesToDate } from "@/lib/compute";
 import { todayKey } from "@/lib/dates";
@@ -28,7 +28,49 @@ import { StatCard } from "@/components/ui/StatCard";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Field";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import { TrendArrow } from "@/components/ui/Arrow";
 import { Reveal } from "@/components/ui/Reveal";
+import { shiftMonth } from "./helpers";
+
+// ------------------------------------------------------------------
+// LiveBadge — indicatore "live": i KPI rispondono in tempo reale a ogni
+// transazione. Mostra un dot pulsante (aggiornamento automatico attivo);
+// al click conferma brevemente che i dati sono ricalcolati al volo.
+// ------------------------------------------------------------------
+function LiveBadge() {
+  const [ok, setOk] = useState(false);
+  const timer = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (timer.current) window.clearTimeout(timer.current);
+    },
+    []
+  );
+
+  const ping = () => {
+    setOk(true);
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setOk(false), 2200);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={ping}
+      title="I numeri si aggiornano da soli quando registri o elimini una transazione. Clicca per confermare."
+      className={cn(
+        "group inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] transition-all",
+        ok
+          ? "border-success/40 bg-success/10 text-success shadow-[0_0_14px_-4px_rgba(34,197,94,0.6)]"
+          : "border-border-strong bg-elevated text-secondary-text hover:border-success/40 hover:text-success"
+      )}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse-dot" />
+      {ok ? "aggiornato in tempo reale" : "live"}
+    </button>
+  );
+}
 
 // ------------------------------------------------------------------
 // Hero empty-state: "Punto di partenza" (nessun saldo iniziale, zero tx)
@@ -208,6 +250,7 @@ export function BalanceOverview() {
   // Tutto derivato live da useDB — nessuna cache: si aggiorna a ogni
   // transazione aggiunta/eliminata e compare anche senza transazioni.
   const fm = financesMonth(db, currentMonth); // entrate/uscite del mese corrente
+  const fmPrev = financesMonth(db, shiftMonth(currentMonth, -1)); // mese precedente (confronto frecce)
   const toDate = financesToDate(db); // { start, income, expense, net }
   const noTx = db.transactions.length === 0;
   const showHero = db.settings.initialBalance == null && noTx;
@@ -218,13 +261,21 @@ export function BalanceOverview() {
   if (showHero) {
     return (
       <Reveal delay={0}>
-        <PuntoDiPartenza base={base} />
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <LiveBadge />
+          </div>
+          <PuntoDiPartenza base={base} />
+        </div>
       </Reveal>
     );
   }
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <LiveBadge />
+      </div>
       <Reveal delay={0}>
         <div className="grid gap-4 lg:grid-cols-3">
           {/* KPI principale: SALDO TOTALE (patrimonio) */}
@@ -253,6 +304,25 @@ export function BalanceOverview() {
                   netPos ? "text-success" : "text-danger"
                 )}
               />
+              {/* Delta del patrimonio: movimento del mese corrente (entrate − uscite).
+                  Regola dichiarata: ▲ verde quando il patrimonio cresce questo mese,
+                  ▼ rossa quando cala. Deriva da fm (live), si anima con AnimatedNumber.
+                  La freccia (direzione, non importi) è mostrata anche in privacy; il
+                  valore si auto-maschera via money() (moneyMasked è sempre vero qui). */}
+              {!noTx && (
+                <div className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-border/50 pt-2.5">
+                  <TrendArrow value={fm.net} size={13} />
+                  <span
+                    className={cn(
+                      "tnum text-sm font-semibold",
+                      fm.net > 0 ? "text-success" : fm.net < 0 ? "text-danger" : "text-foreground"
+                    )}
+                  >
+                    {money(Math.abs(fm.net))}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">movimento questo mese</span>
+                </div>
+              )}
             </div>
             <div className="relative">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
@@ -316,12 +386,29 @@ export function BalanceOverview() {
             value={<AnimatedNumber value={fm.income} fmt={(n) => money(n)} duration={700} />}
             valueClassName="text-success"
             hairline="success"
+            delta={
+              <span className="inline-flex items-center gap-1.5">
+                <TrendArrow value={fm.income - fmPrev.income} size={11} />
+                <span className="tnum text-[11px] text-muted-foreground">
+                  {money(Math.abs(fm.income - fmPrev.income))} vs mese scorso
+                </span>
+              </span>
+            }
           />
           <StatCard
             label="Uscite del mese"
             value={<AnimatedNumber value={fm.expense} fmt={(n) => money(n)} duration={700} />}
             valueClassName="text-danger"
             hairline="danger"
+            delta={
+              <span className="inline-flex items-center gap-1.5">
+                {/* Uscite: freccia invertita = beneficio. Uscite più alte ⇒ ▼ rossa. */}
+                <TrendArrow value={fmPrev.expense - fm.expense} size={11} />
+                <span className="tnum text-[11px] text-muted-foreground">
+                  {money(Math.abs(fm.expense - fmPrev.expense))} vs mese scorso
+                </span>
+              </span>
+            }
           />
           <div className="sm:col-span-2 lg:col-span-1">
             <SaldoInizialeCard money={money} />

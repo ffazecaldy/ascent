@@ -1,0 +1,112 @@
+"use client";
+
+// ============================================================
+// ASCEND — Zona Studio (sezione v3 · art-direct v2)
+// CRUD sessioni di studio, KPI con AnimatedNumber + sparkline,
+// bars 7 giorni, donut materie, badge streak e timer veloce.
+// Tutto scrive/legge da db.studySessions via useDB/updateDB.
+// ============================================================
+
+import { useState } from "react";
+import { useDB, updateDB, upsert, uid, nowISO } from "@/lib/storage";
+import type { StudySession } from "@/lib/types";
+import { SectionHeader, EmptyState } from "@/components/ui/Misc";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { Reveal } from "@/components/ui/Reveal";
+import { StudyForm } from "@/components/studio/StudyForm";
+import { StudyLog } from "@/components/studio/StudyLog";
+import { StudyTimer } from "@/components/studio/StudyTimer";
+import { StudyKpis } from "@/components/studio/StudyKpis";
+import { StudyCharts } from "@/components/studio/StudyCharts";
+
+export default function StudioPage() {
+  const db = useDB();
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<StudySession | null>(null);
+
+  function openNew() {
+    setEditing(null);
+    setFormOpen(true);
+  }
+
+  function openEdit(s: StudySession) {
+    setEditing(s);
+    setFormOpen(true);
+  }
+
+  function closeForm() {
+    setFormOpen(false);
+    setEditing(null);
+  }
+
+  function save(p: { date: string; subject: string; minutes: number; note?: string }) {
+    const s: StudySession = editing
+      ? {
+          ...editing,
+          date: p.date,
+          subject: p.subject,
+          minutes: p.minutes,
+          note: p.note,
+        }
+      : {
+          id: uid(),
+          date: p.date,
+          subject: p.subject,
+          minutes: p.minutes,
+          note: p.note,
+          createdAt: nowISO(),
+        };
+    updateDB((d) => ({ ...d, studySessions: upsert(d.studySessions, s) }));
+    closeForm();
+  }
+
+  const hasSessions = db.studySessions.length > 0;
+
+  return (
+    <div className="space-y-6">
+      <Reveal>
+        <SectionHeader
+          kicker="Personale · Studio"
+          title="Zona Studio. Mente affilata."
+          subtitle="Sessioni di studio registrate materia per materia — la costanza alimenta lo streak."
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="success" pulse>
+                ✓ alimenta lo streak
+              </Badge>
+              <Button onClick={openNew} variant="primary" glow>
+                + Aggiungi sessione
+              </Button>
+            </div>
+          }
+        />
+      </Reveal>
+
+      <Reveal delay={20}>
+        <StudyTimer />
+      </Reveal>
+
+      {!hasSessions ? (
+        <Reveal delay={40}>
+          <EmptyState
+            icon="📚"
+            title="Prima sessione di studio"
+            description="Registra la prima sessione per vedere minuti, materie e il contributo all'Activity Streak."
+            action={<Button onClick={openNew}>Aggiungi sessione</Button>}
+          />
+        </Reveal>
+      ) : (
+        <>
+          <Reveal delay={30}>
+            <StudyKpis />
+          </Reveal>
+          <StudyCharts />
+          <StudyLog onEdit={openEdit} />
+        </>
+      )}
+
+      <StudyForm open={formOpen} onClose={closeForm} editing={editing} onSave={save} />
+    </div>
+  );
+}

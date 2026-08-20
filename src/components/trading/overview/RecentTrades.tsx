@@ -15,9 +15,11 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/Misc";
 import { setupName } from "@/lib/db";
-import { tradeRespected } from "@/lib/compute";
+import { tradeRespected, monthPnlTrades } from "@/lib/compute";
+import { monthKeyOf, todayKey, parseDateKey } from "@/lib/dates";
 import { formatR, formatSignedMoney } from "@/lib/format";
 import { moneyMasked, kpiMasked, maskMoney, maskKpi } from "@/lib/privacy";
+import { TrendArrow } from "@/components/ui/Arrow";
 
 /** ISO → "12 ago · 14:05" nella timezone utente (non browser). */
 function formatClose(iso: string, tz: string, locale: string): string {
@@ -33,6 +35,13 @@ function formatClose(iso: string, tz: string, locale: string): string {
     minute: "2-digit",
   }).format(dt);
   return `${day} · ${time}`;
+}
+
+/** Month key "yyyy-MM" spostata di `offset` mesi (negativo = indietro). */
+function monthOffsetKey(monthKey: string, offset: number): string {
+  const { y, m } = parseDateKey(monthKey + "-01");
+  const d = new Date(y, m - 1 + offset, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 /** Dot disciplina: vero=verde, falso=rossa, null=grigia (non valutabile). */
@@ -68,6 +77,12 @@ export function RecentTrades({ db }: { db: DB }) {
   const recent = [...db.trades]
     .sort((a, b) => b.closeDate.localeCompare(a.closeDate))
     .slice(0, 10);
+
+  // Chip riepilogativo "Δ vs mese prec" (solo freccia + delta P&L mese corrente − mese precedente).
+  const monthKey = monthKeyOf(todayKey(tz));
+  const pnlDelta =
+    monthPnlTrades(db, monthKey).base -
+    monthPnlTrades(db, monthOffsetKey(monthKey, -1)).base;
 
   return (
     <Card texture>
@@ -106,6 +121,30 @@ export function RecentTrades({ db }: { db: DB }) {
         <div className="-mx-4 overflow-x-auto px-4">
           <table className="w-full min-w-[640px] text-xs">
             <thead>
+              {recent.length > 0 && (
+                <tr className="border-b border-border/60">
+                  <th colSpan={7} className="pb-2 text-right font-normal">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-elevated px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Δ vs mese prec
+                      <TrendArrow value={pnlDelta} size={10} />
+                      {!moneyHide && (
+                        <span
+                          className={cn(
+                            "tnum",
+                            pnlDelta > 0
+                              ? "text-success"
+                              : pnlDelta < 0
+                                ? "text-danger"
+                                : "text-muted-foreground"
+                          )}
+                        >
+                          {formatSignedMoney(pnlDelta, baseCurrency, locale)}
+                        </span>
+                      )}
+                    </span>
+                  </th>
+                </tr>
+              )}
               <tr className="border-b border-border text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <th className="pb-2 pr-3">Data</th>
                 <th className="pb-2 pr-3">Strumento</th>

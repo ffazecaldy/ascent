@@ -183,13 +183,13 @@ input, select, textarea { color-scheme: dark; }
   background-size: 22px 22px;
 }
 
-/* Semi-sfondo wallpaper: visibile in basso, svanisce gradualmente verso l'alto */
+/* Semi-sfondo wallpaper: visibile in ALTO, svanisce gradualmente verso il basso */
 .wallpaper-fade {
   background-image: url("/wallpapers/adam-wallpaper.jpg");
   background-size: cover;
-  background-position: center 100%;
+  background-position: center 35%;
   opacity: 0.16;
-  -webkit-mask-image: linear-gradient(to top, black 22%, rgba(0, 0, 0, 0.4) 48%, transparent 72%);
-  mask-image: linear-gradient(to top, black 22%, rgba(0, 0, 0, 0.4) 48%, transparent 72%);
+  -webkit-mask-image: linear-gradient(to bottom, black 30%, rgba(0, 0, 0, 0.4) 55%, transparent 78%);
+  mask-image: linear-gradient(to bottom, black 30%, rgba(0, 0, 0, 0.4) 55%, transparent 78%);
   filter: saturate(0.85);
 }

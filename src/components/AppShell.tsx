@@ -161,7 +161,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main */}
       <div className="relative z-10 flex min-w-0 flex-1 flex-col lg:pl-60">
-        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background/75 px-4 py-3 backdrop-blur-xl lg:px-6">
+        <header
+          className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 lg:px-6"
+          style={{
+            background:
+              "linear-gradient(to bottom, rgba(11,11,12,0.82) 0%, rgba(11,11,12,0.5) 55%, rgba(11,11,12,0) 100%)",
+          }}
+        >
           <button
             className="rounded-lg p-1.5 text-secondary-text hover:bg-elevated lg:hidden"
             onClick={() => setSidebarOpen(true)}
@@ -198,9 +204,11 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
       <div className="mb-5 flex items-center gap-2.5 px-2 pt-1">
         <div className="relative flex h-9 w-9 items-center justify-center">
           <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-accent via-accent-2 to-accent-3 opacity-90 blur-[6px]" />
-          <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-accent-2 text-base font-bold text-white shadow-lg">
-            A
-          </div>
+          <img
+            src="/icons/studio.png"
+            alt="Ascend"
+            className="relative h-9 w-9 rounded-xl object-cover shadow-lg ring-1 ring-white/10"
+          />
         </div>
         <span className="text-lg font-bold tracking-tight">
           Ascend<span className="grad-text">.</span>

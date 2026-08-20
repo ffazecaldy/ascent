@@ -12,6 +12,7 @@ import { cn } from "@/lib/cn";
 import type { DB } from "@/lib/types";
 import { StatCard } from "@/components/ui/StatCard";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import { TrendArrow } from "@/components/ui/Arrow";
 import {
   monthPnlTrades,
   tradingStats,
@@ -49,6 +50,22 @@ export function KpiCards({ db }: { db: DB }) {
   const st = tradingStats(monthTrades);
   const disc = disciplineStats(db, monthTrades.map((t) => t.id));
   const pnlBase = monthPnlTrades(db, monthKey).base; // in valuta base
+
+  // Delta vs MESE PRECEDENTE (frecce di movimento sui KPI).
+  const prevMonthKey = monthOffsetKey(monthKey, -1);
+  const pnlDelta = pnlBase - monthPnlTrades(db, prevMonthKey).base;
+  const prevRange = monthRange(prevMonthKey);
+  const prevTrades = tradesBetween(db, prevRange.start, prevRange.end);
+  const prevSt = tradingStats(prevTrades);
+  const prevDisc = disciplineStats(db, prevTrades.map((t) => t.id));
+  const winRateDelta =
+    st.winRate != null && prevSt.winRate != null
+      ? st.winRate - prevSt.winRate
+      : null;
+  const discDelta =
+    disc.disciplinePct != null && prevDisc.disciplinePct != null
+      ? disc.disciplinePct - prevDisc.disciplinePct
+      : null;
 
   const moneyHide = moneyMasked(mode);
   const kpiHide = kpiMasked(mode);
@@ -100,15 +117,18 @@ export function KpiCards({ db }: { db: DB }) {
       <StatCard
         label={`P&L trading · ${monthLabel(monthKey, locale)}`}
         value={
-          moneyHide ? (
-            <span className="tnum text-secondary-text">{maskMoney()}</span>
-          ) : (
-            <AnimatedNumber
-              value={pnlBase}
-              className={cn("tnum", pnlTone)}
-              fmt={(n) => formatSignedMoney(n, baseCurrency, locale)}
-            />
-          )
+          <span className="inline-flex items-center gap-1.5">
+            {moneyHide ? (
+              <span className="tnum text-secondary-text">{maskMoney()}</span>
+            ) : (
+              <AnimatedNumber
+                value={pnlBase}
+                className={cn("tnum", pnlTone)}
+                fmt={(n) => formatSignedMoney(n, baseCurrency, locale)}
+              />
+            )}
+            {!kpiHide && <TrendArrow value={pnlDelta} size={14} label />}
+          </span>
         }
         delta={pnlNote}
         icon={<span className="text-base leading-none">📈</span>}
@@ -118,13 +138,27 @@ export function KpiCards({ db }: { db: DB }) {
       />
       <StatCard
         label="Win rate del mese"
-        value={winRateBody}
+        value={
+          <span className="inline-flex items-center gap-1.5">
+            {winRateBody}
+            {!kpiHide && winRateDelta != null && (
+              <TrendArrow value={winRateDelta} size={14} label />
+            )}
+          </span>
+        }
         delta={winNote}
         icon={<span className="text-base leading-none">🎯</span>}
       />
       <StatCard
         label="Disciplina del mese"
-        value={discBody}
+        value={
+          <span className="inline-flex items-center gap-1.5">
+            {discBody}
+            {!kpiHide && discDelta != null && (
+              <TrendArrow value={discDelta} size={14} label />
+            )}
+          </span>
+        }
         delta={discNote}
         icon={<span className="text-base leading-none">📋</span>}
       />

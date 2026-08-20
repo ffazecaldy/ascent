@@ -21,17 +21,19 @@
 // - SectionHeader con kicker "Trading · Account".
 // ============================================================
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { nowISO, uid, updateDB, upsert, useDB } from "@/lib/storage";
 import type { AccountStatus, AccountType, Trade, TradingAccount } from "@/lib/types";
 import { COMMON_CURRENCIES, quoteFx } from "@/lib/fx";
-import { accountBaseRate } from "@/lib/compute";
+import { accountBaseRate, evalProgress } from "@/lib/compute";
+import type { EvalProgress } from "@/lib/compute";
 import { formatMoney, formatPercent, formatSignedMoney } from "@/lib/format";
 import { maskMoney, moneyMasked } from "@/lib/privacy";
-import { labelDayKey, tradingDayKey } from "@/lib/dates";
+import { isoToDayKey, labelDayKey, monthKeyOf, todayKey, tradingDayKey } from "@/lib/dates";
 import { cn } from "@/lib/cn";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import { TrendArrow } from "@/components/ui/Arrow";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -207,6 +209,51 @@ function LimitChip({
 }
 
 // ------------------------------------------------------------
+// Progresso verso l'obiettivo eval (solo account in 'eval')
+// ------------------------------------------------------------
+
+/**
+ * Blocco progresso all'interno della card: barra saldo→obiettivo con
+ * 'saldo X / obiettivo Y' (tnum). Se l'account è in eval ma senza target
+ * mostra un badge di avviso 'manca obiettivo'.
+ */
+function EvalProgressRow({ progress, currency, masked }: { progress: EvalProgress; currency: string; masked: boolean }) {
+  // Eval senza obiettivo → avviso
+  if (progress.target == null) {
+    return (
+      <div className="mt-3 rounded-xl border border-warning/25 bg-warning/[0.07] px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone="warning">Manca obiettivo</Badge>
+          <span className="text-[11px] text-warning/80">Imposta l'obiettivo eval per tracciare la promozione.</span>
+        </div>
+      </div>
+    );
+  }
+
+  const pct = progress.progressPct ?? 0;
+  const reached = progress.reached;
+  const pctDigits = pct > 0 && pct < 10 ? 1 : 0;
+
+  return (
+    <div className="mt-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Obiettivo eval</span>
+        <span className={cn("tnum text-xs font-semibold", reached ? "text-success" : "text-accent")}>
+          {formatPercent(pct, pctDigits)}
+          {reached ? " 🎉" : ""}
+        </span>
+      </div>
+      <ProgressBar value={progress.saldo} max={progress.target} tone={reached ? "success" : "accent"} className="mt-1.5 h-2" />
+      <p className="mt-1 flex flex-wrap items-baseline gap-x-1 text-[11px] text-muted-foreground">
+        saldo <Amount value={progress.saldo} currency={currency} masked={masked} /> / obiettivo{" "}
+        <Amount value={progress.target} currency={currency} masked={masked} />
+        {reached && <span className="font-semibold text-success">· raggiunto</span>}
+      </p>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------
 // Form (creazione/editing) — Modal curata a sezioni
 // ------------------------------------------------------------
 
@@ -221,9 +268,20 @@ type FormDraft = {
   tradingDayRolloverTime: string;
   dailyLossLimit: string;
   maxLossLimit: string;
+  evalTarget: string;
 };
 
 type AccountPayload = Omit<TradingAccount, "id" | "createdAt" | "baseRate" | "archived">;
+
+/** Promozione automatica EVAL → FINANZIATO appena registrata. */
+type Promotion = {
+  id: string;
+  name: string;
+  saldo: number;
+  target: number;
+  currency: string;
+  at: string;
+};
 
 function AccountFormModal({
   open,
@@ -251,6 +309,7 @@ function AccountFormModal({
     tradingDayRolloverTime: "17:00",
     dailyLossLimit: "",
     maxLossLimit: "",
+    evalTarget: "",
   });
   const [tzTouched, setTzTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -271,6 +330,7 @@ function AccountFormModal({
       tradingDayRolloverTime: account?.tradingDayRolloverTime ?? "17:00",
       dailyLossLimit: account?.dailyLossLimit != null ? String(account.dailyLossLimit) : "",
       maxLossLimit: account?.maxLossLimit != null ? String(account.maxLossLimit) : "",
+      evalTarget: account?.evalTarget != null ? String(account.evalTarget) : "",
     });
   }, [open, account, base, defaultTz]);
 
@@ -301,6 +361,12 @@ function AccountFormModal({
       setError("I limiti di loss devono essere positivi (o vuoti).");
       return;
     }
+    // Obiettivo eval: solo per stato 'eval'; altrimenti viene azzerato.
+    const evalTarget = form.status === "eval" ? nullableNum(form.evalTarget) : null;
+    if (evalTarget != null && evalTarget <= 0) {
+      setError("L'obiettivo eval deve essere positivo (o vuoto).");
+      return;
+    }
     onSave({
       name,
       type: form.type,
@@ -312,6 +378,7 @@ function AccountFormModal({
       tradingDayRolloverTime: form.tradingDayRolloverTime || "17:00",
       dailyLossLimit,
       maxLossLimit,
+      evalTarget,
     });
     onClose();
   };
@@ -400,6 +467,25 @@ function AccountFormModal({
             ))}
           </Select>
         </Field>
+
+        {/* Obiettivo eval: visibile SOLO quando lo stato è 'eval' */}
+        {form.status === "eval" && (
+          <Field label="Obiettivo eval (saldo da raggiungere)" className="sm:col-span-2">
+            <Input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="any"
+              value={form.evalTarget}
+              placeholder="es. 52.000"
+              onChange={(e) => set({ evalTarget: e.target.value })}
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Saldo (capitale + P&amp;L chiusi) da raggiungere per la promozione automatica a Finanziato. In valuta
+              nativa ({form.nativeCurrency}). Vuoto = nessun obiettivo.
+            </p>
+          </Field>
+        )}
 
         <GroupLabel>Limiti &amp; rischio</GroupLabel>
         <Field label="Limite loss giornaliero">
@@ -557,6 +643,9 @@ function AccountCard({
   closed,
   daily,
   maxUtil,
+  evalP,
+  monthPnl,
+  monthCount,
   masked,
   base,
   muted,
@@ -573,6 +662,9 @@ function AccountCard({
   closed: number;
   daily: LimitUtil;
   maxUtil: LimitUtil;
+  evalP: EvalProgress;
+  monthPnl: number;
+  monthCount: number;
   masked: boolean;
   base: string;
   muted?: boolean;
@@ -635,13 +727,17 @@ function AccountCard({
             {acc.nativeCurrency}
           </span>
         </div>
-        <LiveAmount
-          value={live}
-          currency={acc.nativeCurrency}
-          masked={masked}
-          className={cn("mt-1 block text-[30px] font-bold leading-none tracking-tight", liveCls)}
-        />
-        {/* Delta: P&L dei trade chiusi, colorato */}
+        <div className="mt-1 flex items-center gap-1.5">
+          <LiveAmount
+            value={live}
+            currency={acc.nativeCurrency}
+            masked={masked}
+            className={cn("text-[30px] font-bold leading-none tracking-tight", liveCls)}
+          />
+          {/* Frecce movimento: delta saldo − capitale = P&L chiuso */}
+          <TrendArrow value={pnl} size={15} className="mt-0.5" />
+        </div>
+        {/* Delta: P&L dei trade chiusi, colorato (+ variazione mensile dove ha senso) */}
         <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
           <span className="text-muted-foreground">P&amp;L trade chiusi</span>
           <LiveAmount
@@ -655,7 +751,28 @@ function AccountCard({
           <span className="tnum text-muted-foreground">
             {closed === 0 ? "nessun trade" : closed === 1 ? "1 trade chiuso" : `${closed} trade chiusi`}
           </span>
+          {monthCount > 0 && (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span className="flex items-center gap-1" title="Variazione di questo mese">
+                <TrendArrow value={monthPnl} size={11} />
+                <LiveAmount
+                  value={monthPnl}
+                  currency={acc.nativeCurrency}
+                  masked={masked}
+                  signed
+                  className="font-semibold text-muted-foreground"
+                />
+                <span className="hidden text-muted-foreground sm:inline">mese</span>
+              </span>
+            </>
+          )}
         </div>
+
+        {/* Progresso obiettivo eval (solo in eval; avviso se manca il target) */}
+        {acc.status === "eval" && (
+          <EvalProgressRow progress={evalP} currency={acc.nativeCurrency} masked={masked} />
+        )}
       </div>
 
       {/* Componentini: capitale, valuta, limiti con mini progress */}
@@ -736,6 +853,12 @@ export default function AccountsPage() {
       const closed = accTrades.length;
       const rate = accountBaseRate(a, base);
 
+      // Variazione mensile (per la freccia "questo mese" — solo se sensata)
+      const tz = db.settings.timezone;
+      const monthKey = monthKeyOf(todayKey(tz));
+      const monthTrades = accTrades.filter((t) => monthKeyOf(isoToDayKey(t.closeDate, tz)) === monthKey);
+      const monthPnl = monthTrades.reduce((s, t) => s + t.resultNative, 0);
+
       // Utilizzo limiti (solo se l'account ha trade chiusi; altrimenti null → "—")
       let daily: LimitUtil = null;
       let maxUtil: LimitUtil = null;
@@ -754,11 +877,72 @@ export default function AccountsPage() {
         }
       }
 
-      return { acc: a, pnl, live, rate, closed, daily, maxUtil };
+      return {
+        acc: a,
+        pnl,
+        live,
+        rate,
+        closed,
+        daily,
+        maxUtil,
+        eval: evalProgress(db, a),
+        monthPnl,
+        monthCount: monthTrades.length,
+      };
     });
 
   const activeRows = useMemo(() => withData(active, db.trades), [active, db.trades, base]);
   const archivedRows = useMemo(() => withData(archived, db.trades), [archived, db.trades, base]);
+
+  // ------------------------------------------------------
+  // PROMOZIONE AUTOMATICA EVAL → FINANZIATO
+  // Quando evalProgress.reached === true per un account in 'eval',
+  // questa effect (guardata da un ref per farlo UNA volta per ciclo)
+  // aggiorna status='finanziato' + evalTarget=null e mostra il banner 🎉.
+  // Essendo tutto derivato da useDB(), scatta anche subito dopo il
+  // salvataggio di un trade che supera il target (qualsiasi pagina lo
+  // appenda al DB — qui la rotta è sotto).
+  const [promoted, setPromoted] = useState<Promotion[]>([]);
+  const [toast, setToast] = useState<Promotion | null>(null);
+  const promoHandledRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const evalIds = new Set(activeRows.filter((r) => r.acc.status === "eval").map((r) => r.acc.id));
+    // Libera i guard per account non più in eval → un nuovo ciclo di eval
+    // (es. modifica manuale) può promuovere di nuovo.
+    for (const id of Array.from(promoHandledRef.current)) {
+      if (!evalIds.has(id)) promoHandledRef.current.delete(id);
+    }
+    const hits = activeRows.filter(
+      (r) => r.acc.status === "eval" && r.eval.reached && !promoHandledRef.current.has(r.acc.id)
+    );
+    if (hits.length === 0) return;
+
+    for (const r of hits) {
+      promoHandledRef.current.add(r.acc.id);
+      updateDB((d) => ({
+        ...d,
+        accounts: upsert(d.accounts, { ...r.acc, status: "finanziato", evalTarget: null }),
+      }));
+    }
+    const news: Promotion[] = hits.map((r) => ({
+      id: r.acc.id,
+      name: r.acc.name,
+      saldo: r.eval.saldo,
+      target: r.eval.target ?? 0,
+      currency: r.acc.nativeCurrency,
+      at: nowISO(),
+    }));
+    setPromoted((prev) => [...news, ...prev].slice(0, 5));
+    setToast(news[0]);
+  }, [activeRows]);
+
+  // Autodismiss del toast celebrativo
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const totals = useMemo(() => {
     let count = 0,
@@ -864,6 +1048,9 @@ export default function AccountsPage() {
       closed={r.closed}
       daily={r.daily}
       maxUtil={r.maxUtil}
+      evalP={r.eval}
+      monthPnl={r.monthPnl}
+      monthCount={r.monthCount}
       masked={masked}
       base={base}
       muted={muted}
@@ -878,6 +1065,71 @@ export default function AccountsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Banner celebrativo promozione EVAL → FINANZIATO (resta finché non chiuso) */}
+      {promoted.length > 0 && (
+        <Reveal>
+          <div className="animate-pop relative flex items-start gap-3.5 overflow-hidden rounded-[--radius] border border-success/40 bg-success/[0.08] px-4 py-3.5 shadow-[0_0_45px_-12px_rgba(45,223,158,0.55)]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-success/15 text-xl shadow-[0_0_18px_-4px_rgba(45,223,158,0.7)]">
+              🎉
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-success">
+                Obiettivo raggiunto: {promoted.length === 1 ? "account promosso a Finanziato" : `${promoted.length} account promossi a Finanziato`}
+              </p>
+              <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                {promoted.map((p) => (
+                  <li key={p.id} className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+                    <span className="font-semibold text-secondary-text">“{p.name}”</span>
+                    <span>
+                      saldo <Amount value={p.saldo} currency={p.currency} masked={masked} /> / obiettivo{" "}
+                      <Amount value={p.target} currency={p.currency} masked={masked} />
+                    </span>
+                    <Badge tone="success" pulse>
+                      Finanziato
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <button
+              onClick={() => setPromoted([])}
+              className="ml-auto shrink-0 rounded-md p-1 text-xs text-muted-foreground transition-colors hover:bg-elevated hover:text-foreground"
+              aria-label="Chiudi avviso"
+              title="Chiudi"
+            >
+              ✕
+            </button>
+          </div>
+        </Reveal>
+      )}
+
+      {/* Toast celebrativo (auto-dismiss) */}
+      {toast && (
+        <div className="pointer-events-none fixed inset-x-0 top-4 z-[60] flex justify-center px-4">
+          <div className="animate-pop pointer-events-auto flex items-center gap-3 rounded-2xl border border-success/40 bg-card px-4 py-3 shadow-[0_0_50px_-10px_rgba(45,223,158,0.6)]">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-success/15 text-lg">🎉</span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-success">
+                Obiettivo raggiunto: account promosso a Finanziato
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                “{toast.name}” ha superato il target ·{" "}
+                <span className="tnum">
+                  <Amount value={toast.saldo} currency={toast.currency} masked={masked} />
+                </span>
+              </p>
+            </div>
+            <button
+              onClick={() => setToast(null)}
+              className="ml-2 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-elevated hover:text-foreground"
+              aria-label="Chiudi"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       <SectionHeader
         kicker="Trading · Account"
         title="Account di trading"
