@@ -21,6 +21,7 @@ import { StatCard } from "@/components/ui/StatCard";
 import { Reveal } from "@/components/ui/Reveal";
 import { BarsChart, DonutChart } from "@/components/charts";
 import { Icon } from "@/components/ui/Icon";
+import { AutoTrackerImport } from "@/components/usopc/AutoTrackerImport";
 
 const DEFAULT_CATEGORIES = [
   "Lavoro",
@@ -287,8 +288,14 @@ export default function UsoPcPage() {
   };
 
   // --- header content (azioni) ---
+  const [autoTrackerOpen, setAutoTrackerOpen] = useState(false);
+  
   const actions: ReactNode = (
     <>
+      <Button variant="outline" size="sm" onClick={() => setAutoTrackerOpen(true)}>
+        <Icon name="download" size={14} className="mr-1" />
+        Importa auto-tracker
+      </Button>
       <Button variant="outline" size="sm" onClick={() => setMapOpen(true)}>
         Mock app
       </Button>
@@ -680,6 +687,11 @@ export default function UsoPcPage() {
             <p className="py-3 text-center text-xs text-muted-foreground">Nessun mapping configurato.</p>
           )}
         </div>
+      </Modal>
+
+      {/* Modal Auto-Tracker Import */}
+      <Modal open={autoTrackerOpen} onClose={() => setAutoTrackerOpen(false)} title="Importa auto-tracker" width="max-w-2xl">
+        <AutoTrackerImport onClose={() => setAutoTrackerOpen(false)} />
       </Modal>
     </div>
   );
