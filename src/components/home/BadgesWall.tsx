@@ -6,7 +6,7 @@
 // "Sblocca" persiste le nuove badge in db.badges (upsert).
 // ============================================================
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { updateDB, nowISO } from "@/lib/storage";
 import { computeNewBadges, BADGE_DEFS, badgeDef } from "@/lib/compute";
 import type { DB } from "@/lib/types";
@@ -33,7 +33,9 @@ const BADGE_ICON: Record<string, IconName> = {
 
 export function BadgesWall({ db }: { db: DB }) {
   const ownedKeys = new Set(db.badges.map((b) => b.key));
-  const newKeys = computeNewBadges(db);
+  // computeNewBadges ricalcola activityStreak (scan pesante su tutte le attività)
+  // → memoizzato su db; un re-render (es. dopo "Sblocca") non rifà lo scan.
+  const newKeys = useMemo(() => computeNewBadges(db), [db]);
   const [justUnlocked, setJustUnlocked] = useState<string[]>([]);
 
   const unlock = () => {

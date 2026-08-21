@@ -142,15 +142,19 @@ function DeadlineBadge({ today, deadline, met }: { today: string; deadline: stri
 // ------------------------------------------------------------
 export function GoalsOverviewCard({ db }: { db: DB }) {
   const today = todayKey(db.settings.timezone);
-  const asc = ascordDay(db, today);
 
-  const { daily, weekly } = useMemo(
-    () => ({
-      daily: db.dailyGoals.filter((g) => g.active),
-      weekly: db.weeklyGoals.filter((g) => g.active),
-    }),
-    [db]
-  );
+  // Selettori pesanti: ascordDay scansiona tutte le attività del giorno, e il
+  // progresso dei weekly goal itera PC/workout/transaction/trade/libri per ogni
+  // goal → entrambi memoizzati su db.
+  const asc = useMemo(() => ascordDay(db, today), [db, today]);
+
+  const { daily, weekly, progs } = useMemo(() => {
+    const daily = db.dailyGoals.filter((g) => g.active);
+    const weekly = db.weeklyGoals.filter((g) => g.active);
+    const progs = new Map<string, PeriodProgress>();
+    for (const g of weekly) progs.set(g.id, weeklyProgress(db, g));
+    return { daily, weekly, progs };
+  }, [db]);
 
   const total = daily.length + weekly.length;
 
@@ -242,7 +246,7 @@ export function GoalsOverviewCard({ db }: { db: DB }) {
 
           {/* Weekly goals — progress bar */}
           {weekly.map((g: WeeklyGoal) => {
-            const prog = weeklyProgress(db, g);
+            const prog = progs.get(g.id) ?? { value: null, target: g.targetValue, unit: "" };
             const met =
               prog.value !== null && prog.target > 0 ? prog.value >= prog.target : false;
             return (

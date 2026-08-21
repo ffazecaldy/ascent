@@ -8,6 +8,7 @@
 // del modulo. Footer: totale semestre e mesi positivi.
 // ============================================================
 
+import { useMemo } from "react";
 import { cn } from "@/lib/cn";
 import type { DB } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
@@ -39,8 +40,14 @@ export function MonthlyPnl({ db }: { db: DB }) {
   const moneyHide = moneyMasked(db.settings.privacyMode);
 
   const curKey = monthKeyOf(todayKey(tz));
-  const months = Array.from({ length: 6 }, (_, i) => monthOffsetKey(curKey, i - 5));
-  const data = months.map((k) => ({ x: mmLabel(k), y: monthPnlTrades(db, k).base }));
+
+  // Selettore pesante: serie mensile (6× monthPnlTrades, che itera tutti i
+  // trade) → memoizzato; i derivati per la UI (total/positive/hasPnl) restano
+  // fuori perché ricalcolarli è banale.
+  const data = useMemo(() => {
+    const months = Array.from({ length: 6 }, (_, i) => monthOffsetKey(curKey, i - 5));
+    return months.map((k) => ({ x: mmLabel(k), y: monthPnlTrades(db, k).base }));
+  }, [db, curKey]);
 
   const total = data.reduce((s, d) => s + d.y, 0);
   const positive = data.filter((d) => d.y > 0).length;

@@ -138,10 +138,29 @@ export interface Payout {
   createdAt: string;
 }
 
+export interface WeeklyReviewStats {
+  weekStart: string;
+  trades: number;
+  winRate: number | null;
+  totalR: number;
+  totalNative: number;
+  profitFactor: number | null;
+  disciplinePct: number | null;
+  noSetupCount: number;
+  pcMinutes: number;
+  workouts: number;
+  income: number;
+  expense: number;
+  net: number;
+  pagesRead: number;
+  ascordWon: number;
+  ascordTotal: number;
+}
+
 export interface WeeklyReview {
   id: string;
   weekStart: string; // "yyyy-MM-dd" (inizio settimana della review)
-  stats: Record<string, unknown>; // snapshot auto-calcolato
+  stats: WeeklyReviewStats; // snapshot auto-calcolato
   answer1: string;
   answer2: string;
   answer3: string;
@@ -172,12 +191,6 @@ export interface WeeklyGoal {
   period: "week" | "month";
   active: boolean;
   deadline?: string | null; // "yyyy-MM-dd" — scadenza opzionale
-}
-
-// Cache ricalcolabile — NON fonte di verità. Ricalcolata a runtime.
-export interface DailyMetric {
-  date: string;
-  metrics: Record<string, unknown>;
 }
 
 export type PCUsageSource = "manuale" | "csv" | "activitywatch";

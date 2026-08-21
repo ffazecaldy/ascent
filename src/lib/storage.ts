@@ -80,16 +80,43 @@ export function saveDB(db: DB): void {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
   } catch {
-    // Quota superata (screenshot pesanti): salva comunque le parti essenziali
+    // Quota superata (screenshot pesanti/legacy): salva le parti essenziali
+    // MA avvisa l'utente: gli screenshot NON sono persistiti.
     try {
       const slim = { ...db, trades: db.trades.map((t) => ({ ...t, screenshots: [] })) };
+      const hadShots = db.trades.some((t) => (t.screenshots?.length ?? 0) > 0);
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(slim));
+      if (hadShots) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[ascend] Quota localStorage superata: gli screenshot dei trade non sono stati salvati. Riduci le dimensioni o esporta un backup."
+        );
+      }
     } catch {
-      // rinuncia silenziosa
+      // rinuncia silenziosa (ultimo baluardo)
     }
   }
   listeners.forEach((l) => l());
 }
+
+// Multi-tab / multi-window: quando un ALTRO tab scrive su localStorage,
+// ricarichiamo la cache e notifichiamo i subscriber → tutti i tab in sync.
+let storageBound = false;
+function bindStorageListener() {
+  if (storageBound || typeof window === "undefined") return;
+  storageBound = true;
+  window.addEventListener("storage", (e) => {
+    if (e.key !== STORAGE_KEY || e.newValue == null) return;
+    try {
+      const parsed = JSON.parse(e.newValue) as DB;
+      cache = { ...emptyDB(), ...parsed, settings: { ...emptyDB().settings, ...parsed.settings } };
+    } catch {
+      return;
+    }
+    listeners.forEach((l) => l());
+  });
+}
+bindStorageListener();
 
 export function forceReload(): DB {
   cache = null;

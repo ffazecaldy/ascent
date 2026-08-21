@@ -10,7 +10,7 @@
 // scrittura sul DB, nessun dato persistito dalla pagina.
 // ============================================================
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useDB } from "@/lib/storage";
 import type { DB, Trade } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
@@ -184,7 +184,6 @@ export default function TradingStatsPage() {
   const db = useDB();
   const [account, setAccount] = useState<string>("all");
   const [period, setPeriod] = useState<PeriodId>("month");
-  const tz = db.settings.timezone;
 
   // Account non archiviati per il filtro; se il selezionato viene
   // archiviato altrove, ripiega su "tutti".
@@ -193,125 +192,174 @@ export default function TradingStatsPage() {
   const selAccount =
     selectedId !== "all" ? (db.accounts.find((a) => a.id === selectedId) ?? null) : null;
 
-  // (1) Filtri: periodo via day key (tz settings), poi account.
-  const range = periodRange(db, period);
-  const inPeriod = tradesBetween(db, range.start, range.end);
-  const trades = selectedId === "all" ? inPeriod : inPeriod.filter((t) => t.accountId === selectedId);
-
   const moneyCurrency = selAccount ? selAccount.nativeCurrency : db.settings.baseCurrency;
   const mode = db.settings.privacyMode;
   const moneyHidden = moneyMasked(mode); // sempre vero per il contratto privacy
   const kpiHidden = kpiMasked(mode); // solo "complete"
 
-  // (2)+(7) KPI + streak corrente.
-  const st = tradingStats(trades);
-  const streak = consecutiveWinsLosses(trades);
+  // ---- Selettori pesanti: tutto il derivato dai trade FILTRATI è raggruppato in
+  // un unico useMemo([db, selectedId, period]) così un re-render (es. toggle della
+  // sidebar in AppShell) non ricalcola stats/curve/perf dalla fonte. I risultati
+  // sono identici a prima: stesse funzioni pure, stessa sequenza. ----
+  const {
+    trades,
+    st,
+    streak,
+    equityData,
+    setupRows,
+    weekdayData,
+    hourData,
+    rBarData,
+    rTotal,
+    rMonths,
+    ddDates,
+    maxDD,
+    wrData,
+    avgWR,
+    winSpark,
+    equityRow,
+    setupWinMap,
+  } = useMemo(() => {
+    // (1) Filtri: periodo via day key (tz settings), poi account.
+    const range = periodRange(db, period);
+    const inPeriod = tradesBetween(db, range.start, range.end);
+    const trades =
+      selectedId === "all" ? inPeriod : inPeriod.filter((t) => t.accountId === selectedId);
 
-  // (3) Curva equity: account singolo → valuta nativa; "tutti" → valuta base.
-  const equityData = (() => {
-    if (trades.length === 0) return [] as { x: string; y: number }[];
-    const points: { date: string; value: number }[] =
-      selectedId === "all"
-        ? (() => {
-            const sorted = [...trades].sort((a, b) => a.closeDate.localeCompare(b.closeDate));
-            let cum = 0;
-            return sorted.map((t) => ({ date: t.closeDate, value: (cum += basePnl(db, t)) }));
-          })()
-        : equityCurve(trades); // cumulata in resultNative (valuta nativa dell'account)
-    return points.map((p) => ({ x: shortDay(isoToDayKey(p.date, tz)), y: p.value }));
-  })();
+    // (2)+(7) KPI + streak corrente.
+    const st = tradingStats(trades);
+    const streak = consecutiveWinsLosses(trades);
 
-  // (4) Performance per setup: somma resultNative convertita in base.
-  const setupRows = (() => {
-    const map = new Map<string, { count: number; pnl: number }>();
-    for (const t of trades) {
-      const id = t.setupId ?? "";
-      const cur = map.get(id) ?? { count: 0, pnl: 0 };
-      cur.count += 1;
-      cur.pnl += basePnl(db, t);
-      map.set(id, cur);
-    }
-    return Array.from(map.entries())
-      .map(([id, v]) => ({ id, count: v.count, pnl: v.pnl }))
-      .sort((a, b) => b.pnl - a.pnl);
-  })();
+    // (3) Curva equity: account singolo → valuta nativa; "tutti" → valuta base.
+    const tz = db.settings.timezone;
+    const equityData = (() => {
+      if (trades.length === 0) return [] as { x: string; y: number }[];
+      const points: { date: string; value: number }[] =
+        selectedId === "all"
+          ? (() => {
+              const sorted = [...trades].sort((a, b) => a.closeDate.localeCompare(b.closeDate));
+              let cum = 0;
+              return sorted.map((t) => ({ date: t.closeDate, value: (cum += basePnl(db, t)) }));
+            })()
+          : equityCurve(trades); // cumulata in resultNative (valuta nativa dell'account)
+      return points.map((p) => ({ x: shortDay(isoToDayKey(p.date, tz)), y: p.value }));
+    })();
 
-  // (5) P&L per giorno della settimana: 0=Lun … 6=Dom via giorno di chiusura in tz.
-  const weekdayData = WEEKDAY_LABELS.map((label, i) => {
-    let sum = 0;
-    for (const t of trades) {
-      const { y, m, d } = parseDateKey(isoToDayKey(t.closeDate, tz));
-      const idx = (new Date(y, m - 1, d).getDay() + 6) % 7;
-      if (idx === i) sum += basePnl(db, t);
-    }
-    return { x: label, y: sum };
-  });
+    // (4) Performance per setup: somma resultNative convertita in base.
+    const setupRows = (() => {
+      const map = new Map<string, { count: number; pnl: number }>();
+      for (const t of trades) {
+        const id = t.setupId ?? "";
+        const cur = map.get(id) ?? { count: 0, pnl: 0 };
+        cur.count += 1;
+        cur.pnl += basePnl(db, t);
+        map.set(id, cur);
+      }
+      return Array.from(map.entries())
+        .map(([id, v]) => ({ id, count: v.count, pnl: v.pnl }))
+        .sort((a, b) => b.pnl - a.pnl);
+    })();
 
-  // (6) P&L per fascia oraria (ora di chiusura in tz, fasce da 2h).
-  const hourData = (() => {
-    const sums = Array.from({ length: HOUR_BANDS }, () => 0);
-    for (const t of trades) {
-      const band = Math.min(HOUR_BANDS - 1, Math.floor(hourInTZ(t.closeDate, tz) / 2));
-      sums[band] += basePnl(db, t);
-    }
-    return sums
-      .map((y, i) => ({
-        y,
-        x: `${String(i * 2).padStart(2, "0")}–${String(i * 2 + 2).padStart(2, "0")}`,
-      }))
-      .filter((r) => r.y !== 0); // solo fasce con attività
-  })();
+    // (5) P&L per giorno della settimana: 0=Lun … 6=Dom via giorno di chiusura in tz.
+    const weekdayData = WEEKDAY_LABELS.map((label, i) => {
+      let sum = 0;
+      for (const t of trades) {
+        const { y, m, d } = parseDateKey(isoToDayKey(t.closeDate, tz));
+        const idx = (new Date(y, m - 1, d).getDay() + 6) % 7;
+        if (idx === i) sum += basePnl(db, t);
+      }
+      return { x: label, y: sum };
+    });
 
-  // (8) R per mese — ultimi 12 mesi. Dati reali dagli helper: si mostrano
-  // solo i mesi con chiusura corretta (count > 0), niente mesi a zero.
-  const rMonths = rByMonth(db, 12).filter((m) => m.count > 0);
-  const rBarData = rMonths.map((m) => ({ x: monthLabel(m.x), y: m.r }));
-  const rTotal = rMonths.reduce((s, m) => s + m.r, 0); // segno per hairline
+    // (6) P&L per fascia oraria (ora di chiusura in tz, fasce da 2h).
+    const hourData = (() => {
+      const sums = Array.from({ length: HOUR_BANDS }, () => 0);
+      for (const t of trades) {
+        const band = Math.min(HOUR_BANDS - 1, Math.floor(hourInTZ(t.closeDate, tz) / 2));
+        sums[band] += basePnl(db, t);
+      }
+      return sums
+        .map((y, i) => ({
+          y,
+          x: `${String(i * 2).padStart(2, "0")}–${String(i * 2 + 2).padStart(2, "0")}`,
+        }))
+        .filter((r) => r.y !== 0); // solo fasce con attività
+    })();
 
-  // (9) Drawdown — dall'equity cumulativa dei trade FILTRATI (valori ≤ 0).
-  const ddDates = drawdownSeries(trades).map((p) => ({
-    x: shortDay(isoToDayKey(p.date, tz)),
-    y: p.value,
-  }));
-  const maxDD = ddDates.length ? Math.min(...ddDates.map((p) => p.y)) : 0;
+    // (8) R per mese — ultimi 12 mesi. Dati reali dagli helper: si mostrano
+    // solo i mesi con chiusura corretta (count > 0), niente mesi a zero.
+    const rMonths = rByMonth(db, 12).filter((m) => m.count > 0);
+    const rBarData = rMonths.map((m) => ({ x: monthLabel(m.x), y: m.r }));
+    const rTotal = rMonths.reduce((s, m) => s + m.r, 0); // segno per hairline
 
-  // (10) Win rate mensile — ultimi 12 mesi, solo mesi con chiusura corretta.
-  const wrMonths = monthlyWinRate(db, 12).filter((m) => m.count > 0);
-  const wrData = wrMonths.map((m) => ({ x: monthLabel(m.x), y: m.winRate }));
-  const wrTotalCount = wrMonths.reduce((s, m) => s + m.count, 0);
-  const avgWR = wrTotalCount > 0 ? wrMonths.reduce((s, m) => s + m.winRate * m.count, 0) / wrTotalCount : 0;
+    // (9) Drawdown — dall'equity cumulativa dei trade FILTRATI (valori ≤ 0).
+    const ddDates = drawdownSeries(trades).map((p) => ({
+      x: shortDay(isoToDayKey(p.date, tz)),
+      y: p.value,
+    }));
+    const maxDD = ddDates.length ? Math.min(...ddDates.map((p) => p.y)) : 0;
 
-  // ---- Riepilogo derivato SOLO per la presentazione (non tocca i calcoli sopra) ----
-  // Win rate per mese (spark della card "Win rate").
-  const winSpark = (() => {
-    const byMonth = new Map<string, { w: number; n: number }>();
-    for (const t of trades) {
-      const mk = monthKeyOf(isoToDayKey(t.closeDate, tz));
-      const cur = byMonth.get(mk) ?? { w: 0, n: 0 };
-      cur.n += 1;
-      if (t.resultR > 0) cur.w += 1;
-      byMonth.set(mk, cur);
-    }
-    return Array.from(byMonth.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([, v]) => (v.w / v.n) * 100);
-  })();
+    // (10) Win rate mensile — ultimi 12 mesi, solo mesi con chiusura corretta.
+    const wrMonths = monthlyWinRate(db, 12).filter((m) => m.count > 0);
+    const wrData = wrMonths.map((m) => ({ x: monthLabel(m.x), y: m.winRate }));
+    const wrTotalCount = wrMonths.reduce((s, m) => s + m.count, 0);
+    const avgWR =
+      wrTotalCount > 0
+        ? wrMonths.reduce((s, m) => s + m.winRate * m.count, 0) / wrTotalCount
+        : 0;
 
-  // Serie equity numerica (spark della card "P&L totale", ultimi N punti).
-  const equityRow = equityData.map((p) => p.y);
+    // ---- Riepilogo derivato SOLO per la presentazione (non tocca i calcoli sopra) ----
+    // Win rate per mese (spark della card "Win rate").
+    const winSpark = (() => {
+      const byMonth = new Map<string, { w: number; n: number }>();
+      for (const t of trades) {
+        const mk = monthKeyOf(isoToDayKey(t.closeDate, tz));
+        const cur = byMonth.get(mk) ?? { w: 0, n: 0 };
+        cur.n += 1;
+        if (t.resultR > 0) cur.w += 1;
+        byMonth.set(mk, cur);
+      }
+      return Array.from(byMonth.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([, v]) => (v.w / v.n) * 100);
+    })();
 
-  // Esiti per setup (solo per la tabella densa: N vinte / perse).
-  const setupWinMap = (() => {
-    const m = new Map<string, { wins: number; loses: number }>();
-    for (const t of trades) {
-      const id = t.setupId ?? "";
-      const cur = m.get(id) ?? { wins: 0, loses: 0 };
-      if (t.resultR > 0) cur.wins += 1;
-      else if (t.resultR < 0) cur.loses += 1;
-      m.set(id, cur);
-    }
-    return m;
-  })();
+    // Serie equity numerica (spark della card "P&L totale", ultimi N punti).
+    const equityRow = equityData.map((p) => p.y);
+
+    // Esiti per setup (solo per la tabella densa: N vinte / perse).
+    const setupWinMap = (() => {
+      const m = new Map<string, { wins: number; loses: number }>();
+      for (const t of trades) {
+        const id = t.setupId ?? "";
+        const cur = m.get(id) ?? { wins: 0, loses: 0 };
+        if (t.resultR > 0) cur.wins += 1;
+        else if (t.resultR < 0) cur.loses += 1;
+        m.set(id, cur);
+      }
+      return m;
+    })();
+
+    return {
+      trades,
+      st,
+      streak,
+      equityData,
+      setupRows,
+      weekdayData,
+      hourData,
+      rBarData,
+      rTotal,
+      rMonths,
+      ddDates,
+      maxDD,
+      wrData,
+      avgWR,
+      winSpark,
+      equityRow,
+      setupWinMap,
+    };
+  }, [db, selectedId, period]);
 
   const totalNative = st.totalNative;
   const pnlTone = totalNative > 0 ? "text-success" : totalNative < 0 ? "text-danger" : "text-foreground";

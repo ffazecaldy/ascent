@@ -7,7 +7,7 @@
 // Persistenza automatica del freeze (1 al mese).
 // ============================================================
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useDB, updateDB } from "@/lib/storage";
 import { activityStreak, claimFreeze } from "@/lib/compute";
 import { labelDayKey } from "@/lib/dates";
@@ -24,7 +24,9 @@ function nextMilestone(days: number): number {
 
 export function StreakHero() {
   const db = useDB();
-  const streak = activityStreak(db);
+  // Activity Streak: scansione di tutte le attività (transazioni, trade,
+  // workout, log PC, studio, libri) → memoizzato su db.
+  const streak = useMemo(() => activityStreak(db), [db]);
 
   useEffect(() => {
     if (!streak.freezeUsed) return;

@@ -5,6 +5,7 @@
 // ============================================================
 
 import type { DB, Category, UserSettings } from "./types";
+import { DB_VERSION } from "./types";
 import { uid, nowISO } from "./storage";
 
 export function defaultSettings(): UserSettings {
@@ -43,7 +44,7 @@ export function defaultCategories(): Category[] {
 /** Crea una DB con i soli default (vuota di dati demo). */
 export function seedDB(): DB {
   return {
-    version: 1,
+    version: DB_VERSION,
     settings: defaultSettings(),
     categories: defaultCategories(),
     transactions: [],

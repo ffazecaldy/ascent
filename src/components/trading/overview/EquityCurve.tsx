@@ -13,6 +13,7 @@
 // i dati si aggiornano da soli. Nessuna scrittura sul DB.
 // ============================================================
 
+import { useMemo } from "react";
 import { cn } from "@/lib/cn";
 import type { DB, Trade } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
@@ -71,33 +72,43 @@ export function EquityCurve({ db }: { db: DB }) {
   const moneyHide = moneyMasked(db.settings.privacyMode);
   const kpiHide = kpiMasked(db.settings.privacyMode);
 
-  const monthKey = monthKeyOf(todayKey(tz));
-  const { start, end } = monthRange(monthKey);
-  const prevMonthKey = monthOffsetKey(monthKey, -1);
+  // Selettori pesanti: intervallo, curva cumulata (base) e totali del mese
+  // (dipendono solo da db) → memoizzati per non ricalcolarli a ogni re-render.
+  const { data, total, delta, rangeLabel } = useMemo(() => {
+    const monthKey = monthKeyOf(todayKey(tz));
+    const { start, end } = monthRange(monthKey);
+    const prevMonthKey = monthOffsetKey(monthKey, -1);
 
-  // SCELTA dell'intervallo: trade chiusi nel mese corrente; se il mese
-  // ha meno di 2 trade si ripiega sugli ultimi 20 trade chiusi (così la
-  // curva non è mai triviale/inutile). rangeLabel dichiara la scelta.
-  const monthTrades = tradesBetween(db, start, end);
-  const useMonth = monthTrades.length >= 2;
-  const curveTrades = useMonth
-    ? monthTrades
-    : [...db.trades]
-        .sort((a, b) => b.closeDate.localeCompare(a.closeDate)) // ultimi chiusi per primi
-        .slice(0, 20);
+    // SCELTA dell'intervallo: trade chiusi nel mese corrente; se il mese
+    // ha meno di 2 trade si ripiega sugli ultimi 20 trade chiusi (così la
+    // curva non è mai triviale/inutile). rangeLabel dichiara la scelta.
+    const monthTrades = tradesBetween(db, start, end);
+    const useMonth = monthTrades.length >= 2;
+    const curveTrades = useMonth
+      ? monthTrades
+      : [...db.trades]
+          .sort((a, b) => b.closeDate.localeCompare(a.closeDate)) // ultimi chiusi per primi
+          .slice(0, 20);
 
-  // Curva equity cumulata in VALUTA BASE, ordinata per chiusura.
-  let cum = 0;
-  const data = [...curveTrades]
-    .sort((a, b) => a.closeDate.localeCompare(b.closeDate))
-    .map((t) => {
-      cum += t.resultNative * baseRateOf(db, t);
-      return { x: shortDay(isoToDayKey(t.closeDate, tz)), y: cum };
-    });
+    // Curva equity cumulata in VALUTA BASE, ordinata per chiusura.
+    let cum = 0;
+    const data = [...curveTrades]
+      .sort((a, b) => a.closeDate.localeCompare(b.closeDate))
+      .map((t) => {
+        cum += t.resultNative * baseRateOf(db, t);
+        return { x: shortDay(isoToDayKey(t.closeDate, tz)), y: cum };
+      });
 
-  // Totale del mese (base) + delta vs mese precedente — coerenti coi KPI.
-  const total = monthPnlTrades(db, monthKey).base;
-  const delta = total - monthPnlTrades(db, prevMonthKey).base;
+    // Totale del mese (base) + delta vs mese precedente — coerenti coi KPI.
+    const total = monthPnlTrades(db, monthKey).base;
+    const delta = total - monthPnlTrades(db, prevMonthKey).base;
+
+    const rangeLabel = useMonth
+      ? `Mese corrente · ${monthLabel(monthKey, locale)} · ${monthTrades.length} trade`
+      : `Ultimi 20 trade chiusi · ${monthLabel(monthKey, locale)}`;
+
+    return { data, total, delta, rangeLabel };
+  }, [db, tz, locale]);
 
   const lastValue = data.length ? data[data.length - 1].y : 0;
   const lineColor = lastValue < 0 ? DANGER_HEX : ACCENT_HEX;
@@ -105,10 +116,6 @@ export function EquityCurve({ db }: { db: DB }) {
     total > 0 ? "text-success" : total < 0 ? "text-danger" : "text-foreground";
   const deltaTone =
     delta > 0 ? "text-success" : delta < 0 ? "text-danger" : "text-muted-foreground";
-
-  const rangeLabel = useMonth
-    ? `Mese corrente · ${monthLabel(monthKey, locale)} · ${monthTrades.length} trade`
-    : `Ultimi 20 trade chiusi · ${monthLabel(monthKey, locale)}`;
 
   return (
     <Card hairline="accent" texture className="relative">

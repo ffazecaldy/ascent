@@ -8,6 +8,7 @@
 // Link a /obiettivi. Nessuna scadenza → mini empty discreto.
 // ============================================================
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { upcomingDeadlines } from "@/lib/compute";
 import type { DB } from "@/lib/types";
@@ -39,7 +40,8 @@ const barCls: Record<Urgency, string> = {
 };
 
 export function DeadlinesCard({ db }: { db: DB }) {
-  const deadlines = upcomingDeadlines(db).slice(0, 4);
+  // Scansione di daily + weekly goals con scadenza → memoizzato su db.
+  const deadlines = useMemo(() => upcomingDeadlines(db).slice(0, 4), [db]);
 
   return (
     <Card className="flex flex-col gap-3">

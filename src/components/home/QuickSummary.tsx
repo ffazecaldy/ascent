@@ -8,6 +8,7 @@
 // KPI/percentuali mascherati solo in modalità "complete" (kpiMasked).
 // ============================================================
 
+import { useMemo } from "react";
 import {
   todayKey,
   weekStartKey,
@@ -32,24 +33,29 @@ import { cn } from "@/lib/cn";
 
 export function QuickSummary({ db }: { db: DB }) {
   const tz = db.settings.timezone;
-  const today = todayKey(tz);
-  const monthKey = today.slice(0, 7);
   const currency = db.settings.baseCurrency;
 
   const maskedMoney = moneyMasked(db.settings.privacyMode);
   const maskedKpi = kpiMasked(db.settings.privacyMode);
 
-  const pnl = monthPnlTrades(db, monthKey).base;
-  const fin = financesMonth(db, monthKey);
-  const pcMin = pcMinutesOnDay(db, today);
-  const weekStart = weekStartKey(today, db.settings.weekStart);
-  const workouts = workoutsInWeek(db, weekStart);
-  const book = currentBook(db);
+  // Selettori pesanti raggruppati (ognuno scansiona una collezione del DB a ogni
+  // render) → un solo useMemo([db, tz]) con risultati identici.
+  const { pnl, fin, pcMin, workouts, book, monthR } = useMemo(() => {
+    const today = todayKey(tz);
+    const monthKey = today.slice(0, 7);
+    const pnl = monthPnlTrades(db, monthKey).base;
+    const fin = financesMonth(db, monthKey);
+    const pcMin = pcMinutesOnDay(db, today);
+    const weekStart = weekStartKey(today, db.settings.weekStart);
+    const workouts = workoutsInWeek(db, weekStart);
+    const book = currentBook(db);
 
-  // R del mese (KPI → mascherato in modalità completa)
-  const monthR = db.trades
-    .filter((t) => monthKeyOf(isoToDayKey(t.closeDate, tz)) === monthKey)
-    .reduce((s, t) => s + t.resultR, 0);
+    // R del mese (KPI → mascherato in modalità completa)
+    const monthR = db.trades
+      .filter((t) => monthKeyOf(isoToDayKey(t.closeDate, tz)) === monthKey)
+      .reduce((s, t) => s + t.resultR, 0);
+    return { pnl, fin, pcMin, workouts, book, monthR };
+  }, [db, tz]);
 
   const tone = (v: number) => (v > 0 ? "positive" : v < 0 ? "negative" : "neutral");
 

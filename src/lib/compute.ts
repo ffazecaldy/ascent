@@ -12,6 +12,7 @@ import type {
   DailyGoal,
   GoalType,
   SetupRule,
+  WeeklyReviewStats,
 } from "./types";
 import {
   addDaysKey,
@@ -859,7 +860,7 @@ export function evalProgress(db: DB, account: TradingAccount): EvalProgress {
   };
 }
 
-export function weeklyReviewStats(db: DB, weekStart: string): Record<string, unknown> {
+export function weeklyReviewStats(db: DB, weekStart: string): WeeklyReviewStats {
   const weekEnd = addDaysKey(weekStart, 6);
   const trades = tradesBetween(db, weekStart, weekEnd);
   const st = tradingStats(trades);

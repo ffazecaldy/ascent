@@ -8,7 +8,7 @@
 // risultato R (kpi).
 // ============================================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import type { DB } from "@/lib/types";
@@ -52,10 +52,12 @@ export function LiveFeed({ db }: { db: DB }) {
     return () => clearInterval(id);
   }, []);
 
-  let last: DB["trades"][number] | null = null;
-  if (db.trades.length) {
-    last = [...db.trades].sort((a, b) => b.closeDate.localeCompare(a.closeDate))[0];
-  }
+  // Ultimo trade chiuso: full sort del log → memoizzato; il tick del feed
+  // (re-render ogni minuto) non deve riordinare tutti i trade.
+  const last = useMemo(() => {
+    if (!db.trades.length) return null;
+    return [...db.trades].sort((a, b) => b.closeDate.localeCompare(a.closeDate))[0];
+  }, [db]);
   const lastAcc = last ? db.accounts.find((a) => a.id === last.accountId) : null;
   const lastCurrency = lastAcc?.nativeCurrency ?? db.settings.baseCurrency;
 

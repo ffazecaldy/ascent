@@ -4,6 +4,7 @@
 // ASCEND — Home · Migliore / Peggiore settimana (bestWorstWeek)
 // ============================================================
 
+import { useMemo } from "react";
 import { bestWorstWeek } from "@/lib/compute";
 import { formatSignedMoney } from "@/lib/format";
 import { moneyMasked, maskMoney } from "@/lib/privacy";
@@ -14,7 +15,8 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
 
 export function BestWorstCard({ db }: { db: DB }) {
-  const { best, worst } = bestWorstWeek(db);
+  // bestWorstWeek scansiona tutti i trade (raggruppa per settimana) → memoizzato.
+  const { best, worst } = useMemo(() => bestWorstWeek(db), [db]);
   const masked = moneyMasked(db.settings.privacyMode);
   const currency = db.settings.baseCurrency;
 

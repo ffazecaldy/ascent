@@ -8,6 +8,7 @@
 // texture "carta trading" (grid-texture). Rispetta la privacy.
 // ============================================================
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import type {
@@ -92,6 +93,22 @@ export function AccountsList({ db }: { db: DB }) {
   const kpiHide = kpiMasked(db.settings.privacyMode);
   const monthKey = monthKeyOf(todayKey(db.settings.timezone));
 
+  // Selettore pesante: per ogni account P&L chiuso totale + per mese (corrente e
+  // precedente) = O(account × trade) a ogni render. Raggruppato in un solo giro
+  // memoizzato su db per non rifare lo scan a ogni re-render.
+  const accountStats = useMemo(() => {
+    const prevMonthKey = monthOffsetKey(monthKey, -1);
+    const map = new Map<string, { closed: number; monthly: number; prevMonthly: number }>();
+    for (const acc of db.accounts) {
+      map.set(acc.id, {
+        closed: closedNative(db, acc.id),
+        monthly: pnlInMonth(db, acc.id, monthKey),
+        prevMonthly: pnlInMonth(db, acc.id, prevMonthKey),
+      });
+    }
+    return map;
+  }, [db, monthKey]);
+
   const subtitle =
     accounts.length === 0
       ? "Nessun account attivo"
@@ -127,15 +144,13 @@ export function AccountsList({ db }: { db: DB }) {
       ) : (
         <div className="grid gap-2 sm:grid-cols-2">
           {accounts.map((acc: TradingAccount) => {
-            const closed = closedNative(db, acc.id);
+            const { closed, monthly, prevMonthly } = accountStats.get(acc.id) ?? {
+              closed: 0,
+              monthly: 0,
+              prevMonthly: 0,
+            };
             const saldo = acc.capital + closed;
             const active = ACTIVE.includes(acc.status);
-            const monthly = pnlInMonth(db, acc.id, monthKey);
-            const prevMonthly = pnlInMonth(
-              db,
-              acc.id,
-              monthOffsetKey(monthKey, -1)
-            );
             const monthlyDelta = monthly - prevMonthly;
             const saldoTone = moneyHide
               ? "text-secondary-text"

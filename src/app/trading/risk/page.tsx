@@ -8,7 +8,7 @@
 // NESSUN cambiamento di logica: solo presentazione.
 // ============================================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { useDB } from "@/lib/storage";
@@ -219,14 +219,25 @@ export default function RiskPage() {
 function RiskBody({ accountId }: { accountId: string }) {
   const db = useDB();
   const account = db.accounts.find((a) => a.id === accountId)!;
-  const stats = riskStats(db, account);
+
+  // Selettori pesanti (derivati solo da db + account): riskStats fa il pieno
+  // scan dei trade dell'account (drawdown, day map, streak) e il sort per
+  // l'ultimo trade → memoizzati per non ricalcolarli a ogni re-render.
+  const stats = useMemo(() => riskStats(db, account), [db, account]);
+  const accountTrades = useMemo(
+    () => db.trades.filter((t) => t.accountId === account.id),
+    [db, account]
+  );
+  const sortedTrades = useMemo(
+    () => [...accountTrades].sort((a, b) => a.closeDate.localeCompare(b.closeDate)),
+    [accountTrades]
+  );
 
   const masked = db.settings.privacyMode === "complete";
   const cur = stats.nativeCurrency;
   const fmt = (n: number) => (masked ? maskMoney() : formatMoney(n, cur));
   const signedFmt = (n: number) => (masked ? maskMoney() : formatSignedMoney(n, cur));
 
-  const accountTrades = db.trades.filter((t) => t.accountId === account.id);
   const losingCount = accountTrades.filter((t) => t.resultNative < 0).length;
   const tradingDayNow = tradingDayKey(new Date().toISOString(), account);
 
@@ -246,7 +257,6 @@ function RiskBody({ accountId }: { accountId: string }) {
 
   // ---- Streak corrente ----
   const { wins, losses, current } = stats.consecutive;
-  const sortedTrades = [...accountTrades].sort((a, b) => a.closeDate.localeCompare(b.closeDate));
   const lastTrade = sortedTrades[sortedTrades.length - 1];
 
   // ---- Nessun trade → empty state (con select account ancora attivo sopra) ----

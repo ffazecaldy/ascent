@@ -7,6 +7,7 @@
 // Righe con hover, numeri in tnum. Rispetta la privacy.
 // ============================================================
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import type { DB } from "@/lib/types";
@@ -75,15 +76,19 @@ export function RecentTrades({ db }: { db: DB }) {
   const kpiHide = kpiMasked(db.settings.privacyMode);
   const baseCurrency = db.settings.baseCurrency;
 
-  const recent = [...db.trades]
-    .sort((a, b) => b.closeDate.localeCompare(a.closeDate))
-    .slice(0, 10);
+  // Selezione degli ultimi 10 trade chiusi (sort su tutto il log) → memoizzata.
+  const recent = useMemo(
+    () => [...db.trades].sort((a, b) => b.closeDate.localeCompare(a.closeDate)).slice(0, 10),
+    [db]
+  );
 
   // Chip riepilogativo "Δ vs mese prec" (solo freccia + delta P&L mese corrente − mese precedente).
   const monthKey = monthKeyOf(todayKey(tz));
-  const pnlDelta =
-    monthPnlTrades(db, monthKey).base -
-    monthPnlTrades(db, monthOffsetKey(monthKey, -1)).base;
+  const pnlDelta = useMemo(
+    () =>
+      monthPnlTrades(db, monthKey).base - monthPnlTrades(db, monthOffsetKey(monthKey, -1)).base,
+    [db, monthKey]
+  );
 
   return (
     <Card texture>

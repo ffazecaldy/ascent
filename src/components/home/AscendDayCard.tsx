@@ -5,6 +5,7 @@
 // "X/Y vinti questa settimana" + dots dei 7 giorni + stato di oggi.
 // ============================================================
 
+import { useMemo } from "react";
 import { ascordWeek, ascordDay } from "@/lib/compute";
 import type { DB } from "@/lib/types";
 import { todayKey, addDaysKey, weekStartKey } from "@/lib/dates";
@@ -14,12 +15,30 @@ import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { Icon } from "@/components/ui/Icon";
 
 export function AscendDayCard({ db }: { db: DB }) {
-  const asc = ascordWeek(db);
-  const today = asc.today;
   const tz = db.settings.timezone;
-  const weekStart = weekStartKey(todayKey(tz), db.settings.weekStart);
-  const days = Array.from({ length: 7 }, (_, i) => addDaysKey(weekStart, i));
   const todayKeyResult = todayKey(tz);
+
+  // Selettori pesanti: ascordWeek lancia ascordDay per ogni giorno <= oggi, e i
+  // dots rilanciano ascordDay per ciascuno dei 7 giorni → raggruppati in un solo
+  // giro memoizzato su db (risultati identici a prima).
+  const { asc, weekStart, dayStates } = useMemo(() => {
+    const asc = ascordWeek(db);
+    const weekStart = weekStartKey(todayKey(db.settings.timezone), db.settings.weekStart);
+    const dayStates = new Map<string, boolean | null>();
+    for (let i = 0; i < 7; i++) {
+      const dk = addDaysKey(weekStart, i);
+      if (dk > todayKey(db.settings.timezone)) {
+        dayStates.set(dk, null);
+        continue;
+      }
+      const r = ascordDay(db, dk);
+      dayStates.set(dk, r.total > 0 ? r.met : null);
+    }
+    return { asc, weekStart, dayStates };
+  }, [db]);
+
+  const today = asc.today;
+  const days = Array.from({ length: 7 }, (_, i) => addDaysKey(weekStart, i));
 
   return (
     <Card hairline="success" className="flex flex-col gap-4">
@@ -55,7 +74,7 @@ export function AscendDayCard({ db }: { db: DB }) {
           {/* dots dei 7 giorni */}
           <div className="flex justify-between gap-1">
             {days.map((dk) => {
-              const d = asc.total > 0 ? ascordWeekWin(db, dk) : null;
+              const d = asc.total > 0 ? (dayStates.get(dk) ?? null) : null;
               const isToday = dk === todayKeyResult;
               return (
                 <div key={dk} className="flex flex-1 flex-col items-center gap-1">
@@ -98,10 +117,4 @@ export function AscendDayCard({ db }: { db: DB }) {
       )}
     </Card>
   );
-}
-
-function ascordWeekWin(db: DB, dayKey: string): boolean | null {
-  if (dayKey > todayKey(db.settings.timezone)) return null;
-  const r = ascordDay(db, dayKey);
-  return r.total > 0 ? r.met : null;
 }

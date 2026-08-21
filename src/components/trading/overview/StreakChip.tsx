@@ -8,6 +8,7 @@
 // (kpiMasked), come nel resto del modulo trading.
 // ============================================================
 
+import { useMemo } from "react";
 import { cn } from "@/lib/cn";
 import type { DB } from "@/lib/types";
 import type { ReactNode } from "react";
@@ -32,7 +33,8 @@ const TONE_DOT: Record<Tone, string> = {
 
 export function StreakChip({ db }: { db: DB }) {
   const kpiHide = kpiMasked(db.settings.privacyMode);
-  const streak = consecutiveWinsLosses(db.trades);
+  // Consecutive su TUTTI i trade chiusi: sort + scan → memoizzato su db.
+  const streak = useMemo(() => consecutiveWinsLosses(db.trades), [db]);
 
   let emoji: ReactNode;
   let count: string;

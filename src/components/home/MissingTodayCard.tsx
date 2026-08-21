@@ -5,6 +5,7 @@
 // Checklist dinamica dai DailyGoal attivi (missingToday).
 // ============================================================
 
+import { useMemo } from "react";
 import { missingToday, GOAL_LABELS } from "@/lib/compute";
 import type { DB, GoalType } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
@@ -24,7 +25,8 @@ function valueText(type: GoalType, value: number, target: number): string {
 }
 
 export function MissingTodayCard({ db }: { db: DB }) {
-  const items = missingToday(db);
+  // missingToday → ascordDay (scan di transazioni/trade/workout/PC/libri) → memoizzato.
+  const items = useMemo(() => missingToday(db), [db]);
   const done = items.filter((i) => i.done).length;
 
   return (

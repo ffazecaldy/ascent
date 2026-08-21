@@ -8,6 +8,7 @@
 // Cifre mascherate in modalità privacy (moneyMasked).
 // ============================================================
 
+import { useMemo } from "react";
 import { cn } from "@/lib/cn";
 import type { DB } from "@/lib/types";
 import { StatCard } from "@/components/ui/StatCard";
@@ -45,38 +46,47 @@ export function KpiCards({ db }: { db: DB }) {
   const locale = db.settings.locale;
   const mode = db.settings.privacyMode;
 
-  const monthKey = monthKeyOf(todayKey(tz));
-  const { start, end } = monthRange(monthKey);
-  const monthTrades = tradesBetween(db, start, end); // trade chiusi nel mese
-  const st = tradingStats(monthTrades);
-  const disc = disciplineStats(db, monthTrades.map((t) => t.id));
-  const pnlBase = monthPnlTrades(db, monthKey).base; // in valuta base
+  // Selettori pesanti del mese corrente + mese precedente (derivati solo da db):
+  // memoizzati così un re-render (es. toggle sidebar in AppShell) non ricalcola
+  // tradingStats/disciplineStats/monthPnlTrades dalla fonte.
+  const { st, disc, pnlBase, pnlDelta, discDelta, winRateDelta, pnlSeries } = useMemo(() => {
+    const monthKey = monthKeyOf(todayKey(tz));
+    const { start, end } = monthRange(monthKey);
+    const monthTrades = tradesBetween(db, start, end); // trade chiusi nel mese
+    const st = tradingStats(monthTrades);
+    const disc = disciplineStats(db, monthTrades.map((t) => t.id));
+    const pnlBase = monthPnlTrades(db, monthKey).base; // in valuta base
 
-  // Delta vs MESE PRECEDENTE (frecce di movimento sui KPI).
-  const prevMonthKey = monthOffsetKey(monthKey, -1);
-  const pnlDelta = pnlBase - monthPnlTrades(db, prevMonthKey).base;
-  const prevRange = monthRange(prevMonthKey);
-  const prevTrades = tradesBetween(db, prevRange.start, prevRange.end);
-  const prevSt = tradingStats(prevTrades);
-  const prevDisc = disciplineStats(db, prevTrades.map((t) => t.id));
-  const winRateDelta =
-    st.winRate != null && prevSt.winRate != null
-      ? st.winRate - prevSt.winRate
-      : null;
-  const discDelta =
-    disc.disciplinePct != null && prevDisc.disciplinePct != null
-      ? disc.disciplinePct - prevDisc.disciplinePct
-      : null;
+    // Delta vs MESE PRECEDENTE (frecce di movimento sui KPI).
+    const prevMonthKey = monthOffsetKey(monthKey, -1);
+    const pnlDelta = pnlBase - monthPnlTrades(db, prevMonthKey).base;
+    const prevRange = monthRange(prevMonthKey);
+    const prevTrades = tradesBetween(db, prevRange.start, prevRange.end);
+    const prevSt = tradingStats(prevTrades);
+    const prevDisc = disciplineStats(db, prevTrades.map((t) => t.id));
+    const winRateDelta =
+      st.winRate != null && prevSt.winRate != null
+        ? st.winRate - prevSt.winRate
+        : null;
+    const discDelta =
+      disc.disciplinePct != null && prevDisc.disciplinePct != null
+        ? disc.disciplinePct - prevDisc.disciplinePct
+        : null;
+
+    // Serie P&L degli ultimi 6 mesi (valuta base) per la sparkline.
+    const pnlSeries = Array.from(
+      { length: 6 },
+      (_, i) => monthPnlTrades(db, monthOffsetKey(monthKey, i - 5)).base
+    );
+    return { st, disc, pnlBase, pnlDelta, discDelta, winRateDelta, pnlSeries };
+  }, [db, tz]);
+
+  const monthKey = monthKeyOf(todayKey(tz));
 
   const moneyHide = moneyMasked(mode);
   const kpiHide = kpiMasked(mode);
   const baseCurrency = db.settings.baseCurrency;
 
-  // Serie P&L degli ultimi 6 mesi (valuta base) per la sparkline.
-  const pnlSeries = Array.from(
-    { length: 6 },
-    (_, i) => monthPnlTrades(db, monthOffsetKey(monthKey, i - 5)).base
-  );
   const pnlPos = pnlBase >= 0;
   const pnlTone =
     pnlBase > 0 ? "text-success" : pnlBase < 0 ? "text-danger" : "text-foreground";
