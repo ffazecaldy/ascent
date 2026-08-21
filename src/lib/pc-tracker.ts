@@ -175,3 +175,43 @@ export function timeAgo(iso: string | null): string {
   const h = Math.floor(m / 60);
   return `${h}h ${m % 60}m fa`;
 }
+
+// --- Helpers stats di sessione (TrackerLive) --------------------------
+
+/** Categorie considerate "produttive" (dev/web/lavoro, EN + IT). */
+export const PRODUCTIVE_CATEGORIES: ReadonlySet<string> = new Set([
+  "Dev",
+  "Web",
+  "Sviluppo",
+  "Lavoro",
+]);
+
+/** Formatta una durata in millisecondi → "HH:MM:SS" (cronometro). */
+export function formatDurHMS(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+/** Colori barra per categoria (token tema, per style inline). */
+export const CATEGORY_COLOR: Record<string, string> = {
+  Dev: "var(--accent)",
+  Web: "var(--success)",
+  Sviluppo: "var(--accent)",
+  Lavoro: "var(--success)",
+  Communication: "var(--warning)",
+  Productivity: "var(--accent-2)",
+  Design: "var(--accent-3)",
+  Media: "var(--accent-dim)",
+  Gaming: "var(--danger)",
+  System: "var(--text-muted)",
+  Other: "var(--text-2)",
+};
+
+/** Colore barra di una categoria (fallback muted). */
+export function categoryColor(category: string): string {
+  return CATEGORY_COLOR[category] ?? "var(--text-2)";
+}
