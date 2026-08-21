@@ -12,6 +12,7 @@
 // ============================================================
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { promises as fs, createWriteStream } from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -172,6 +173,80 @@ function send(res, code, obj) {
   res.end(JSON.stringify(obj));
 }
 
+// ------------------------------------------------------------------
+// HOOK event-driven (Windows): cattura OGNI cambio finestra attiva
+// via EVENT_SYSTEM_FOREGROUND. Fallback: polling interval.
+// ------------------------------------------------------------------
+let hookChild = null;
+let hookAlive = false;
+let hookBuffer = "";
+
+function handleHookLine(line) {
+  const t = line.trim();
+  if (!t) return;
+  try {
+    const obj = JSON.parse(t);
+    if (obj && typeof obj.ts === "string" && typeof obj.exe === "string") {
+      lastSample = obj;
+      const file = todayFile();
+      const tmp = file + ".tmp";
+      fs.readFile(file, "utf8").then((existing) => {
+        fs.writeFile(tmp, existing + JSON.stringify(obj) + "\n", "utf8")
+          .then(() => fs.rename(tmp, file))
+          .catch(() => {});
+      }).catch(() => {
+        fs.writeFile(tmp, JSON.stringify(obj) + "\n", "utf8")
+          .then(() => fs.rename(tmp, file))
+          .catch(() => {});
+      });
+    }
+  } catch { /* riga non JSON */ }
+}
+
+async function startHook() {
+  if (process.platform !== "win32") return false;
+  const hookScript = fileURLToPath(new URL("./tracker-hook.ps1", import.meta.url));
+  try {
+    hookChild = spawn(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", hookScript],
+      { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] }
+    );
+    hookChild.stdout.on("data", (d) => {
+      hookBuffer += d.toString("utf8");
+      const lines = hookBuffer.split("\n");
+      hookBuffer = lines.pop() ?? "";
+      lines.forEach((l) => handleHookLine(l));
+    });
+    hookChild.stderr.on("data", (d) => {
+      const s = d.toString("utf8");
+      if (s.includes("HOOK_FAILED")) hookAlive = false;
+    });
+    hookChild.on("exit", () => {
+      hookAlive = false;
+      hookChild = null;
+      // fallback al polling
+      if (!checkInterval) {
+        console.log("[tracker] hook terminato — fallback polling");
+        tick();
+        checkInterval = setInterval(tick, INTERVAL * 1000);
+        checkInterval.unref?.();
+      }
+    });
+    hookChild.on("error", () => {
+      hookAlive = false;
+      hookChild = null;
+    });
+    hookAlive = true;
+    setTimeout(() => {
+      if (!hookAlive) return;
+    }, 2000);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const p = url.pathname;
@@ -193,6 +268,7 @@ const server = createServer(async (req, res) => {
         lastSample,
         lastAt: lastSample?.ts ?? null,
         platform: process.platform,
+        mode: hookAlive ? "hook-event" : "polling",
       });
     }
 
@@ -258,10 +334,16 @@ server.listen(PORT, "127.0.0.1", async () => {
   DATA_DIR_USED = DATA_DIR_FALLBACK;
   console.log(`Ascend Window Tracker · http://127.0.0.1:${PORT}`);
   console.log(`Data dir: ${DATA_DIR_USED} · interval ${INTERVAL}s · platform ${process.platform}`);
-  // campione immediato + loop
-  tick();
-  checkInterval = setInterval(tick, INTERVAL * 1000);
-  checkInterval.unref?.();
+  // Prova hook event-driven; se non parte, polling
+  const hooked = await startHook();
+  if (!hooked) {
+    console.log("[tracker] hook non disponibile — polling attivo");
+    tick();
+    checkInterval = setInterval(tick, INTERVAL * 1000);
+    checkInterval.unref?.();
+  } else {
+    console.log("[tracker] hook WinEvent attivo (event-driven, CPU ~0)");
+  }
 });
 
 process.on("SIGINT", () => { console.log("\nTracker fermato (SIGINT)"); process.exit(0); });
