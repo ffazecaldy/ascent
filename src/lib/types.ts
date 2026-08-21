@@ -193,7 +193,7 @@ export interface WeeklyGoal {
   deadline?: string | null; // "yyyy-MM-dd" — scadenza opzionale
 }
 
-export type PCUsageSource = "manuale" | "csv" | "activitywatch";
+export type PCUsageSource = "manuale" | "csv" | "activitywatch" | "auto";
 
 export interface PCUsageLog {
   id: string;

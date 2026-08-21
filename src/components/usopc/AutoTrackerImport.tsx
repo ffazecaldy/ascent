@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { useDB, updateDB, uid, nowISO } from "@/lib/storage";
 import { cn } from "@/lib/cn";
 import type { PCUsageLog } from "@/lib/types";
+import { aggregateSamples, type TrackerSample } from "@/lib/pc-tracker";
 
 interface AutoTrackerImportProps {
   onClose?: () => void;
@@ -20,81 +21,18 @@ export function AutoTrackerImport({ onClose }: AutoTrackerImportProps) {
 
   const db = useDB();
 
-  // Mapping exe → categoria (subset, estendibile via mapping.json)
-  const EXE_CATEGORY: Record<string, string> = {
-    // Browser
-    "chrome.exe": "Web", "firefox.exe": "Web", "msedge.exe": "Web", "brave.exe": "Web", "opera.exe": "Web", "vivaldi.exe": "Web",
-    // Dev
-    "code.exe": "Dev", "code-insiders.exe": "Dev", "pycharm64.exe": "Dev", "idea64.exe": "Dev", "webstorm64.exe": "Dev", "rider64.exe": "Dev", "clion64.exe": "Dev", "goland64.exe": "Dev", "phpstorm64.exe": "Dev", "rubymine64.exe": "Dev", "vim.exe": "Dev", "nvim.exe": "Dev", "notepad++.exe": "Dev", "sublime_text.exe": "Dev", "atom.exe": "Dev",
-    "cmd.exe": "Dev", "powershell.exe": "Dev", "pwsh.exe": "Dev", "bash.exe": "Dev", "wsl.exe": "Dev", "git.exe": "Dev", "docker.exe": "Dev", "docker-compose.exe": "Dev",
-    // Communication
-    "teams.exe": "Communication", "slack.exe": "Communication", "discord.exe": "Communication", "whatsapp.exe": "Communication", "telegram.exe": "Communication", "signal.exe": "Communication", "skype.exe": "Communication", "zoom.exe": "Communication", "outlook.exe": "Communication",
-    // Design
-    "figma.exe": "Design", "photoshop.exe": "Design", "illustrator.exe": "Design", "afterfx.exe": "Design", "premiere.exe": "Design", "blender.exe": "Design", "unity.exe": "Design", "unrealeditor.exe": "Design",
-    // Productivity
-    "excel.exe": "Productivity", "winword.exe": "Productivity", "powerpnt.exe": "Productivity", "onenote.exe": "Productivity", "notion.exe": "Productivity", "obsidian.exe": "Productivity", "logseq.exe": "Productivity",
-    // Media
-    "spotify.exe": "Media", "vlc.exe": "Media", "mpv.exe": "Media", "wmplayer.exe": "Media", "foobar2000.exe": "Media", "youtube.exe": "Media", "youtubemusic.exe": "Media",
-    // System
-    "explorer.exe": "System", "taskmgr.exe": "System", "regedit.exe": "System", "msconfig.exe": "System", "services.exe": "System",
-    // Gaming
-    "steam.exe": "Gaming", "epicgameslauncher.exe": "Gaming", "origin.exe": "Gaming", "battle.net.exe": "Gaming", "gog.exe": "Gaming",
-  };
-
-  const TITLE_KEYWORDS: Record<string, string[]> = {
-    Web: ["github", "gitlab", "stackoverflow", "docs", "api", "http", "web", "browser", "chrome", "firefox"],
-    Dev: ["code", "git", "terminal", "bash", "python", "javascript", "typescript", "react", "vue", "node", "npm", "yarn", "docker", "kubernetes"],
-    Communication: ["meeting", "call", "chat", "mail", "email", "message", "slack", "teams", "discord"],
-    Design: ["figma", "design", "photoshop", "illustrator", "sketch", "adobe", "creative"],
-    Productivity: ["notion", "obsidian", "notes", "task", "todo", "project", "plan", "excel", "word", "powerpoint"],
-    Media: ["spotify", "music", "video", "youtube", "vlc", "media", "player"],
-    System: ["settings", "control panel", "task manager", "registry", "services", "update"],
-    Gaming: ["steam", "epic", "game", "play", "battle.net", "origin", "gog"],
-  };
-
-  function categorize(exe: string, title: string): string {
-    const exeLower = exe.toLowerCase();
-    if (EXE_CATEGORY[exeLower]) return EXE_CATEGORY[exeLower];
-
-    const titleLower = title.toLowerCase();
-    for (const [cat, keywords] of Object.entries(TITLE_KEYWORDS)) {
-      if (keywords.some((k) => titleLower.includes(k.toLowerCase()))) {
-        return cat;
-      }
-    }
-    return "Other";
-  }
-
-  function aggregateMinutes(entries: Array<{ ts: string; exe: string; title: string }>): Record<string, number> {
-    const byDayCat = new Map<string, number>();
-
-    for (const e of entries) {
-      const date = e.ts.split("T")[0];
-      const cat = categorize(e.exe, e.title);
-      const key = `${date}|${cat}`;
-      const prev = byDayCat.get(key) ?? 0;
-      // Ogni sample = 30 secondi = 0.5 minuti
-      byDayCat.set(key, prev + 0.5);
-    }
-
-    const result: Record<string, number> = {};
-    for (const [key, mins] of byDayCat.entries()) {
-      // arrotonda a 1 decimale
-      result[key] = Math.round(mins * 10) / 10;
-    }
-    return result;
-  }
-
-  async function readJsonlFile(file: File): Promise<Array<{ ts: string; exe: string; title: string }>> {
+  async function readJsonlFile(file: File): Promise<TrackerSample[]> {
     const text = await file.text();
     const lines = text.trim().split("\n").filter((l) => l.trim());
-    return lines.map((line) => {
-      try {
-        return JSON.parse(line);
-      } catch {
-        return null;
-      }
-    }).filter((x): x is { ts: string; exe: string; title: string } => x !== null);
+    return lines
+      .map((line) => {
+        try {
+          return JSON.parse(line) as TrackerSample;
+        } catch {
+          return null;
+        }
+      })
+      .filter((x): x is TrackerSample => Boolean(x && typeof x.ts === "string" && typeof x.exe === "string"));
   }
 
   async function handleImport() {
@@ -103,7 +41,7 @@ export function AutoTrackerImport({ onClose }: AutoTrackerImportProps) {
     setCount(0);
 
     try {
-      let entries: Array<{ ts: string; exe: string; title: string }> = [];
+      let entries: TrackerSample[] = [];
 
       if (dirHandle) {
         // Cartella selezionata via File System Access API
@@ -130,7 +68,7 @@ export function AutoTrackerImport({ onClose }: AutoTrackerImportProps) {
       setStatus("processing");
       setMessage(`Elaborazione ${entries.length} campioni...`);
 
-      const aggregated = aggregateMinutes(entries);
+      const aggregated = aggregateSamples(entries);
 
       // Upsert in DB
       let inserted = 0;
@@ -147,19 +85,19 @@ export function AutoTrackerImport({ onClose }: AutoTrackerImportProps) {
             (l) => l.date === date && l.categoryId === category
           );
 
-          const entry = {
-                      id: uid(),
-                      date,
-                      categoryId: category,
-                      minutes,
-                      source: "auto" as const,
-                      createdAt: new Date().toISOString(),
-                    };
+          const entry: PCUsageLog = {
+            id: uid(),
+            date,
+            categoryId: category,
+            minutes,
+            source: "auto",
+            createdAt: new Date().toISOString(),
+          };
 
           if (idx >= 0) {
             next.pcUsageLogs[idx] = { ...next.pcUsageLogs[idx], minutes: next.pcUsageLogs[idx].minutes + minutes };
           } else {
-            next.pcUsageLogs.push(entry as unknown as PCUsageLog);
+            next.pcUsageLogs.push(entry);
             inserted++;
           }
         }

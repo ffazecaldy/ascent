@@ -22,6 +22,7 @@ import { Reveal } from "@/components/ui/Reveal";
 import { BarsChart, DonutChart } from "@/components/charts";
 import { Icon } from "@/components/ui/Icon";
 import { AutoTrackerImport } from "@/components/usopc/AutoTrackerImport";
+import { TrackerLive } from "@/components/usopc/TrackerLive";
 
 const DEFAULT_CATEGORIES = [
   "Lavoro",
@@ -317,6 +318,11 @@ export default function UsoPcPage() {
           subtitle="Ore produttive, distrazioni e trend degli ultimi 7 giorni — tutto il tuo tempo in un colpo d'occhio."
           action={actions}
         />
+      </Reveal>
+
+      {/* Tracker live — registrazione dinamica (in alto, prima dei KPI) */}
+      <Reveal delay={10}>
+        <TrackerLive />
       </Reveal>
 
       {/* KPI */}
