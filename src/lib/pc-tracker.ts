@@ -83,7 +83,30 @@ export function fetchTrackerSince(ts: string): Promise<TrackerSince | null> {
   return trackerGet<TrackerSince>(`/api/since?ts=${encodeURIComponent(ts)}`);
 }
 
-// --- Mapping exe → categoria (subset, estendibile via mapping.json) ---
+// --- Mapping campione → categoria -------------------------------------
+//
+// ORDINE DI MATCH (documentato, vedi categorize()):
+//   1° userMap utente (regole personali, priorità assoluta)
+//   2° LEISURE_TITLE  — dominii di svago nel titolo (YouTube su Chrome = Media)
+//   3° WORK_TITLE     — dominii produttivi nel titolo (GitHub su Chrome = Lavoro)
+//   4° EXE_CATEGORY   — match per processo (fallback per app non-browser)
+//   5° TITLE_KEYWORDS — keyword generiche residue
+//   fallback "Other"
+//
+// Nota storica: prima di questo ordine "Web" era produttivo e qualsiasi
+// cosa su Chrome contava come lavoro → YouTube risultava "produttivo".
+
+/** Dominii di svago nel TITOLO finestra → Media/Social. Controllati PRIMA dell'exe. */
+export const LEISURE_TITLE: { cat: string; keys: string[] }[] = [
+  { cat: "Media", keys: ["youtube", "netflix", "prime video", "disney+", "crunchyroll", "twitch.tv", "raiplay", "mediaset infinity", "dazn", "spotify"] },
+  { cat: "Social", keys: ["tiktok", "instagram", "facebook", "reddit", "twitter", "x.com", "linkedin", "threads", "pinterest", "snapchat", "whatsapp web", "telegram web"] },
+];
+
+/** Dominii produttivi nel TITOLO finestra → Lavoro/Dev. Dopo lo svago, prima dell'exe. */
+export const WORK_TITLE: { cat: string; keys: string[] }[] = [
+  { cat: "Lavoro", keys: ["github", "gitlab", "stackoverflow", "stack overflow", "docs.", "documentation", "outlook", "gmail", "google meet", "notion.so", "atlassian", "jira", "confluence", "figma"] },
+  { cat: "Dev", keys: ["visual studio code", "vscode", "intellij", "pycharm", "webstorm", "terminal", "docker desktop", "postman", "localhost:", "vercel", "developer.mozilla", "mdn"] },
+];
 
 export const EXE_CATEGORY: Record<string, string> = {
   // Browser
@@ -106,7 +129,7 @@ export const EXE_CATEGORY: Record<string, string> = {
 };
 
 export const TITLE_KEYWORDS: Record<string, string[]> = {
-  Web: ["github", "gitlab", "stackoverflow", "docs", "api", "http", "web", "browser", "chrome", "firefox"],
+  Web: ["github", "gitlab", "stackoverflow"], // residui: i generici (http/web/browser/chrome) classificavano male
   Dev: ["code", "git", "terminal", "bash", "python", "javascript", "typescript", "react", "vue", "node", "npm", "yarn", "docker", "kubernetes"],
   Communication: ["meeting", "call", "chat", "mail", "email", "message", "slack", "teams", "discord"],
   Design: ["figma", "design", "photoshop", "illustrator", "sketch", "adobe", "creative"],
@@ -116,14 +139,39 @@ export const TITLE_KEYWORDS: Record<string, string[]> = {
   Gaming: ["steam", "epic", "game", "play", "battle.net", "origin", "gog"],
 };
 
-/** Categorizza un campione (exe + titolo finestra) → categoria. */
-export function categorize(exe: string, title: string): string {
+/**
+ * Categorizza un campione (exe + titolo finestra) → categoria.
+ * Ordine: userMap → LEISURE_TITLE → WORK_TITLE → exe → TITLE_KEYWORDS → Other.
+ * userMap: regole personali {appName-o-exe-lowercase → categoria}, priorità assoluta.
+ */
+export function categorize(exe: string, title: string, userMap?: Record<string, string>): string {
   const exeLower = exe.toLowerCase();
+  const titleLower = (title ?? "").toLowerCase();
+
+  // 1° — regole personali
+  if (userMap) {
+    if (userMap[exeLower]) return userMap[exeLower];
+    for (const [name, cat] of Object.entries(userMap)) {
+      if (name && titleLower.includes(name.toLowerCase())) return cat;
+    }
+  }
+
+  // 2° — svago nel titolo (vince sull'exe: YouTube su Chrome = Media, non Web)
+  for (const g of LEISURE_TITLE) {
+    if (g.keys.some((k) => titleLower.includes(k))) return g.cat;
+  }
+
+  // 3° — lavoro nel titolo (GitHub su Chrome = Lavoro)
+  for (const g of WORK_TITLE) {
+    if (g.keys.some((k) => titleLower.includes(k))) return g.cat;
+  }
+
+  // 4° — match per processo
   if (EXE_CATEGORY[exeLower]) return EXE_CATEGORY[exeLower];
 
-  const titleLower = title.toLowerCase();
+  // 5° — keyword generiche residue
   for (const [cat, keywords] of Object.entries(TITLE_KEYWORDS)) {
-    if (keywords.some((k) => titleLower.includes(k.toLowerCase()))) {
+    if (keywords.some((k) => titleLower.includes(k))) {
       return cat;
     }
   }
@@ -134,13 +182,13 @@ export function categorize(exe: string, title: string): string {
  * Aggrega campioni per giorno+categoria in minuti.
  * Ogni campione = 30s = 0.5 min. Chiave risultato: "yyyy-MM-dd|Categoria".
  */
-export function aggregateSamples(entries: TrackerSample[]): Record<string, number> {
+export function aggregateSamples(entries: TrackerSample[], userMap?: Record<string, string>): Record<string, number> {
   const byDayCat = new Map<string, number>();
 
   for (const e of entries) {
     if (!e?.ts || !e?.exe) continue;
     const date = e.ts.split("T")[0];
-    const cat = categorize(e.exe, e.title ?? "");
+    const cat = categorize(e.exe, e.title ?? "", userMap);
     const key = `${date}|${cat}`;
     const prev = byDayCat.get(key) ?? 0;
     byDayCat.set(key, prev + TRACKER_SAMPLE_MIN);
@@ -178,10 +226,9 @@ export function timeAgo(iso: string | null): string {
 
 // --- Helpers stats di sessione (TrackerLive) --------------------------
 
-/** Categorie considerate "produttive" (dev/web/lavoro, EN + IT). */
+/** Categorie considerate "produttive" (sviluppo/lavoro; "Web" è neutro — poteva essere YouTube). */
 export const PRODUCTIVE_CATEGORIES: ReadonlySet<string> = new Set([
   "Dev",
-  "Web",
   "Sviluppo",
   "Lavoro",
 ]);
@@ -206,6 +253,7 @@ export const CATEGORY_COLOR: Record<string, string> = {
   Productivity: "var(--accent-2)",
   Design: "var(--accent-3)",
   Media: "var(--accent-dim)",
+  Social: "#ec4899",
   Gaming: "var(--danger)",
   System: "var(--text-muted)",
   Other: "var(--text-2)",

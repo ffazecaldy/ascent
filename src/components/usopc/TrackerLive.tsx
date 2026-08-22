@@ -61,6 +61,12 @@ interface SessionStats {
 export function TrackerLive() {
   const db = useDB();
 
+  // Regole personali app→categoria (priorità massima nella categorizzazione)
+  const userMap = useMemo(
+    () => Object.fromEntries(db.pcAppCategoryMap.map((m) => [m.appName.toLowerCase(), m.category])),
+    [db.pcAppCategoryMap]
+  );
+
   const [status, setStatus] = useState<TrackerStatus>("checking");
   const [lastSample, setLastSample] = useState<TrackerSample | null>(null);
   const [recording, setRecording] = useState(false);
@@ -96,7 +102,7 @@ export function TrackerLive() {
   const importSamples = useCallback((samples: TrackerSample[]): number => {
     if (samples.length === 0) return 0;
 
-    const aggregated = aggregateSamples(samples);
+    const aggregated = aggregateSamples(samples, userMap);
     let inserted = 0;
     updateDB((d) => {
       const next = { ...d, pcUsageLogs: [...d.pcUsageLogs] };
@@ -217,7 +223,7 @@ export function TrackerLive() {
     const exeCount = new Map<string, number>();
     for (const s of buf) {
       if (!s?.exe) continue;
-      const cat = categorize(s.exe, s.title ?? "");
+      const cat = categorize(s.exe, s.title ?? "", userMap);
       catMin.set(cat, (catMin.get(cat) ?? 0) + TRACKER_SAMPLE_MIN);
       exeCount.set(s.exe, (exeCount.get(s.exe) ?? 0) + 1);
     }
