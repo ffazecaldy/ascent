@@ -13,6 +13,7 @@ import type { DB } from "@/lib/types";
 import { todayKey, weekStartKey } from "@/lib/dates";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 
 const SIZE = 380;
 const C = SIZE / 2;
@@ -123,7 +124,15 @@ export function RadarCard({ db }: { db: DB }) {
           <CardTitle>Equilibrio</CardTitle>
           <CardSubtitle>Ogni categoria verso il suo bordo</CardSubtitle>
         </div>
-        <Icon name="activity" size={18} className="text-accent" />
+        {/* % di equilibrio — fuori dallo schema, grande e leggibile */}
+        <div className="flex shrink-0 items-baseline gap-1">
+          <AnimatedNumber
+            value={overall * 100}
+            className="tnum text-4xl font-bold leading-none text-accent"
+            fmt={(n) => String(Math.round(n))}
+          />
+          <span className="tnum text-sm font-medium text-muted-foreground">%</span>
+        </div>
       </CardHeader>
 
       {hasData ? (
@@ -216,13 +225,7 @@ export function RadarCard({ db }: { db: DB }) {
                 </text>
               );
             })}
-            {/* centro: media */}
-            <text x={C} y={C - 4} textAnchor="middle" dominantBaseline="middle" fontSize="22" fontWeight="700" fill="var(--text-primary)" className="tnum">
-              {Math.round(overall * 100)}%
-            </text>
-            <text x={C} y={C + 14} textAnchor="middle" dominantBaseline="middle" fontSize="9" fill="var(--text-muted)">
-              equilibrio
-            </text>
+            {/* centro: vuoto di proposito — la % sta nell'header, fuori dallo schema */}
           </svg>
         </div>
       ) : (
