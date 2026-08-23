@@ -44,6 +44,7 @@ const emptyDB = (): DB => ({
   savingsGoals: [],
   savingsDeposits: [],
   sportProfile: null,
+  recurringRules: [],
   badges: [],
 });
 
@@ -73,6 +74,12 @@ export function loadDB(): DB {
       // alla prima visita di /sport). Nessun dato utente viene toccato.
       if ((parsed.version ?? 0) < 5) {
         cache = { ...cache, version: DB_VERSION, sportProfile: cache.sportProfile ?? null };
+        saveDB(cache);
+        return cache;
+      }
+      // Migrazione v5→v6: Ricorrenti. Nuova collezione `recurringRules` vuota.
+      if ((parsed.version ?? 0) < 6) {
+        cache = { ...cache, version: DB_VERSION, recurringRules: cache.recurringRules ?? [] };
         saveDB(cache);
         return cache;
       }

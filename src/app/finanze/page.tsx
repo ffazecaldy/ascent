@@ -16,6 +16,7 @@ import { TransactionForm } from "@/components/finanze/TransactionForm";
 import { CategoryManager } from "@/components/finanze/CategoryManager";
 import { MonthOverview } from "@/components/finanze/MonthOverview";
 import { TransactionTable } from "@/components/finanze/TransactionTable";
+import { RecurringManager } from "@/components/finanze/RecurringManager";
 
 export default function FinanzePage() {
   const db = useDB();
@@ -47,6 +48,10 @@ export default function FinanzePage() {
 
       <Reveal delay={120}>
         <MonthOverview month={month} onMonthChange={setMonth} />
+      </Reveal>
+
+      <Reveal delay={180}>
+        <RecurringManager />
       </Reveal>
 
       <Reveal delay={220}>

@@ -8,8 +8,9 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useDB, updateDB } from "@/lib/storage";
-import { activityStreak, evalProgress } from "@/lib/compute";
+import { activityStreak, evalProgress, applyRecurringRules } from "@/lib/compute";
 import { cn } from "@/lib/cn";
+import { todayKey } from "@/lib/dates";
 import type { PrivacyMode } from "@/lib/types";
 import { PRIVACY_ORDER } from "@/lib/privacy";
 import { Icon, type IconName } from "@/components/ui/Icon";
@@ -140,6 +141,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
+  }, []);
+
+  // RICORRENTI — generazione automatica all'apertura (una volta per sessione):
+  // le regole attive con dayOfMonth <= oggi generano la transazione del mese
+  // (anti-doppione via id deterministico rec-<rule>-<mese> e lastAppliedMonth).
+  const recurringRanRef = useRef(false);
+  useEffect(() => {
+    if (recurringRanRef.current) return;
+    if (!db.recurringRules || db.recurringRules.length === 0) return;
+    recurringRanRef.current = true;
+    const today = todayKey(db.settings.timezone);
+    const { transactions: newTx, rules: updatedRules } = applyRecurringRules(db, today);
+    if (newTx.length === 0) return;
+    updateDB((d) => ({
+      ...d,
+      transactions: [...d.transactions, ...newTx],
+      recurringRules: d.recurringRules.map((r) => updatedRules.find((u) => u.id === r.id) ?? r),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // PROMOZIONE EVAL → FINANZIATO (globale: scatta da qualunque pagina)
