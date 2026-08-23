@@ -72,7 +72,10 @@ const NAV: { group: string; items: NavItem[] }[] = [
   },
   {
     group: "Progressione",
-    items: [{ href: "/obiettivi", label: "Obiettivi", icon: "target" }],
+    items: [
+      { href: "/obiettivi", label: "Obiettivi", icon: "target" },
+      { href: "/coach", label: "Coach", icon: "sparkles" },
+    ],
   },
   {
     group: "Sistema",

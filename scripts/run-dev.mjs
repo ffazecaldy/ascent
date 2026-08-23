@@ -1,18 +1,23 @@
 #!/usr/bin/env node
 // ============================================================
-// ASCEND — avvio accoppiato: l'app e il window-tracker
+// ASCEND — avvio accoppiato: app + window-tracker + Ollama
 // vivono e muoiono insieme.
-//   node scripts/run-dev.mjs  → tracker-server + next dev
-// Ctrl+C (o chiusura app)     → tracker fermato insieme.
-// Se il tracker è già attivo sulla porta, lo riusa.
+//   node scripts/run-dev.mjs  → tracker-server + ollama serve + next dev
+// Ctrl+C (o chiusura app)     → tutto fermato insieme.
+// Servizi già attivi sulle loro porte vengono riusati, non duplicati.
 // ============================================================
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import os from "node:os";
 import net from "node:net";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TRACKER_PORT = Number(process.env.ASCEND_TRACKER_PORT ?? 4877);
+const OLLAMA_PORT = 11434;
+const OLLAMA_EXE = path.join(
+  os.homedir(), "AppData", "Local", "Programs", "Ollama", "ollama.exe"
+);
 
 function portInUse(port) {
   return new Promise((resolve) => {
@@ -39,6 +44,32 @@ if (isTrackerUp) {
   });
 }
 
+// --- Ollama (per il Coach AI): riusa se già attivo, altrimenti serve ---
+const isOllamaUp = await portInUse(OLLAMA_PORT);
+let ollama = null;
+
+if (isOllamaUp) {
+  console.log(`[run-dev] ollama già attivo su :${OLLAMA_PORT} — riuso`);
+} else {
+  const { existsSync } = await import("node:fs");
+  if (!existsSync(OLLAMA_EXE)) {
+    console.log("[run-dev] Ollama non installato — Coach AI non disponibile (l'app funziona comunque)");
+  } else {
+    console.log("[run-dev] avvio ollama serve...");
+    ollama = spawn(OLLAMA_EXE, ["serve"], {
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    ollama.on("exit", () => {
+      console.log("[run-dev] ollama terminato");
+    });
+    // piccola attesa: il server impiega ~1-2s a bindare la porta
+    for (let i = 0; i < 10 && !(await portInUse(OLLAMA_PORT)); i++) {
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+}
+
 console.log("[run-dev] avvio next dev...");
 const next = spawn(
   process.platform === "win32" ? "npx.cmd" : "npx",
@@ -51,6 +82,10 @@ function shutdown(why) {
   try { next.kill("SIGTERM"); } catch { /* noop */ }
   if (tracker) {
     try { tracker.kill("SIGTERM"); } catch { /* noop */ }
+  }
+  // Ollama solo se l'abbiamo avviato noi (se era già attivo, lo lasciamo vivo)
+  if (ollama) {
+    try { ollama.kill("SIGTERM"); } catch { /* noop */ }
   }
   // esci dopo un attimo per lasciare il tempo ai figli di morire
   setTimeout(() => process.exit(0), 800);
