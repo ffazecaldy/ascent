@@ -20,6 +20,7 @@ import {
 } from "@/lib/dates";
 import { getAccount } from "@/lib/db";
 import { accountBaseRate } from "@/lib/compute";
+import { isMarketOpen, marketDaysInMonth } from "@/lib/market-days";
 import { moneyMasked, maskMoney } from "@/lib/privacy";
 import type { DB } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
@@ -71,6 +72,7 @@ export function TradingCalendarCard({ db }: { db: DB }) {
   const firstDow = new Date(y, m - 1, 1).getDay(); // 0=dom → offset per griglia che parte da lun
   const leading = (firstDow + 6) % 7;
   const dim = daysInMonth(y, m);
+  const marketDays = marketDaysInMonth(monthKey);
 
   return (
     <Card hairline="accent" texture className="flex flex-col">
@@ -79,8 +81,8 @@ export function TradingCalendarCard({ db }: { db: DB }) {
           <CardTitle>Calendario Trading</CardTitle>
           <CardSubtitle>
             {totalTrades > 0
-              ? `${monthLabel} · ${tradeDays} giorni di trading, ${totalTrades} trade`
-              : `${monthLabel} · nessun trade nel mese`}
+              ? `${monthLabel} · ${tradeDays} giorni di trading, ${totalTrades} trade · ${marketDays} giorni di mercato`
+              : `${monthLabel} · nessun trade nel mese · ${marketDays} giorni di mercato`}
           </CardSubtitle>
         </div>
         <Link
@@ -110,13 +112,18 @@ export function TradingCalendarCard({ db }: { db: DB }) {
           const hasPnl = !!agg && agg.count > 0;
           const isToday = dk === today;
           const positive = hasPnl && agg!.pnlBase >= 0;
+          // Sab/dom = mercato chiuso: cella visivamente distinta SOLO se
+          // non ci sono trade (i trade importati di weekend storici restano normali).
+          const isWeekendClosed = !hasPnl && !isMarketOpen(dk);
           return (
             <div
               key={dk}
               title={
                 hasPnl && !masked
                   ? `${dk} · ${compactMoney(agg!.pnlBase)} ${currency} · ${agg!.count} trade`
-                  : dk
+                  : isWeekendClosed
+                    ? "Mercato chiuso"
+                    : dk
               }
               className={cn(
                 "relative flex aspect-[0.86] min-h-12 flex-col rounded-lg border p-1.5 transition-colors duration-300",
@@ -124,7 +131,9 @@ export function TradingCalendarCard({ db }: { db: DB }) {
                   ? positive
                     ? "border-success/70 bg-success/10 hover:border-success"
                     : "border-danger/70 bg-danger/10 hover:border-danger"
-                  : "border-border/50 bg-elevated/15 hover:border-border",
+                  : isWeekendClosed
+                    ? "border-border/30 bg-black/20 opacity-50 hover:border-border/50"
+                    : "border-border/50 bg-elevated/15 hover:border-border",
                 isToday && "ring-2 ring-accent/80 shadow-[0_0_14px_-2px_var(--accent-glow)]"
               )}
               style={

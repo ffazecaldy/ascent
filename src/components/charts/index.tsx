@@ -9,6 +9,8 @@
 
 import { useId } from "react";
 
+import { isMarketOpen, marketDaysInMonth } from "@/lib/market-days";
+
 export const ACCENT = "#4C7EFF";
 export const SUCCESS = "#2ddf9e";
 export const DANGER = "#ff5c5c";
@@ -398,6 +400,11 @@ export function PnlCalendar({
     const abs = Math.abs(p).toLocaleString(locale, { maximumFractionDigits: 0 });
     return `${p > 0 ? "+" : p < 0 ? "−" : ""}${abs}`;
   };
+  // Sab/dom senza trade = mercato chiuso: cella più scura/trasparente e
+  // attenuata, ma comunque renderizzata (griglia regolare). I trade
+  // importati storicamente nei weekend restano normali (nessun marker).
+  const isWeekendClosed = (key: string): boolean => !pnlMap.has(key) && !isMarketOpen(key);
+  const marketDays = marketDaysInMonth(month);
   return (
     <div>
       <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-muted-foreground">
@@ -410,11 +417,21 @@ export function PnlCalendar({
           if (!key) return <div key={i} />;
           const pnl = pnlMap.get(key);
           const isToday = todayKey != null && key === todayKey;
+          const weekendClosed = isWeekendClosed(key);
           return (
             <div
               key={i}
-              title={pnl != null ? `${key}: ${fmt(pnl)} ${nativeCurrency}` : key}
-              style={{ backgroundColor: pnl != null ? colorFor(pnl) : "var(--bg-elev-1)" }}
+              title={
+                pnl != null
+                  ? `${key}: ${fmt(pnl)} ${nativeCurrency}`
+                  : weekendClosed
+                    ? "Mercato chiuso"
+                    : key
+              }
+              style={{
+                backgroundColor: pnl != null ? colorFor(pnl) : weekendClosed ? "#101012" : "var(--bg-elev-1)",
+                opacity: weekendClosed ? 0.55 : 1,
+              }}
               className={`flex aspect-square flex-col items-center justify-center rounded-md text-[10px] tnum ${
                 isToday ? "outline outline-1 outline-accent" : ""
               }`}
@@ -428,6 +445,9 @@ export function PnlCalendar({
           );
         })}
       </div>
+      {marketDays > 0 && (
+        <p className="tnum mt-1.5 text-[10px] text-muted-foreground">{marketDays} giorni di mercato</p>
+      )}
     </div>
   );
 }

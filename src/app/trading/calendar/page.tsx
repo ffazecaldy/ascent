@@ -8,6 +8,7 @@ import { pnlByTradingDay } from "@/lib/compute";
 import { monthKeyOf, todayKey } from "@/lib/dates";
 import { calendarNeutral, moneyMasked } from "@/lib/privacy";
 import { formatSignedMoney } from "@/lib/format";
+import { isMarketOpen, marketDaysInMonth } from "@/lib/market-days";
 import { cn } from "@/lib/cn";
 
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
@@ -93,12 +94,17 @@ function CalGrid({
     const hasPnl = pnlMap.has(key);
     const pnl = hasPnl ? pnlMap.get(key)! : 0;
     const isToday = key === today;
+    // Sab/dom senza trade = mercato chiuso: sfondo più scuro + opacity
+    // ridotta + title 'Mercato chiuso'. Cella comunque renderizzata
+    // (griglia regolare); con trade importati resta normale.
+    const isWeekendClosed = !hasPnl && !isMarketOpen(key);
     daysCells.push(
       <div
         key={key}
-        title={hasPnl ? `${key}: ${fmt(pnl)} ${nativeCurrency}` : key}
+        title={hasPnl ? `${key}: ${fmt(pnl)} ${nativeCurrency}` : isWeekendClosed ? "Mercato chiuso" : key}
         style={{
-          backgroundColor: hasPnl ? colorFor(pnl) : isToday ? "#18181c" : "#141416",
+          backgroundColor: hasPnl ? colorFor(pnl) : isWeekendClosed ? "#101012" : isToday ? "#18181c" : "#141416",
+          opacity: isWeekendClosed ? 0.55 : 1,
           animationDelay: `${idx * 14}ms`,
         }}
         className={cn(
@@ -178,6 +184,9 @@ export default function TradingCalendarPage() {
   const money = moneyMasked(db.settings.privacyMode);
   const shareOf = (n: number) => (days.length > 0 ? Math.round((n / days.length) * 100) : 0);
   const daysLabel = `${days.length} ${days.length === 1 ? "giorno di trading" : "giorni di trading"}`;
+  // Giorni di mercato del mese visualizzato (lun-ven, festività USA escluse).
+  const marketDaysLabel = `${marketDaysInMonth(month)} giorni di mercato`;
+  const todayIsWeekend = !isMarketOpen(today);
 
   if (accounts.length === 0) {
     return (
@@ -218,6 +227,16 @@ export default function TradingCalendarPage() {
         kicker="Trading · Calendario P&L"
         title="Calendario P&L"
         subtitle="P&L per trading day dell'account — il confine segue la sessione, non la mezzanotte."
+        action={
+          todayIsWeekend ? (
+            <span
+              title="Sabato e domenica il mercato è chiuso"
+              className="rounded-lg border border-border bg-elevated/60 px-2.5 py-1 text-[11px] font-medium text-secondary-text"
+            >
+              Il mercato è chiuso (weekend)
+            </span>
+          ) : undefined
+        }
       />
 
       {/* Selezione account + navigazione mese */}
@@ -274,7 +293,8 @@ export default function TradingCalendarPage() {
               <div>
                 <CardTitle>Calendario P&L</CardTitle>
                 <CardSubtitle>
-                  {account!.name} · {account!.nativeCurrency} · ogni cella è un trading day
+                  {account!.name} · {account!.nativeCurrency} · ogni cella è un trading day ·{" "}
+                  {marketDaysLabel}
                 </CardSubtitle>
               </div>
             </CardHeader>
@@ -306,6 +326,10 @@ export default function TradingCalendarPage() {
                   <span className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-sm border border-border-strong bg-[#141416]" />
                     Nessun trade
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-sm border border-border-strong bg-[#101012] opacity-55" />
+                    Mercato chiuso (weekend)
                   </span>
                 </div>
               </>
