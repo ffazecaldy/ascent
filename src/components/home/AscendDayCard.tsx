@@ -26,6 +26,15 @@ const LEVEL_BG = [
 const DAY_LETTERS = ["L", "M", "M", "G", "V", "S", "D"];
 const MONTH_LABELS = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
 
+/**
+ * Geometria calendario — deve combaciare con le classi utility usate nella griglia:
+ * celle 13px, gap 3px tra colonne, colonna lettere w-4 (16px) + mr-1 (4px).
+ */
+const CELL_SIZE = 13;
+const CELL_GAP = 3;
+const COL_PITCH = CELL_SIZE + CELL_GAP; // 16px di passo per colonna-settimana
+const DAY_COL_W = 16 + 4; // larghezza totale colonna lettere giorni
+
 export function AscendDayCard({ db }: { db: DB }) {
   const tz = db.settings.timezone;
   const todayKeyResult = todayKey(tz);
@@ -82,16 +91,26 @@ export function AscendDayCard({ db }: { db: DB }) {
       weeks.push(col);
       cursor = addDaysKey(cursor, 7);
     }
-    // label mesi: sopra la prima colonna che inizia un mese nuovo
-    const monthLabels: { col: number; label: string }[] = [];
+    // label mesi: sopra la prima colonna che inizia un mese nuovo.
+    // Ogni label riceve uno "span" = n° colonne fino alla prossima label, così
+    // il testo riserva lo spazio necessario e non trabocca su quella vicina.
+    const monthLabels: { col: number; label: string; span: number }[] = [];
     let lastMonth = -1;
     weeks.forEach((col, ci) => {
       const m2 = Number(col[0].dk.slice(5, 7)) - 1;
       if (m2 !== lastMonth) {
-        monthLabels.push({ col: ci, label: MONTH_LABELS[m2] });
+        monthLabels.push({ col: ci, label: MONTH_LABELS[m2], span: 1 });
+        if (monthLabels.length > 1) {
+          const prev = monthLabels[monthLabels.length - 2];
+          prev.span = ci - prev.col;
+        }
         lastMonth = m2;
       }
     });
+    // l'ultima label arriva fino a fine griglia
+    if (monthLabels.length > 0) {
+      monthLabels[monthLabels.length - 1].span = weeks.length - monthLabels[monthLabels.length - 1].col;
+    }
     return { weeks, monthLabels, activeDays, totalActions };
   }, [db]);
   const days = Array.from({ length: 7 }, (_, i) => addDaysKey(weekStart, i));
@@ -178,7 +197,7 @@ export function AscendDayCard({ db }: { db: DB }) {
 
         {/* ——— Colonna destra · calendario attività stile GitHub (full width disponibile) ——— */}
         <div className="flex min-w-0 flex-1 flex-col lg:border-l lg:border-l-border lg:pl-6">
-          <div className="mb-2 flex items-baseline justify-between gap-2">
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Attività · ultime 13 settimane
             </p>
@@ -187,14 +206,23 @@ export function AscendDayCard({ db }: { db: DB }) {
             </p>
           </div>
           <div className="overflow-x-auto pb-1">
-            <div className="inline-block min-w-full">
-              {/* label mesi */}
-              <div className="ml-6 flex gap-[3px]">
+            <div
+              className="inline-block min-w-full"
+              style={{ minWidth: DAY_COL_W + calendar.weeks.length * COL_PITCH }}
+            >
+              {/* label mesi — ogni slot riserva span*COL_PITCH px, così il testo non
+                  trabocca mai su una label vicina; troncato a 9px se troppo lungo */}
+              <div className="flex" style={{ marginLeft: DAY_COL_W, height: 12 }}>
                 {calendar.weeks.map((_, ci) => {
                   const lbl = calendar.monthLabels.find((m) => m.col === ci);
+                  if (!lbl) return <div key={ci} style={{ width: COL_PITCH }} />;
                   return (
-                    <div key={ci} className="w-[13px] text-left">
-                      {lbl && <span className="block whitespace-nowrap text-[9px] text-muted-foreground">{lbl.label}</span>}
+                    <div
+                      key={ci}
+                      className="overflow-hidden"
+                      style={{ width: lbl.span * COL_PITCH }}
+                    >
+                      <span className="block truncate text-[9px] leading-[12px] text-muted-foreground">{lbl.label}</span>
                     </div>
                   );
                 })}
@@ -226,13 +254,13 @@ export function AscendDayCard({ db }: { db: DB }) {
                   </div>
                 ))}
               </div>
-              {/* legenda */}
-              <div className="mt-2 flex items-center justify-end gap-1.5">
-                <span className="text-[9px] text-muted-foreground">meno</span>
+              {/* legenda — riga propria sotto le celle, mai a contatto con esse */}
+              <div className="mt-2 flex flex-wrap items-center justify-end gap-x-1.5 gap-y-1">
+                <span className="text-[9px] leading-none text-muted-foreground">meno</span>
                 {LEVEL_BG.map((bg, i) => (
-                  <span key={i} className={`h-[10px] w-[10px] rounded-[3px] ${bg}`} />
+                  <span key={i} className={`h-[10px] w-[10px] shrink-0 rounded-[3px] ${bg}`} />
                 ))}
-                <span className="text-[9px] text-muted-foreground">più</span>
+                <span className="text-[9px] leading-none text-muted-foreground">più</span>
               </div>
             </div>
           </div>

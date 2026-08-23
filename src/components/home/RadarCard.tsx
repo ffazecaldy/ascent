@@ -21,6 +21,12 @@ const R_MAX = 132;
 const R_LABEL = R_MAX + 30; // offset etichette esterne
 const R_MIN_FRAC = 0.12; // minimo visivo: il poligono esiste sempre
 
+// viewBox esteso oltre lo schema: le label laterali partono da C±R_LABEL con
+// anchor start/end e il testo prosegue verso l'esterno, quindi servono margini
+// extra a destra/sinistra (e un filo in alto/basso) per non clippare nulla.
+// L'SVG resta largo SIZE ma scala responsive via style (maxWidth/height auto).
+const VB = { x: -34, y: -16, w: SIZE + 68, h: SIZE + 22 };
+
 /** Assi del radar con colore proprio vivace per categoria. */
 const AXES = [
   { key: "trading", label: "Trading", color: "var(--accent)" },
@@ -119,7 +125,10 @@ export function RadarCard({ db }: { db: DB }) {
 
   return (
     <Card hairline="accent" className="flex flex-col gap-3">
-      <CardHeader>
+      {/* % fuori dallo schema: nell'header, a destra del titolo. flex-wrap +
+          gap-2! (important v4: cn è join semplice, serve per vincere su gap-3
+          base) così il numero va a capo sotto il titolo su schermi stretti. */}
+      <CardHeader className="flex-wrap gap-2!">
         <div>
           <CardTitle>Equilibrio</CardTitle>
           <CardSubtitle>Ogni categoria verso il suo bordo</CardSubtitle>
@@ -137,7 +146,14 @@ export function RadarCard({ db }: { db: DB }) {
 
       {hasData ? (
         <div className="flex justify-center">
-          <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} role="img" aria-label="Radar equilibrio categorie">
+          <svg
+            width={SIZE}
+            height={SIZE}
+            viewBox={`${VB.x} ${VB.y} ${VB.w} ${VB.h}`}
+            style={{ maxWidth: "100%", height: "auto" }}
+            role="img"
+            aria-label="Radar equilibrio categorie"
+          >
             {/* griglia ottagonale a 4 livelli */}
             {[0.25, 0.5, 0.75, 1].map((f) => (
               <polygon
@@ -208,8 +224,9 @@ export function RadarCard({ db }: { db: DB }) {
               let anchor: "start" | "middle" | "end" = "middle";
               if (cos > 0.35) anchor = "start";
               else if (cos < -0.35) anchor = "end";
-              // spinta verticale per gli assi in alto/basso
-              const dy = sin < -0.85 ? -4 : sin > 0.85 ? 8 : 0;
+              // spinta verticale: alto/basso si staccano dal punto, i diagonali
+              // hanno un micro-offset per non toccare mai la y del dato
+              const dy = sin < -0.85 ? -4 : sin > 0.85 ? 8 : sin < 0 ? -2 : 3;
               return (
                 <text
                   key={a.key}
