@@ -4,13 +4,22 @@
 // brand in gradiente, nav con pill attiva, streak con glow, blur header.
 // ============================================================
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useDB, updateDB } from "@/lib/storage";
-import { activityStreak, evalProgress, applyRecurringRules } from "@/lib/compute";
+import {
+  activityStreak,
+  evalProgress,
+  applyRecurringRules,
+  riskLimitAlerts,
+  riskAckBucket,
+  type RiskLimitAlert,
+} from "@/lib/compute";
 import { cn } from "@/lib/cn";
 import { todayKey } from "@/lib/dates";
+import { formatMoney, formatPercent } from "@/lib/format";
+import { moneyMasked, maskMoney, maskKpi } from "@/lib/privacy";
 import type { PrivacyMode } from "@/lib/types";
 import { PRIVACY_ORDER } from "@/lib/privacy";
 import { Icon, type IconName } from "@/components/ui/Icon";
@@ -20,6 +29,10 @@ interface NavItem {
   label: string;
   icon: IconName | { img: string; alt: string };
 }
+
+// localStorage key per l'acknowledge dei banner di drawdown:
+// { "<accountId>-<daily|max>": timestamp dell'ack }
+const RISK_ACK_KEY = "ascend:risk-ack";
 
 const NAV: { group: string; items: NavItem[] }[] = [
   { group: "", items: [{ href: "/", label: "Home", icon: "home" }] },
@@ -191,6 +204,47 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t);
   }, [evalToast]);
 
+  // ALERT DRAWDOWN GLOBALE — banner sotto l'header per ogni account attivo
+  // (non archiviato, eval|finanziato) con daily/max loss limit consumato ≥80%.
+  const riskAlerts = useMemo(
+    () => riskLimitAlerts(db),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [db.accounts, db.trades]
+  );
+
+  const [riskAckVersion, setRiskAckVersion] = useState(0);
+
+  // ack letti a ogni cambio versione (bottone ✕) — fuori dal DB, solo localStorage
+  const riskAcks = useMemo(() => {
+    void riskAckVersion;
+    try {
+      const raw = localStorage.getItem(RISK_ACK_KEY);
+      return raw ? (JSON.parse(raw) as Record<string, number>) : {};
+    } catch {
+      return {};
+    }
+  }, [riskAckVersion]);
+
+  // banner attivi = alert la cui soglia non è stata ancora ack-ata
+  // (l'ack è valido finché il consumo resta nella stessa fascia: 80|100)
+  const activeRiskAlerts = riskAlerts.filter((a) => {
+    const ackAt = riskAcks[`${a.accountId}-${a.kind}`];
+    if (!ackAt) return true;
+    return false;
+  });
+
+  const ackRiskAlert = (a: RiskLimitAlert) => {
+    try {
+      const raw = localStorage.getItem(RISK_ACK_KEY);
+      const map: Record<string, number> = raw ? JSON.parse(raw) : {};
+      map[`${a.accountId}-${a.kind}`] = Date.now();
+      localStorage.setItem(RISK_ACK_KEY, JSON.stringify(map));
+      setRiskAckVersion((v) => v + 1); // forza il filtro degli ack senza toccare il DB
+    } catch {
+      /* localStorage indisponibile: il banner riapparirà al prossimo render */
+    }
+  };
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -244,6 +298,44 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <PrivacyToggle />
           </div>
         </header>
+
+        {/* ALERT DRAWDOWN GLOBALE */}
+        {activeRiskAlerts.length > 0 && (
+          <div className="mx-auto w-full max-w-6xl space-y-2 px-4 pt-3 lg:px-6">
+            {activeRiskAlerts.map((a) => {
+              const over = a.pct >= 100;
+              return (
+                <div
+                  key={`${a.accountId}-${a.kind}`}
+                  className={cn(
+                    "flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border px-4 py-2.5 text-sm",
+                    over
+                      ? "animate-pulse-dot border-danger/50 bg-danger/12 text-danger"
+                      : "border-warning/40 bg-warning/10 text-warning"
+                  )}
+                >
+                  <Icon name={over ? "alert" : "shield"} size={16} />
+                  <span className="font-semibold">{a.accountName}</span>
+                  <span>
+                    {over ? "LIMITE SUPERATO —" : ""} {a.kind === "daily" ? "Perdita giornaliera" : "Max loss"}:{" "}
+                    <span className="tnum font-bold">{a.pct}%</span> · residuo{" "}
+                    <span className="tnum font-medium">
+                      {moneyMasked(db.settings.privacyMode) ? maskMoney() : formatMoney(a.remaining, a.nativeCurrency)}
+                    </span>
+                  </span>
+                  <button
+                    onClick={() => ackRiskAlert(a)}
+                    aria-label="Nascondi avviso"
+                    className="ml-auto rounded-md p-1 transition-colors hover:bg-elevated"
+                  >
+                    <Icon name="x" size={14} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-7 lg:px-6">{children}</main>
       </div>
 

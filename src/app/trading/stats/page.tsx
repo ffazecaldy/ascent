@@ -43,6 +43,7 @@ import {
 import { formatNumber, formatPercent, formatR, formatSignedMoney } from "@/lib/format";
 import { setupName } from "@/lib/db";
 import { kpiMasked, maskKpi, maskMoney, moneyMasked } from "@/lib/privacy";
+import { DisciplineCorrelationCard } from "@/components/trading/stats/DisciplineCorrelationCard";
 
 type PeriodId = "month" | "3m" | "12m" | "all";
 
@@ -56,6 +57,13 @@ const PERIODS: { id: PeriodId; label: string }[] = [
 const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"] as const;
 
 const HOUR_BANDS = 12; // fasce da 2h: 00-02 … 22-24
+
+/** Punto bucket temporale: P&L aggregato (+ N trade, vinte, somma R per WR/expectancy). */
+type BucketPoint = { x: string; y: number; count: number; wins: number; sumR: number };
+
+// Soglie per l'evidenziazione "edge negativo": campione significativo E win rate sotto soglia.
+const EDGE_MIN_TRADES = 20;
+const EDGE_MIN_WR = 45; // %
 
 /** Formato label mesile degli helper (x = "yy-mm") → "mm/aa". */
 function monthLabel(x: string): string {
@@ -83,6 +91,71 @@ function hourInTZ(iso: string, timeZone: string): number {
   let h = Number(fmt.format(new Date(iso)));
   if (h === 24) h = 0; // mezzanotte resa come "24" da alcuni engine
   return h;
+}
+
+/** Win rate % di un bucket (null senza trade). */
+function bucketWinRate(b: { count: number; wins: number }): number | null {
+  return b.count > 0 ? (b.wins / b.count) * 100 : null;
+}
+
+/** True se il bucket ha un campione significativo con win rate sotto soglia ("edge negativo"). */
+function isNegativeEdge(b: { count: number; wins: number }): boolean {
+  const wr = bucketWinRate(b);
+  return b.count >= EDGE_MIN_TRADES && wr != null && wr < EDGE_MIN_WR;
+}
+
+/**
+ * Riga compatta di statistiche per bucket temporale: N trade · WR · avg R,
+ * con badge "edge negativo" quando campione ≥ soglia e WR sotto soglia.
+ */
+function BucketStatsRow({ bucket, masked }: { bucket: BucketPoint; masked: boolean }) {
+  const wr = bucketWinRate(bucket);
+  const avgR = bucket.count > 0 ? bucket.sumR / bucket.count : 0;
+  const edge = isNegativeEdge(bucket);
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg px-2.5 py-1.5 text-[11px]",
+        edge ? "bg-danger/10" : "bg-elevated"
+      )}
+    >
+      <span className="w-12 shrink-0 font-medium text-secondary-text">{bucket.x}</span>
+      <span className="tnum text-foreground">
+        <span className="text-muted-foreground">N </span>
+        {bucket.count}
+      </span>
+      <span aria-hidden className="text-muted-foreground">
+        ·
+      </span>
+      <span className={cn("tnum", edge ? "font-semibold text-danger" : "text-foreground")}>
+        <span className="text-muted-foreground">WR </span>
+        {wr != null ? formatPercent(wr, 0) : "—"}
+      </span>
+      <span aria-hidden className="text-muted-foreground">
+        ·
+      </span>
+      <span
+        className={cn(
+          "tnum",
+          masked
+            ? "text-secondary-text"
+            : avgR > 0
+              ? "text-success"
+              : avgR < 0
+                ? "text-danger"
+                : "text-foreground"
+        )}
+      >
+        <span className="text-muted-foreground">avg R </span>
+        {masked ? maskKpi() : formatR(avgR)}
+      </span>
+      {edge && (
+        <span className="ml-auto rounded-md bg-danger/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-danger">
+          edge negativo
+        </span>
+      )}
+    </div>
+  );
 }
 
 /** Range di day key per il periodo selezionato. */
@@ -261,26 +334,38 @@ export default function TradingStatsPage() {
     })();
 
     // (5) P&L per giorno della settimana: 0=Lun … 6=Dom via giorno di chiusura in tz.
-    const weekdayData = WEEKDAY_LABELS.map((label, i) => {
+    // Oltre alla somma P&L: N trade, vinte e somma R per WR/expectancy per bucket.
+    const weekdayData: BucketPoint[] = WEEKDAY_LABELS.map((label, i) => {
       let sum = 0;
+      let count = 0;
+      let wins = 0;
+      let sumR = 0;
       for (const t of trades) {
         const { y, m, d } = parseDateKey(isoToDayKey(t.closeDate, tz));
         const idx = (new Date(y, m - 1, d).getDay() + 6) % 7;
-        if (idx === i) sum += basePnl(db, t);
+        if (idx === i) {
+          sum += basePnl(db, t);
+          count += 1;
+          if (t.resultR > 0) wins += 1;
+          sumR += t.resultR;
+        }
       }
-      return { x: label, y: sum };
+      return { x: label, y: sum, count, wins, sumR };
     });
 
-    // (6) P&L per fascia oraria (ora di chiusura in tz, fasce da 2h).
-    const hourData = (() => {
-      const sums = Array.from({ length: HOUR_BANDS }, () => 0);
+    // (6) P&L per fascia oraria (ora di chiusura in tz, fasce da 2h) + N/WR/R per bucket.
+    const hourData: BucketPoint[] = (() => {
+      const acc = Array.from({ length: HOUR_BANDS }, () => ({ y: 0, count: 0, wins: 0, sumR: 0 }));
       for (const t of trades) {
         const band = Math.min(HOUR_BANDS - 1, Math.floor(hourInTZ(t.closeDate, tz) / 2));
-        sums[band] += basePnl(db, t);
+        acc[band].y += basePnl(db, t);
+        acc[band].count += 1;
+        if (t.resultR > 0) acc[band].wins += 1;
+        acc[band].sumR += t.resultR;
       }
-      return sums
-        .map((y, i) => ({
-          y,
+      return acc
+        .map((v, i) => ({
+          ...v,
           x: `${String(i * 2).padStart(2, "0")}–${String(i * 2 + 2).padStart(2, "0")}`,
         }))
         .filter((r) => r.y !== 0); // solo fasce con attività
@@ -591,6 +676,11 @@ export default function TradingStatsPage() {
             </div>
           </Reveal>
 
+          {/* Correlazione Disciplina → P&L (subito dopo le KPI) */}
+          <Reveal delay={30}>
+            <DisciplineCorrelationCard db={db} trades={trades} />
+          </Reveal>
+
           {/* Curva equity */}
           <Reveal delay={60}>
             <Card hairline="accent" texture className="relative">
@@ -723,6 +813,12 @@ export default function TradingStatsPage() {
                   <BarsChart data={weekdayData} showValue={!moneyHidden} height={CHART_H} />
                   <ZeroBaseline data={weekdayData} height={CHART_H} />
                 </div>
+                {/* N trade · WR · avg R per bucket (stessi trade del chart) */}
+                <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                  {weekdayData.map((b) => (
+                    <BucketStatsRow key={b.x} bucket={b} masked={kpiHidden} />
+                  ))}
+                </div>
                 <div className="mt-2 flex items-center gap-4 text-[11px] text-secondary-text">
                   <span className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-sm bg-accent" /> profitto
@@ -747,6 +843,12 @@ export default function TradingStatsPage() {
                 <div className="relative">
                   <BarsChart data={hourData} showValue={!moneyHidden} height={CHART_H} />
                   <ZeroBaseline data={hourData} height={CHART_H} />
+                </div>
+                {/* N trade · WR · avg R per bucket (stessi trade del chart) */}
+                <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                  {hourData.map((b) => (
+                    <BucketStatsRow key={b.x} bucket={b} masked={kpiHidden} />
+                  ))}
                 </div>
                 <div className="mt-2 flex items-center gap-4 text-[11px] text-secondary-text">
                   <span className="flex items-center gap-1.5">

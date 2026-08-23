@@ -484,6 +484,90 @@ export function riskStats(db: DB, account: TradingAccount): RiskStats {
 }
 
 // ------------------------------------------------------------
+// Alert drawdown globale (banner persistente in AppShell)
+// ------------------------------------------------------------
+export interface RiskLimitAlert {
+  accountId: string;
+  accountName: string;
+  /** "daily" = dailyLossLimit nel trading day corrente; "max" = maxLossLimit cumulativo */
+  kind: "daily" | "max";
+  /** perdita consumata (valuta nativa, ≥ 0) */
+  used: number;
+  /** valore del limite (valuta nativa, > 0) */
+  limit: number;
+  /** consumo in % (used/limit*100) */
+  pct: number;
+  /** true se consumo ≥ 100% ("LIMITE SUPERATO") */
+  breached: boolean;
+  /** limite residuo (valuta nativa, ≥ 0) */
+  remaining: number;
+  nativeCurrency: string;
+}
+
+/** Soglia minima di allerta: i banner compaiono dal 80% di consumo. */
+export const RISK_ALERT_THRESHOLD_PCT = 80;
+
+function pushRiskAlert(
+  out: RiskLimitAlert[],
+  acc: TradingAccount,
+  kind: RiskLimitAlert["kind"],
+  used: number,
+  limit: number
+): void {
+  const pct = (used / limit) * 100;
+  if (pct < RISK_ALERT_THRESHOLD_PCT) return;
+  out.push({
+    accountId: acc.id,
+    accountName: acc.name,
+    kind,
+    used,
+    limit,
+    pct,
+    breached: pct >= 100,
+    remaining: Math.max(0, limit - used),
+    nativeCurrency: acc.nativeCurrency,
+  });
+}
+
+/**
+ * Alert drawdown per TUTTI gli account non archiviati con status eval|finanziato.
+ * Semantica di consumo identica alle LimitChip della pagina Account:
+ * daily = perdita del trading day corrente; max = capital − equity live.
+ * Ordinati: breach (≥100%) prima, poi consumo decrescente.
+ */
+export function riskLimitAlerts(db: DB): RiskLimitAlert[] {
+  const out: RiskLimitAlert[] = [];
+  const actives = db.accounts.filter(
+    (a) => !a.archived && (a.status === "eval" || a.status === "finanziato")
+  );
+  for (const acc of actives) {
+    const accTrades = db.trades.filter((t) => t.accountId === acc.id);
+    if (acc.dailyLossLimit != null && acc.dailyLossLimit > 0) {
+      const tdk = tradingDayKey(new Date().toISOString(), acc);
+      const dayPnl = accTrades
+        .filter((t) => tradingDayKey(t.closeDate, acc) === tdk)
+        .reduce((s, t) => s + t.resultNative, 0);
+      pushRiskAlert(out, acc, "daily", Math.max(0, -dayPnl), acc.dailyLossLimit);
+    }
+    if (acc.maxLossLimit != null && acc.maxLossLimit > 0) {
+      const live = acc.capital + accTrades.reduce((s, t) => s + t.resultNative, 0);
+      pushRiskAlert(out, acc, "max", Math.max(0, acc.capital - live), acc.maxLossLimit);
+    }
+  }
+  return out.sort((a, b) =>
+    a.breached !== b.breached ? (a.breached ? -1 : 1) : b.pct - a.pct
+  );
+}
+
+/**
+ * Bucket di soglia per l'acknowledge del banner (10% in 10%: 80 → 90 → 100).
+ * Un ack resta valido solo finché il consumo non sale a un bucket superiore.
+ */
+export function riskAckBucket(pct: number): number {
+  return Math.min(100, Math.floor(pct / 10) * 10);
+}
+
+// ------------------------------------------------------------
 // P&L trading del periodo per la Home (in valuta base)
 // ------------------------------------------------------------
 export function tradesBetween(db: DB, fromKey: string, toKey: string): Trade[] {
@@ -1039,4 +1123,60 @@ export function applyRecurringRules(
   }
 
   return { transactions: newTx, rules: updatedRules };
+}
+
+// ------------------------------------------------------------
+// Correlazione Disciplina → P&L
+// ------------------------------------------------------------
+
+/** Metriche di tradingStats limitate ai campi chiave, per un gruppo di trade. */
+export interface DisciplinePnlBucket {
+  count: number;
+  winRate: number | null; // % wins/count
+  avgR: number | null; // media rMultiple
+  totalNative: number; // somma resultNative (valuta nativa)
+  pf: number | null; // profit factor, come in tradingStats
+}
+
+export interface DisciplinePnlSplit {
+  respected: DisciplinePnlBucket; // tradeRespected() === true
+  violated: DisciplinePnlBucket; // tradeRespected() === false
+  none: DisciplinePnlBucket; // senza setup o non valutabile
+}
+
+function disciplinePnlBucket(trades: Trade[]): DisciplinePnlBucket {
+  const wins = trades.filter((t) => t.resultR > 0);
+  const losses = trades.filter((t) => t.resultR < 0);
+  const grossProfit = wins.reduce((s, t) => s + t.resultNative, 0);
+  const grossLoss = Math.abs(losses.reduce((s, t) => s + t.resultNative, 0));
+  return {
+    count: trades.length,
+    winRate: trades.length ? (wins.length / trades.length) * 100 : null,
+    avgR: trades.length ? trades.reduce((s, t) => s + t.resultR, 0) / trades.length : null,
+    totalNative: trades.reduce((s, t) => s + t.resultNative, 0),
+    pf: grossLoss > 0 ? grossProfit / grossLoss : null,
+  };
+}
+
+/**
+ * Correlazione disciplina → P&L: raggruppa i trade (chiusi) per esito di
+ * disciplina — rispettati (tradeRespected === true), violati (=== false) e
+ * senza setup valutabile (null) — con le stesse metriche di tradingStats
+ * per ciascun gruppo. PURE: legge il DB, non lo modifica.
+ */
+export function disciplinePnlSplit(db: DB, trades: Trade[]): DisciplinePnlSplit {
+  const respected: Trade[] = [];
+  const violated: Trade[] = [];
+  const none: Trade[] = [];
+  for (const t of trades) {
+    const r = tradeRespected(db, t.id);
+    if (r === true) respected.push(t);
+    else if (r === false) violated.push(t);
+    else none.push(t);
+  }
+  return {
+    respected: disciplinePnlBucket(respected),
+    violated: disciplinePnlBucket(violated),
+    none: disciplinePnlBucket(none),
+  };
 }

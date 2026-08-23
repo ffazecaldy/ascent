@@ -21,6 +21,7 @@ import { EquityCurveCard } from "@/components/home/EquityCurveCard";
 import { SavingsSummaryCard } from "@/components/home/SavingsSummaryCard";
 import { GoalsOverviewCard } from "@/components/home/GoalsOverviewCard";
 import { SportReminderCard } from "@/components/home/SportReminderCard";
+import { EveningReviewCard } from "@/components/home/EveningReviewCard";
 import { RadarCard } from "@/components/home/RadarCard";
 
 export default function HomePage() {
@@ -51,8 +52,13 @@ export default function HomePage() {
         <AscendDayCard db={db} />
       </Reveal>
 
-      {/* ——— Promemoria sport (solo con profilo configurato) ——— */}
+      {/* ——— Riepilogo serale (solo 20:00–23:59, onboarding completato) ——— */}
       <Reveal delay={20}>
+        <EveningReviewCard db={db} />
+      </Reveal>
+
+      {/* ——— Promemoria sport (solo con profilo configurato) ——— */}
+      <Reveal delay={30}>
         <SportReminderCard db={db} />
       </Reveal>
 
