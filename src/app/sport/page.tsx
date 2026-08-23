@@ -121,6 +121,19 @@ export default function SportPage() {
     setWizardOpen(false);
   }
 
+  // ——— Modifica rapida settimana: toggle disciplina su un giorno (click sulla strip) ———
+  const [dayEdit, setDayEdit] = useState<number | null>(null); // dow aperto nel popover
+  function toggleDisciplineOnDay(dow: number, name: string) {
+    if (!profile) return;
+    const disciplines = profile.disciplines.map((d) => {
+      if (d.name !== name) return d;
+      return d.weekDays.includes(dow)
+        ? { ...d, weekDays: d.weekDays.filter((x) => x !== dow) }
+        : { ...d, weekDays: [...d.weekDays, dow] };
+    });
+    saveProfile({ ...profile, disciplines });
+  }
+
   const weekStats = useMemo(() => sportWeekStats(db, weekStart), [db, weekStart]);
   const overload = useMemo(() => sportOverloadHint(db, weekStart), [db, weekStart]);
   const streakWeeks = useMemo(() => sportConsecutiveWeeksDone(db, weekStart), [db, weekStart]);
@@ -407,42 +420,87 @@ export default function SportPage() {
                       />
                     </div>
 
-                    {/* Strip giorni della settimana con discipline previste */}
+                    {/* Strip giorni della settimana — click per modificare le discipline del giorno */}
                     <div className="flex flex-wrap gap-1.5">
                       {weekdays.map(({ dow, label, long }) => {
                         const names = dowMap.get(dow) ?? [];
                         const isToday = new Date(today + "T12:00:00").getDay() === dow;
+                        const isOpen = dayEdit === dow;
                         return (
-                          <div
-                            key={dow}
-                            title={names.length > 0 ? `${long}: ${names.join(", ")}` : long}
-                            className={cn(
-                              "flex min-w-[52px] flex-col items-center gap-0.5 rounded-lg border px-2 py-1.5",
-                              isToday
-                                ? "border-accent/60 bg-accent/10"
-                                : names.length > 0
-                                  ? "border-border bg-elevated/40"
-                                  : "border-border/60 bg-transparent opacity-60"
-                            )}
-                          >
-                            <span
+                          <div key={dow} className="relative">
+                            <button
+                              type="button"
+                              onClick={() => setDayEdit(isOpen ? null : dow)}
+                              title={`${long} — clicca per modificare`}
                               className={cn(
-                                "text-[10px] font-semibold uppercase",
-                                isToday ? "text-accent" : "text-muted-foreground"
+                                "flex min-w-[52px] cursor-pointer flex-col items-center gap-0.5 rounded-lg border px-2 py-1.5 transition-colors",
+                                isOpen
+                                  ? "border-accent bg-accent/15"
+                                  : isToday
+                                    ? "border-accent/60 bg-accent/10"
+                                    : names.length > 0
+                                      ? "border-border bg-elevated/40"
+                                      : "border-border/60 bg-transparent opacity-60"
                               )}
                             >
-                              {label}
-                            </span>
-                            <div className="flex h-4 items-center gap-0.5">
-                              {names.map((n, i) => (
-                                <span key={`${dow}-${i}`} style={{ color: sportColorFor(n) }}>
-                                  <Icon name={sportIconFor(n)} size={12} />
-                                </span>
-                              ))}
-                              {names.length === 0 && (
-                                <span className="text-[10px] leading-none text-muted-foreground/50">–</span>
-                              )}
-                            </div>
+                              <span
+                                className={cn(
+                                  "text-[10px] font-semibold uppercase",
+                                  isToday || isOpen ? "text-accent" : "text-muted-foreground"
+                                )}
+                              >
+                                {label}
+                              </span>
+                              <div className="flex h-4 items-center gap-0.5">
+                                {names.map((n, i) => (
+                                  <span key={`${dow}-${i}`} style={{ color: sportColorFor(n) }}>
+                                    <Icon name={sportIconFor(n)} size={12} />
+                                  </span>
+                                ))}
+                                {names.length === 0 && (
+                                  <span className="text-[10px] leading-none text-muted-foreground/50">+</span>
+                                )}
+                              </div>
+                            </button>
+                            {/* Popover scelta discipline per il giorno */}
+                            {isOpen && profile && (
+                              <div className="absolute left-1/2 top-full z-20 mt-1.5 w-40 -translate-x-1/2 rounded-xl border border-border-strong bg-card p-2 shadow-[var(--shadow-pop)]">
+                                <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                  {long}
+                                </p>
+                                {profile.disciplines.length === 0 ? (
+                                  <p className="px-1 pb-1 text-xs text-muted-foreground">Nessuna disciplina</p>
+                                ) : (
+                                  profile.disciplines.map((d) => {
+                                    const on = d.weekDays.includes(dow);
+                                    return (
+                                      <button
+                                        key={d.id}
+                                        type="button"
+                                        onClick={() => toggleDisciplineOnDay(dow, d.name)}
+                                        className={cn(
+                                          "flex w-full items-center justify-between gap-2 rounded-lg px-1.5 py-1 text-left text-xs transition-colors hover:bg-elevated",
+                                          on && "bg-accent/10"
+                                        )}
+                                      >
+                                        <span className="flex items-center gap-1.5" style={{ color: sportColorFor(d.name) }}>
+                                          <Icon name={sportIconFor(d.name)} size={12} />
+                                          <span className="text-secondary-text">{d.name}</span>
+                                        </span>
+                                        {on && <Icon name="check" size={12} className="text-success" />}
+                                      </button>
+                                    );
+                                  })
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setDayEdit(null)}
+                                  className="mt-1 w-full rounded-lg px-1.5 py-1 text-[10px] text-muted-foreground transition-colors hover:text-accent"
+                                >
+                                  Chiudi
+                                </button>
+                              </div>
+                            )}
                           </div>
                         );
                       })}

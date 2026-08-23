@@ -20,8 +20,6 @@ import { SPORT_PRESETS, weekdayOrder } from "./sport-meta";
 
 const SESSIONS_MIN = 1;
 const SESSIONS_MAX = 14;
-const MINUTES_MIN = 30;
-const MINUTES_MAX = 600;
 
 export function SportSetupWizard({
   initial,
@@ -50,13 +48,18 @@ export function SportSetupWizard({
     return Object.fromEntries(initial.disciplines.map((d) => [d.name, [...d.weekDays]]));
   });
 
-  // step 3: obiettivi (default 3 sessioni / 150 min)
+  // step 3: obiettivi (default 3 sessioni / 2.5h = 150 min). Lo slider è in ORE,
+  // la persistenza resta in minuti (weeklyMinutesTarget) per compatibilità.
   const [sessionsTarget, setSessionsTarget] = useState<number>(
     initial?.weeklySessionsTarget ?? 3
   );
   const [minutesTarget, setMinutesTarget] = useState<number>(
     initial?.weeklyMinutesTarget ?? 150
   );
+  const hoursTarget = Math.round((minutesTarget / 60) * 2) / 2; // step 0.5h per il display
+  function setHoursTarget(h: number) {
+    setMinutesTarget(Math.round(h * 60));
+  }
 
   function togglePreset(name: string) {
     setSelected((prev) =>
@@ -83,7 +86,7 @@ export function SportSetupWizard({
   }
 
   const canFinish =
-    selected.length > 0 && sessionsTarget >= SESSIONS_MIN && minutesTarget >= MINUTES_MIN;
+    selected.length > 0 && sessionsTarget >= SESSIONS_MIN && minutesTarget >= 30;
 
   function save() {
     if (!canFinish) return;
@@ -306,30 +309,30 @@ export function SportSetupWizard({
             </div>
           </div>
 
-          {/* Slider minuti/settimana */}
+          {/* Slider ore/settimana (persistito in minuti) */}
           <div className="rounded-xl border border-border bg-elevated/40 p-4">
-            <Label>Minuti a settimana</Label>
+            <Label>Ore a settimana</Label>
             <div className="mt-1 flex items-center gap-3">
               <input
                 type="range"
-                min={MINUTES_MIN}
-                max={MINUTES_MAX}
-                step={10}
-                value={minutesTarget}
-                onChange={(e) => setMinutesTarget(Number(e.target.value))}
+                min={1}
+                max={12}
+                step={0.5}
+                value={hoursTarget}
+                onChange={(e) => setHoursTarget(Number(e.target.value))}
                 className="sport-range h-1.5 w-full cursor-pointer appearance-none rounded-full bg-elevated-2"
-                aria-label="Minuti a settimana"
+                aria-label="Ore a settimana"
               />
               <span className="w-20 shrink-0 rounded-lg border border-border-strong bg-card py-1 text-center text-sm font-semibold tnum text-accent">
-                {minutesTarget} min
+                {hoursTarget}h
               </span>
             </div>
           </div>
 
           <div className="rounded-xl border border-accent/25 bg-accent/5 p-3 text-xs leading-relaxed text-muted-foreground">
             <span className="font-semibold text-secondary-text">Riepilogo:</span>{" "}
-            {selected.join(", ")} · {sessionsTarget} sessioni/settimana · {minutesTarget}{" "}
-            min/settimana.
+            {selected.join(", ")} · {sessionsTarget} sessioni/settimana · {hoursTarget}
+            h/settimana.
           </div>
 
           <div className="flex items-center justify-between pt-1">

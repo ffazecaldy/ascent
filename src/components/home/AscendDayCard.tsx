@@ -50,20 +50,27 @@ export function AscendDayCard({ db }: { db: DB }) {
 
   const today = asc.today;
 
-  // --- Calendario attività stile GitHub: ultime 13 settimane (lun-dom) ---
+  // --- Calendario attività stile GitHub: ultimi ~3 mesi, orizzontale largo ---
   const calendar = useMemo(() => {
     const today = todayKey(db.settings.timezone);
-    // allinea a lunedì della settimana corrente, poi vai indietro di 12 settimane
-    const curWeekStart = weekStartKey(today, db.settings.weekStart);
-    const start = addDaysKey(curWeekStart, -12 * 7);
+    // ~90 giorni fa allineato a lunedì
+    const startRaw = addDaysKey(today, -90);
+    const { y, m, d } = (() => {
+      const [yy, mm, dd] = startRaw.split("-").map(Number);
+      return { y: yy, m: mm, d: dd };
+    })();
+    const dow = new Date(y, m - 1, d).getDay(); // 0=dom
+    const monIndex = (dow + 6) % 7; // 0=lun
+    const start = addDaysKey(startRaw, -monIndex);
     type Cell = { dk: string; level: number; count: number; future: boolean };
     const weeks: Cell[][] = [];
     let activeDays = 0;
     let totalActions = 0;
-    for (let w = 0; w < 13; w++) {
+    let cursor = start;
+    while (cursor <= today) {
       const col: Cell[] = [];
-      for (let d = 0; d < 7; d++) {
-        const dk = addDaysKey(start, w * 7 + d);
+      for (let i = 0; i < 7; i++) {
+        const dk = addDaysKey(cursor, i);
         const future = dk > today;
         const count = future ? 0 : actionsOnDay(db, dk).length;
         if (count > 0) activeDays++;
@@ -72,15 +79,16 @@ export function AscendDayCard({ db }: { db: DB }) {
         col.push({ dk, level, count, future });
       }
       weeks.push(col);
+      cursor = addDaysKey(cursor, 7);
     }
     // label mesi: sopra la prima colonna che inizia un mese nuovo
     const monthLabels: { col: number; label: string }[] = [];
     let lastMonth = -1;
     weeks.forEach((col, ci) => {
-      const m = Number(col[0].dk.slice(5, 7)) - 1;
-      if (m !== lastMonth) {
-        monthLabels.push({ col: ci, label: MONTH_LABELS[m] });
-        lastMonth = m;
+      const m2 = Number(col[0].dk.slice(5, 7)) - 1;
+      if (m2 !== lastMonth) {
+        monthLabels.push({ col: ci, label: MONTH_LABELS[m2] });
+        lastMonth = m2;
       }
     });
     return { weeks, monthLabels, activeDays, totalActions };
@@ -180,7 +188,7 @@ export function AscendDayCard({ db }: { db: DB }) {
               {calendar.weeks.map((_, ci) => {
                 const lbl = calendar.monthLabels.find((m) => m.col === ci);
                 return (
-                  <div key={ci} className="w-[11px] text-left">
+                  <div key={ci} className="w-[13px] text-left">
                     {lbl && <span className="block whitespace-nowrap text-[9px] text-muted-foreground">{lbl.label}</span>}
                   </div>
                 );
@@ -190,7 +198,7 @@ export function AscendDayCard({ db }: { db: DB }) {
               {/* lettere giorni */}
               <div className="mr-1 flex w-4 flex-col gap-[3px]">
                 {DAY_LETTERS.map((l, i) => (
-                  <span key={i} className="flex h-[11px] items-center text-[8px] leading-none text-muted-foreground">{l}</span>
+                  <span key={i} className="flex h-[13px] items-center text-[8px] leading-none text-muted-foreground">{l}</span>
                 ))}
               </div>
               {/* colonne settimane */}
@@ -205,7 +213,7 @@ export function AscendDayCard({ db }: { db: DB }) {
                           : `${cell.dk.split("-").reverse().join("/")} · ${cell.count} ${cell.count === 1 ? "azione" : "azioni"}`
                       }
                       className={
-                        "h-[11px] w-[11px] rounded-[3px] transition-colors duration-300 " +
+                        "h-[13px] w-[13px] rounded-[3px] transition-colors duration-300 " +
                         (cell.future ? "bg-transparent" : LEVEL_BG[cell.level])
                       }
                     />

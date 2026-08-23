@@ -72,15 +72,21 @@ function axisValues(db: DB): Record<AxisKey, number> {
   const studioGoal = 300;
 
   return {
-    trading: clamp01((st.totalR / 10) * 0.5 + 0.5), // ±10R → 0..1
-    finanze: clamp01(Math.max(-500, Math.min(500, st.net)) / 1000 + 0.5), // netto settimana ±500 → 0..1
-    risparmi: clamp01(savingsPct),
-    studio: clamp01(studioMin / studioGoal),
-    libri: clamp01(st.pagesRead / 50),
-    sport: clamp01(st.workouts / Math.max(1, db.sportProfile?.weeklySessionsTarget ?? 3)),
-    pc: clamp01(st.pcMinutes / (7 * 120)), // 2h/giorno produttive in settimana
-    obiettivi: st.ascordTotal > 0 ? clamp01(st.ascordWon / st.ascordTotal) : 0,
+    trading: safe01((st.totalR / 10) * 0.5 + 0.5), // ±10R → 0..1
+    finanze: safe01(Math.max(-500, Math.min(500, st.net || 0)) / 1000 + 0.5), // netto settimana ±500 → 0..1
+    risparmi: safe01(savingsPct),
+    studio: safe01(studioMin / studioGoal),
+    libri: safe01(st.pagesRead / 50),
+    sport: safe01(st.workouts / Math.max(1, db.sportProfile?.weeklySessionsTarget ?? 3)),
+    pc: safe01(st.pcMinutes / (7 * 120)), // 2h/giorno produttive in settimana
+    obiettivi: st.ascordTotal > 0 ? safe01(st.ascordWon / st.ascordTotal) : 0,
   };
+}
+
+/** Come clamp01 ma NaN/Infinity/undefined → 0 (mai "NaN%" nel centro). */
+function safe01(v: number): number {
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(0, Math.min(1, v));
 }
 
 function addDaysLocal(dk: string, n: number): string {
@@ -94,7 +100,8 @@ export function RadarCard({ db }: { db: DB }) {
 
   const overall = useMemo(() => {
     const vals = AXES.map((a) => values[a.key]);
-    return vals.reduce((s, v) => s + v, 0) / vals.length;
+    const sum = vals.reduce((s, v) => s + (Number.isFinite(v) ? v : 0), 0);
+    return sum / vals.length;
   }, [values]);
 
   // punti poligono (angolo parte da -90° = alto, senso orario)
@@ -150,8 +157,22 @@ export function RadarCard({ db }: { db: DB }) {
                 />
               );
             })}
-            {/* poligono dati */}
-            <polygon points={polygon} fill="rgba(76,126,255,0.16)" stroke="var(--accent)" strokeWidth="1.6" strokeLinejoin="round" />
+            {/* sfumatura interna: dal centro (accent tenue) verso i punti (trasparente) */}
+            <defs>
+              <radialGradient id="radar-fill" cx="50%" cy="50%" r="65%">
+                <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.34" />
+                <stop offset="70%" stopColor="var(--accent)" stopOpacity="0.12" />
+                <stop offset="100%" stopColor="var(--accent-2)" stopOpacity="0.05" />
+              </radialGradient>
+            </defs>
+            {/* poligono dati — punti collegati, fill sfumato */}
+            <polygon
+              points={polygon}
+              fill="url(#radar-fill)"
+              stroke="var(--accent)"
+              strokeWidth="1.8"
+              strokeLinejoin="round"
+            />
             {/* punti per asse, ognuno col suo colore */}
             {AXES.map((a, i) => (
               <circle

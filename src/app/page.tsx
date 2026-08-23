@@ -10,7 +10,6 @@ import { SectionHeader } from "@/components/ui/Misc";
 import { Reveal } from "@/components/ui/Reveal";
 import { StreakHero } from "@/components/home/StreakHero";
 import { AscendDayCard } from "@/components/home/AscendDayCard";
-import { ActivityHeatmapCard } from "@/components/home/ActivityHeatmapCard";
 import { MissingTodayCard } from "@/components/home/MissingTodayCard";
 import { DeadlinesCard } from "@/components/home/DeadlinesCard";
 import { QuickSummary } from "@/components/home/QuickSummary";
@@ -46,10 +45,6 @@ export default function HomePage() {
           </div>
           <AscendDayCard db={db} />
         </div>
-      </Reveal>
-
-      <Reveal delay={80}>
-        <ActivityHeatmapCard db={db} />
       </Reveal>
 
       {/* ——— Promemoria sport (solo con profilo configurato) ——— */}

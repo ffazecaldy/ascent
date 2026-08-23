@@ -122,11 +122,11 @@ body {
   background-attachment: fixed;
 }
 
-/* Tema "black": aloni del body leggermente più marcati su nero puro */
+/* Tema "black": aloni del body ridotti al minimo — nero profondo, solo un accenno */
 [data-theme="black"] body {
   background-image:
-    radial-gradient(1200px 600px at 15% -10%, rgba(76, 126, 255, 0.1), transparent 60%),
-    radial-gradient(1000px 500px at 100% 0%, rgba(157, 133, 255, 0.07), transparent 55%);
+    radial-gradient(1200px 600px at 15% -10%, rgba(76, 126, 255, 0.035), transparent 60%),
+    radial-gradient(1000px 500px at 100% 0%, rgba(157, 133, 255, 0.022), transparent 55%);
 }
 
 ::selection { background: rgba(76, 126, 255, 0.35); color: #fff; }
