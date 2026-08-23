@@ -17,6 +17,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Input, Label } from "@/components/ui/Field";
 import { cn } from "@/lib/cn";
 import { SPORT_PRESETS, weekdayOrder } from "./sport-meta";
+import { hoursToMinutes, minutesToHoursLabel } from "@/lib/sport-meta";
 
 const SESSIONS_MIN = 1;
 const SESSIONS_MAX = 14;
@@ -56,9 +57,12 @@ export function SportSetupWizard({
   const [minutesTarget, setMinutesTarget] = useState<number>(
     initial?.weeklyMinutesTarget ?? 150
   );
+  // Display in ore (slider step 0.5h), persistenza in minuti: le due viste
+  // derivano SEMPRE dallo stesso minutesTarget via helper condivise di
+  // @/lib/sport-meta, così riepilogo e valore salvato coincidono.
   const hoursTarget = Math.round((minutesTarget / 60) * 2) / 2; // step 0.5h per il display
   function setHoursTarget(h: number) {
-    setMinutesTarget(Math.round(h * 60));
+    setMinutesTarget(hoursToMinutes(h));
   }
 
   function togglePreset(name: string) {
@@ -324,15 +328,15 @@ export function SportSetupWizard({
                 aria-label="Ore a settimana"
               />
               <span className="w-20 shrink-0 rounded-lg border border-border-strong bg-card py-1 text-center text-sm font-semibold tnum text-accent">
-                {hoursTarget}h
+                {minutesToHoursLabel(minutesTarget)}
               </span>
             </div>
           </div>
 
           <div className="rounded-xl border border-accent/25 bg-accent/5 p-3 text-xs leading-relaxed text-muted-foreground">
             <span className="font-semibold text-secondary-text">Riepilogo:</span>{" "}
-            {selected.join(", ")} · {sessionsTarget} sessioni/settimana · {hoursTarget}
-            h/settimana.
+            {selected.join(", ")} · {sessionsTarget} sessioni/settimana ·{" "}
+            {minutesToHoursLabel(minutesTarget)}/settimana.
           </div>
 
           <div className="flex items-center justify-between pt-1">

@@ -14,9 +14,10 @@ import { todayKey, weekStartKey } from "@/lib/dates";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
 
-const SIZE = 260;
+const SIZE = 380;
 const C = SIZE / 2;
-const R_MAX = 92;
+const R_MAX = 132;
+const R_LABEL = R_MAX + 30; // offset etichette esterne
 const R_MIN_FRAC = 0.12; // minimo visivo: il poligono esiste sempre
 
 /** Assi del radar con colore proprio vivace per categoria. */
@@ -187,19 +188,28 @@ export function RadarCard({ db }: { db: DB }) {
                 <title>{`${a.label}: ${Math.round(values[a.key] * 100)}%`}</title>
               </circle>
             ))}
-            {/* etichette esterne */}
+            {/* etichette esterne — anchor intelligente per lato, niente accavallamento */}
             {AXES.map((a, i) => {
               const ang = (Math.PI * 2 * i) / AXES.length - Math.PI / 2;
-              const lx = C + (R_MAX + 20) * Math.cos(ang);
-              const ly = C + (R_MAX + 20) * Math.sin(ang);
+              const cos = Math.cos(ang);
+              const sin = Math.sin(ang);
+              const lx = C + R_LABEL * cos;
+              const ly = C + R_LABEL * sin;
+              // destra: anchor start; sinistra: end; alto/basso: middle
+              let anchor: "start" | "middle" | "end" = "middle";
+              if (cos > 0.35) anchor = "start";
+              else if (cos < -0.35) anchor = "end";
+              // spinta verticale per gli assi in alto/basso
+              const dy = sin < -0.85 ? -4 : sin > 0.85 ? 8 : 0;
               return (
                 <text
                   key={a.key}
                   x={lx}
-                  y={ly}
-                  textAnchor="middle"
+                  y={ly + dy}
+                  textAnchor={anchor}
                   dominantBaseline="middle"
-                  fontSize="10"
+                  fontSize="11"
+                  fontWeight="500"
                   fill="var(--text-muted)"
                 >
                   {a.label}

@@ -43,8 +43,12 @@ export default function HomePage() {
           <div className="lg:col-span-2">
             <StreakHero />
           </div>
-          <AscendDayCard db={db} />
         </div>
+      </Reveal>
+
+      {/* ——— Ascend Day · sezione full width ——— */}
+      <Reveal delay={10}>
+        <AscendDayCard db={db} />
       </Reveal>
 
       {/* ——— Promemoria sport (solo con profilo configurato) ——— */}
@@ -69,9 +73,13 @@ export default function HomePage() {
       </Reveal>
 
       <Reveal delay={100}>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <RadarCard db={db} />
-          <SavingsSummaryCard db={db} />
+        <div className="grid gap-4 lg:grid-cols-5">
+          <div className="lg:col-span-3">
+            <RadarCard db={db} />
+          </div>
+          <div className="lg:col-span-2">
+            <SavingsSummaryCard db={db} />
+          </div>
         </div>
       </Reveal>
 

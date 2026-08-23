@@ -21,18 +21,10 @@ import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
 import { sportColorFor, sportIconFor } from "@/components/sport/sport-meta";
+import { fmtDur } from "@/lib/sport-meta";
 
 /** Durata dell'allenamento "standard" registrato dal check rapido. */
 const QUICK_SESSION_MIN = 45;
-
-function fmtDur(min: number): string {
-  if (!Number.isFinite(min) || min <= 0) return "0m";
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
-}
 
 export function SportReminderCard({ db }: { db: DB }) {
   const tz = db.settings.timezone;

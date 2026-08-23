@@ -32,6 +32,7 @@ import { BarsChart } from "@/components/charts";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { SportSetupWizard } from "@/components/sport/SportSetupWizard";
 import { sportIconFor, sportColorFor, weekdayOrder } from "@/components/sport/sport-meta";
+import { fmtDur } from "@/lib/sport-meta";
 import { CircularProgress } from "@/components/risparmi/CircularProgress";
 import { cn } from "@/lib/cn";
 
@@ -47,16 +48,6 @@ const PRESET_TYPES = [
   "Nuoto",
   "Altro",
 ];
-
-/** Durata leggibile: 45 → "45m", 60 → "1h", 90 → "1h 30m", 120 → "2h". */
-function fmtDur(min: number): string {
-  if (!Number.isFinite(min) || min <= 0) return "0m";
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
-}
 
 /** Etichetta corta del giorno (es. "Lun") per un day key, nella locale utente. */
 function weekdayShort(key: string, locale: string): string {
@@ -408,7 +399,7 @@ export default function SportPage() {
                     {/* Barra minuti settimanali */}
                     <div>
                       <div className="mb-1 flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Minuti settimana</span>
+                        <span className="text-muted-foreground">Ore settimana</span>
                         <span className="tnum text-secondary-text">
                           {fmtDur(weekStats.minutes)} / {fmtDur(profile.weeklyMinutesTarget)}
                         </span>
