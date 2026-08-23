@@ -16,9 +16,18 @@ const ROTATE_MS = 8000; // ogni ~8 secondi
 const FADE_MS = 500; // durata fade-out (poi fade-in)
 
 export function QuoteRotator() {
-  const [index, setIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
+  // Deterministico al primo render (SSR e primo paint client identici):
+  // parte sempre dalla prima citazione; l'indice casuale viene applicato
+  // SOLO dopo il mount (useEffect) per evitare hydration mismatch.
+  const [index, setIndex] = useState(0);
   const [shown, setShown] = useState(true);
   const timers = useRef<number[]>([]);
+
+  // Dopo il mount: salta a una citazione casuale (una volta sola)
+  useEffect(() => {
+    setIndex(Math.floor(Math.random() * QUOTES.length));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // pulizia timeouts pendenti allo smontaggio
   useEffect(() => {
