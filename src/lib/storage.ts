@@ -7,7 +7,7 @@
 // ============================================================
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import type { DB } from "./types";
 import { DB_VERSION } from "./types";
 
@@ -196,12 +196,39 @@ function subscribe(cb: () => void): () => void {
 }
 
 function getSnapshot(): DB {
-  return loadDB();
+  // lato client: dopo hydration, dati reali da localStorage
+  return hydrated ? loadDB() : SERVER_DB;
+}
+
+function getServerSnapshot(): DB {
+  return SERVER_DB;
+}
+
+/**
+ * Snapshot server: DEVE essere stabile e identico al primo render client.
+ * loadDB() lato client leggerebbe localStorage (dati reali) mentre il server
+ * ha renderizzato emptyDB() → hydration mismatch su streak/nav/etc.
+ * Con questo gate il primo paint client usa emptyDB, poi l'effetto di mount
+ * forza il re-render con i dati reali.
+ */
+const SERVER_DB = emptyDB();
+let hydrated = false;
+
+export function markHydrated(): void {
+  if (!hydrated) {
+    hydrated = true;
+    listeners.forEach((l) => l());
+  }
 }
 
 /** Hook React: stato globale DB sincronizzato su localStorage. */
 export function useDB(): DB {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const db = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  // dopo il primo render client, sblocca i dati reali (1 volta)
+  useEffect(() => {
+    markHydrated();
+  }, []);
+  return db;
 }
 
 export function updateDB(mutator: (db: DB) => DB): DB {
