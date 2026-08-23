@@ -40,6 +40,46 @@
   --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
 }
 
+/* ============================================================
+   TEMA "BLACK" — nero puro OLED (#000000), attivato via
+   <html data-theme="black"> (vedi src/lib/theme.ts).
+   Stessi ruoli token del tema default; superfici più scure,
+   bordi leggermente più visibili per staccare dal nero,
+   accent #4C7EFF invariato ma varianti -2/-3 schiarite
+   per contrasto su nero puro.
+   ============================================================ */
+[data-theme="black"] {
+  --bg: #000000;
+  --bg-elev-1: #0a0a0b;
+  --bg-elev-2: #111113;
+  --bg-elev-3: #18181b;
+  --bg-input: #0d0d0f;
+  /* bordi più visibili su nero puro (default: #232328 / #3a3a44) */
+  --border: #2e2e36;
+  --border-strong: #4a4a56;
+  /* testi leggermente più luminosi per compensare il bg nero */
+  --text-1: #fafafa;
+  --text-2: #adadb6;
+  --text-3: #94949f;
+  /* token grafici: etichette/assi (usato da charts) */
+  --text-muted: #a4a4af;
+  --text-primary: #fafafa;
+  /* accent invariato, varianti alzate di luminosità per contrasto su nero */
+  --accent: #4c7eff;
+  --accent-2: #9d85ff;
+  --accent-3: #45ddff;
+  --accent-glow: rgba(76, 126, 255, 0.42);
+  --accent-dim: rgba(76, 126, 255, 0.14);
+  --success: #2ddf9e;
+  --danger: #ff5c5c;
+  --warning: #f0b429;
+  --radius-sm: 0.45rem;
+  --radius: 0.7rem;
+  --radius-lg: 0.95rem;
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 30px -12px rgba(0, 0, 0, 0.8);
+  --shadow-pop: 0 20px 60px -20px rgba(0, 0, 0, 0.9);
+}
+
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--text-1);
@@ -80,6 +120,13 @@ body {
     radial-gradient(1200px 600px at 15% -10%, rgba(76, 126, 255, 0.07), transparent 60%),
     radial-gradient(1000px 500px at 100% 0%, rgba(138, 107, 255, 0.05), transparent 55%);
   background-attachment: fixed;
+}
+
+/* Tema "black": aloni del body leggermente più marcati su nero puro */
+[data-theme="black"] body {
+  background-image:
+    radial-gradient(1200px 600px at 15% -10%, rgba(76, 126, 255, 0.1), transparent 60%),
+    radial-gradient(1000px 500px at 100% 0%, rgba(157, 133, 255, 0.07), transparent 55%);
 }
 
 ::selection { background: rgba(76, 126, 255, 0.35); color: #fff; }

@@ -267,6 +267,26 @@ export interface SavingsDeposit {
   createdAt: string;
 }
 
+// ============================================================
+// Sport Zone — profilo discipline (config wizard /sport)
+// ============================================================
+
+/** Disciplina sportiva configurata dall'utente nel wizard. */
+export interface SportDiscipline {
+  id: string;
+  name: string;
+  /** giorni della settimana previsti, numeri JS getDay(): 0=Dom .. 6=Sab */
+  weekDays: number[];
+}
+
+/** Profilo sport dell'utente — null finché il wizard non è completato. */
+export interface SportProfile {
+  disciplines: SportDiscipline[];
+  weeklySessionsTarget: number;
+  weeklyMinutesTarget: number;
+  onboardedAt: string; // ISO datetime
+}
+
 export interface Badge {
   key: string;
   unlockedAt: string;
@@ -297,7 +317,8 @@ export interface DB {
   studySessions: StudySession[];
   savingsGoals: SavingsGoal[];
   savingsDeposits: SavingsDeposit[];
+  sportProfile: SportProfile | null;
   badges: Badge[];
 }
 
-export const DB_VERSION = 4;
+export const DB_VERSION = 5;

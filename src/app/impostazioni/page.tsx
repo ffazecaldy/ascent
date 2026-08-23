@@ -11,6 +11,7 @@ import { PrivacyExplainer } from "@/components/impostazioni/PrivacyExplainer";
 import { CategoriesManager } from "@/components/impostazioni/CategoriesManager";
 import { DataZone } from "@/components/impostazioni/DataZone";
 import { PwaHint } from "@/components/impostazioni/PwaHint";
+import { ThemePicker } from "@/components/impostazioni/ThemePicker";
 
 export default function ImpostazioniPage() {
   return (
@@ -24,15 +25,18 @@ export default function ImpostazioniPage() {
         <UserSettingsEditor />
       </Reveal>
       <Reveal delay={60}>
-        <PrivacyExplainer />
+        <ThemePicker />
       </Reveal>
       <Reveal delay={120}>
-        <CategoriesManager />
+        <PrivacyExplainer />
       </Reveal>
       <Reveal delay={180}>
-        <DataZone />
+        <CategoriesManager />
       </Reveal>
       <Reveal delay={240}>
+        <DataZone />
+      </Reveal>
+      <Reveal delay={300}>
         <PwaHint />
       </Reveal>
     </div>

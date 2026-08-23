@@ -3,14 +3,31 @@
 // ASCEND — Libreria chart condivisa (SVG puro, zero dipendenze)
 // Dark-adaptata, minimal. Numeri in tabular-nums nei tooltip.
 // ACCENTO: blu #4C7EFF. Verde/rosso SOLO per valori P&L.
+// Serie multi-colore vivaci: VIOLET/CYAN/MAGENTA/AMBER (costanti
+// esportate); dentro i chart var(--...) per seguire il tema.
 // ============================================================
 
 import { useId } from "react";
 
 export const ACCENT = "#4C7EFF";
-export const SUCCESS = "#22c55e";
-export const DANGER = "#ef4444";
+export const SUCCESS = "#2ddf9e";
+export const DANGER = "#ff5c5c";
 export const MUTED = "#3a3a3f";
+// Palette multi-serie vivace: usata per donut/serie categoriche.
+// Hex solo qui (costanti esportate); dentro i chart si usa var(--...)
+// così i colori seguono il tema (default / black).
+export const VIOLET = "#a78bfa";
+export const CYAN = "#22d3ee";
+export const MAGENTA = "#ec4899";
+export const AMBER = "#fbbf24";
+
+/** Ruota serie multi-colore (donut, barre raggruppate, sparkline multiple). */
+export const SERIES_COLORS = [ACCENT, VIOLET, CYAN, MAGENTA, AMBER, SUCCESS] as const;
+
+/** Colore i-esimo della rotazione serie. */
+export function seriesColor(i: number): string {
+  return SERIES_COLORS[i % SERIES_COLORS.length];
+}
 
 function fmtY(n: number): string {
   const abs = Math.abs(n);
@@ -77,8 +94,9 @@ export function LineChart({
           <>
             <defs>
               <linearGradient id={`g${gid}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-                <stop offset="100%" stopColor={color} stopOpacity="0" />
+                <stop offset="0%" stopColor={color} stopOpacity="0.45" />
+                <stop offset="55%" stopColor={color} stopOpacity="0.16" />
+                <stop offset="100%" stopColor={color} stopOpacity="0.02" />
               </linearGradient>
             </defs>
             <path d={area} fill={`url(#g${gid})`} />
@@ -152,7 +170,7 @@ export function BarsChart({
         const barColor = d.y < 0 ? negativeColor : color;
         return (
           <g key={i}>
-            <rect x={x} y={y} width={bw} height={Math.max(1, total)} rx="2.5" fill={barColor} opacity="0.9" />
+            <rect x={x} y={y} width={bw} height={Math.max(1, total)} rx="2.5" fill={barColor} opacity="0.95" />
             {showValue && (
               <text x={x + bw / 2} y={y - 4} textAnchor="middle" fill="var(--text-muted)" fontSize="9" className="tnum">
                 {fmtY(d.y)}
@@ -200,8 +218,8 @@ export function GroupedBars({
         const hExp = (d.expense / max) * ih;
         return (
           <g key={i}>
-            <rect x={cx - bw - 1} y={padT + ih - hInc} width={bw} height={Math.max(1, hInc)} rx="2.5" fill="var(--success)" opacity="0.92" />
-            <rect x={cx + 1} y={padT + ih - hExp} width={bw} height={Math.max(1, hExp)} rx="2.5" fill="var(--danger)" opacity="0.85" />
+            <rect x={cx - bw - 1} y={padT + ih - hInc} width={bw} height={Math.max(1, hInc)} rx="2.5" fill="var(--success)" opacity="0.95" />
+            <rect x={cx + 1} y={padT + ih - hExp} width={bw} height={Math.max(1, hExp)} rx="2.5" fill="var(--danger)" opacity="0.88" />
             <text x={cx} y={H - 6} textAnchor="middle" fill="var(--text-muted)" fontSize="10">
               {d.x}
             </text>
@@ -291,7 +309,8 @@ export function DonutChart({
 // ------------------------------------------------------------
 export function ActivityHeatmap({
   weeks,
-  levelColors = ["#1a1a1d", "#27282e", "#3a4c78", "#4C7EFF", "#8aadff"],
+  // Scala d'attività su brand blu→azzurro; celle vuote dal tema via var(--...)
+  levelColors = ["var(--bg-elev-3)", "#27354f", "#31519e", "#4C7EFF", VIOLET],
   weekLabels = ["L", "M", "M", "G", "V", "S", "D"],
   onPick,
 }: {
@@ -364,16 +383,16 @@ export function PnlCalendar({
   }
   const maxAbs = Math.max(...days.map((d) => Math.abs(d.pnl)), limit, 1);
   const colorFor = (p: number): string => {
-    if (neutral) return "#3a3a3f";
+    if (neutral) return "var(--border-strong)";
     if (p > 0) {
       const a = 0.25 + 0.6 * Math.min(1, p / maxAbs);
-      return `rgba(34,197,94,${a})`;
+      return `rgba(45,223,158,${a})`;
     }
     if (p < 0) {
       const a = 0.25 + 0.6 * Math.min(1, Math.abs(p) / maxAbs);
-      return `rgba(239,68,68,${a})`;
+      return `rgba(255,92,92,${a})`;
     }
-    return "#1a1a1d";
+    return "var(--bg-elev-3)";
   };
   const fmt = (p: number) => {
     const abs = Math.abs(p).toLocaleString(locale, { maximumFractionDigits: 0 });
@@ -395,7 +414,7 @@ export function PnlCalendar({
             <div
               key={i}
               title={pnl != null ? `${key}: ${fmt(pnl)} ${nativeCurrency}` : key}
-              style={{ backgroundColor: pnl != null ? colorFor(pnl) : "#141416" }}
+              style={{ backgroundColor: pnl != null ? colorFor(pnl) : "var(--bg-elev-1)" }}
               className={`flex aspect-square flex-col items-center justify-center rounded-md text-[10px] tnum ${
                 isToday ? "outline outline-1 outline-accent" : ""
               }`}

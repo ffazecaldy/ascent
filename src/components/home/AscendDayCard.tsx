@@ -6,13 +6,24 @@
 // ============================================================
 
 import { useMemo } from "react";
-import { ascordWeek, ascordDay } from "@/lib/compute";
+import { ascordWeek, ascordDay, actionsOnDay } from "@/lib/compute";
 import type { DB } from "@/lib/types";
 import { todayKey, addDaysKey, weekStartKey } from "@/lib/dates";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/Misc";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { Icon } from "@/components/ui/Icon";
+
+/** Livelli intensità calendario (stile contribution graph). */
+const LEVEL_BG = [
+  "bg-border/60",
+  "bg-success/25",
+  "bg-success/45",
+  "bg-success/70",
+  "bg-success shadow-[0_0_6px_rgba(45,223,158,0.55)]",
+];
+const DAY_LETTERS = ["L", "M", "M", "G", "V", "S", "D"];
+const MONTH_LABELS = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
 
 export function AscendDayCard({ db }: { db: DB }) {
   const tz = db.settings.timezone;
@@ -38,6 +49,42 @@ export function AscendDayCard({ db }: { db: DB }) {
   }, [db]);
 
   const today = asc.today;
+
+  // --- Calendario attività stile GitHub: ultime 13 settimane (lun-dom) ---
+  const calendar = useMemo(() => {
+    const today = todayKey(db.settings.timezone);
+    // allinea a lunedì della settimana corrente, poi vai indietro di 12 settimane
+    const curWeekStart = weekStartKey(today, db.settings.weekStart);
+    const start = addDaysKey(curWeekStart, -12 * 7);
+    type Cell = { dk: string; level: number; count: number; future: boolean };
+    const weeks: Cell[][] = [];
+    let activeDays = 0;
+    let totalActions = 0;
+    for (let w = 0; w < 13; w++) {
+      const col: Cell[] = [];
+      for (let d = 0; d < 7; d++) {
+        const dk = addDaysKey(start, w * 7 + d);
+        const future = dk > today;
+        const count = future ? 0 : actionsOnDay(db, dk).length;
+        if (count > 0) activeDays++;
+        totalActions += count;
+        const level = future ? -1 : count === 0 ? 0 : count === 1 ? 1 : count === 2 ? 2 : count === 3 ? 3 : 4;
+        col.push({ dk, level, count, future });
+      }
+      weeks.push(col);
+    }
+    // label mesi: sopra la prima colonna che inizia un mese nuovo
+    const monthLabels: { col: number; label: string }[] = [];
+    let lastMonth = -1;
+    weeks.forEach((col, ci) => {
+      const m = Number(col[0].dk.slice(5, 7)) - 1;
+      if (m !== lastMonth) {
+        monthLabels.push({ col: ci, label: MONTH_LABELS[m] });
+        lastMonth = m;
+      }
+    });
+    return { weeks, monthLabels, activeDays, totalActions };
+  }, [db]);
   const days = Array.from({ length: 7 }, (_, i) => addDaysKey(weekStart, i));
 
   return (
@@ -115,6 +162,68 @@ export function AscendDayCard({ db }: { db: DB }) {
           </div>
         </>
       )}
+
+      {/* --- Calendario attività (stile GitHub, ultime 13 settimane) --- */}
+      <div className="border-t border-border pt-4">
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Attività · ultime 13 settimane
+          </p>
+          <p className="tnum text-xs text-secondary-text">
+            {calendar.activeDays} giorni attivi · {calendar.totalActions} azioni
+          </p>
+        </div>
+        <div className="overflow-x-auto pb-1">
+          <div className="inline-block min-w-full">
+            {/* label mesi */}
+            <div className="ml-6 flex gap-[3px]">
+              {calendar.weeks.map((_, ci) => {
+                const lbl = calendar.monthLabels.find((m) => m.col === ci);
+                return (
+                  <div key={ci} className="w-[11px] text-left">
+                    {lbl && <span className="block whitespace-nowrap text-[9px] text-muted-foreground">{lbl.label}</span>}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex gap-[3px]">
+              {/* lettere giorni */}
+              <div className="mr-1 flex w-4 flex-col gap-[3px]">
+                {DAY_LETTERS.map((l, i) => (
+                  <span key={i} className="flex h-[11px] items-center text-[8px] leading-none text-muted-foreground">{l}</span>
+                ))}
+              </div>
+              {/* colonne settimane */}
+              {calendar.weeks.map((col, ci) => (
+                <div key={ci} className="flex flex-col gap-[3px]">
+                  {col.map((cell) => (
+                    <div
+                      key={cell.dk}
+                      title={
+                        cell.future
+                          ? undefined
+                          : `${cell.dk.split("-").reverse().join("/")} · ${cell.count} ${cell.count === 1 ? "azione" : "azioni"}`
+                      }
+                      className={
+                        "h-[11px] w-[11px] rounded-[3px] transition-colors duration-300 " +
+                        (cell.future ? "bg-transparent" : LEVEL_BG[cell.level])
+                      }
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+            {/* legenda */}
+            <div className="mt-2 flex items-center justify-end gap-1.5">
+              <span className="text-[9px] text-muted-foreground">meno</span>
+              {LEVEL_BG.map((bg, i) => (
+                <span key={i} className={`h-[10px] w-[10px] rounded-[3px] ${bg}`} />
+              ))}
+              <span className="text-[9px] text-muted-foreground">più</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </Card>
   );
 }

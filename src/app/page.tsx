@@ -21,6 +21,8 @@ import { TradingCalendarCard } from "@/components/home/TradingCalendarCard";
 import { EquityCurveCard } from "@/components/home/EquityCurveCard";
 import { SavingsSummaryCard } from "@/components/home/SavingsSummaryCard";
 import { GoalsOverviewCard } from "@/components/home/GoalsOverviewCard";
+import { SportReminderCard } from "@/components/home/SportReminderCard";
+import { RadarCard } from "@/components/home/RadarCard";
 
 export default function HomePage() {
   const db = useDB();
@@ -50,6 +52,11 @@ export default function HomePage() {
         <ActivityHeatmapCard db={db} />
       </Reveal>
 
+      {/* ——— Promemoria sport (solo con profilo configurato) ——— */}
+      <Reveal delay={20}>
+        <SportReminderCard db={db} />
+      </Reveal>
+
       {/* ——— Panoramica: tutta l'app in un colpo d'occhio ——— */}
       <Reveal delay={40}>
         <SectionHeader
@@ -68,7 +75,7 @@ export default function HomePage() {
 
       <Reveal delay={100}>
         <div className="grid gap-4 lg:grid-cols-2">
-          <GoalsOverviewCard db={db} />
+          <RadarCard db={db} />
           <SavingsSummaryCard db={db} />
         </div>
       </Reveal>

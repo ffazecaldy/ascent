@@ -12,6 +12,7 @@ import type {
   DailyGoal,
   GoalType,
   SetupRule,
+  SportDiscipline,
   WeeklyReviewStats,
 } from "./types";
 import {
@@ -561,6 +562,97 @@ export function sportStreak(db: DB): number {
     cursor = addDaysKey(cursor, -1);
   }
   return streak;
+}
+
+// ------------------------------------------------------------
+// Sport Zone — profilo discipline (wizard + promemoria + anello)
+// ------------------------------------------------------------
+
+export interface SportWeekStats {
+  weekStart: string; // day key "yyyy-MM-dd" dell'inizio settimana
+  sessions: number; // allenamenti registrati nella settimana
+  minutes: number; // minuti totali nella settimana
+  sessionsTarget: number; // dal profilo (0 se assente)
+  minutesTarget: number;
+  done: boolean; // obiettivo sessioni raggiunto
+  perDiscipline: { id: string; name: string; sessions: number; minutes: number }[];
+}
+
+/**
+ * Statistiche sport della settimana che inizia a `weekStart`.
+ * Le sessioni sono i workouts registrati (db.workouts): l'abbinamento con le
+ * discipline è per nome (`workout.type === discipline.name`, confronto case-insensitive).
+ */
+export function sportWeekStats(db: DB, weekStart: string): SportWeekStats {
+  const weekEnd = addDaysKey(weekStart, 6);
+  const weekWorkouts = db.workouts.filter((w) => w.date >= weekStart && w.date <= weekEnd);
+  const profile = db.sportProfile ?? null;
+
+  const perDiscipline = (profile?.disciplines ?? []).map((d) => {
+    const ws = weekWorkouts.filter(
+      (w) => w.type.trim().toLowerCase() === d.name.trim().toLowerCase()
+    );
+    return {
+      id: d.id,
+      name: d.name,
+      sessions: ws.length,
+      minutes: ws.reduce((s, w) => s + (w.durationMin || 0), 0),
+    };
+  });
+
+  return {
+    weekStart,
+    sessions: weekWorkouts.length,
+    minutes: weekWorkouts.reduce((s, w) => s + (w.durationMin || 0), 0),
+    sessionsTarget: profile?.weeklySessionsTarget ?? 0,
+    minutesTarget: profile?.weeklyMinutesTarget ?? 0,
+    done:
+      profile != null &&
+      profile.weeklySessionsTarget > 0 &&
+      weekWorkouts.length >= profile.weeklySessionsTarget,
+    perDiscipline,
+  };
+}
+
+/** Discipline previste per il giorno `dayKey` (getDay(): 0=Dom..6=Sab). [] senza profilo. */
+export function sportTodayDisciplines(db: DB, dayKey?: string): SportDiscipline[] {
+  if (!db.sportProfile) return [];
+  const key = dayKey ?? todayKey(db.settings.timezone);
+  const dow = new Date(key + "T12:00:00").getDay(); // 0=Dom..6=Sab
+  return db.sportProfile.disciplines.filter((d) => d.weekDays.includes(dow));
+}
+
+/**
+ * Sovraccarico progressivo: quante settimane CONSECUTIVE (incluse le precedenti)
+ * hanno raggiunto il target sessioni. L'ultima settimana in corso conta come
+ * raggiunta solo se l'obiettivo è già stato sbloccato.
+ */
+export function sportConsecutiveWeeksDone(db: DB, thisWeekStart: string): number {
+  if (!db.sportProfile || db.sportProfile.weeklySessionsTarget <= 0) return 0;
+  let weeks = 0;
+  let cursor = thisWeekStart;
+  for (let i = 0; i < 52; i++) {
+    const st = sportWeekStats(db, cursor);
+    if (!st.done) break;
+    weeks++;
+    cursor = addDaysKey(cursor, -7);
+  }
+  return weeks;
+}
+
+/**
+ * Suggerimento di sovracarico progressivo: dopo 4 settimane consecutive
+ * raggiunte propone +10% sui minuti settimanali (hint manuale, mai automatico).
+ */
+export function sportOverloadHint(db: DB, thisWeekStart: string): { suggestedMinutes: number } | null {
+  const profile = db.sportProfile;
+  if (!profile || profile.weeklyMinutesTarget <= 0) return null;
+  const streakWeeks = sportConsecutiveWeeksDone(db, thisWeekStart);
+  if (streakWeeks < 4) return null;
+  const steps = Math.floor(streakWeeks / 4); // un +10% ogni 4 settimane piene
+  return {
+    suggestedMinutes: Math.round(profile.weeklyMinutesTarget * Math.pow(1.1, steps)),
+  };
 }
 
 // ------------------------------------------------------------

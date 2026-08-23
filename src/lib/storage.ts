@@ -43,6 +43,7 @@ const emptyDB = (): DB => ({
   studySessions: [],
   savingsGoals: [],
   savingsDeposits: [],
+  sportProfile: null,
   badges: [],
 });
 
@@ -64,6 +65,14 @@ export function loadDB(): DB {
       // così i dati tornano visibili (l'utente può riattivare standard/completa dal toggle).
       if ((parsed.version ?? 0) < 4) {
         cache = { ...cache, version: DB_VERSION, settings: { ...cache.settings, privacyMode: "off" } };
+        saveDB(cache);
+        return cache;
+      }
+      // Migrazione v4→v5: Sport Zone. Le DB esistenti non hanno `sportProfile`:
+      // lo inizializziamo a null (il wizard di prima configurazione si attiverà
+      // alla prima visita di /sport). Nessun dato utente viene toccato.
+      if ((parsed.version ?? 0) < 5) {
+        cache = { ...cache, version: DB_VERSION, sportProfile: cache.sportProfile ?? null };
         saveDB(cache);
         return cache;
       }

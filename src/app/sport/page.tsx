@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useDB, updateDB, upsert, removeById, uid, nowISO } from "@/lib/storage";
-import { sportStreak, workoutsInWeek } from "@/lib/compute";
+import { sportStreak, workoutsInWeek, sportWeekStats, sportOverloadHint, sportConsecutiveWeeksDone } from "@/lib/compute";
 import {
   addDaysKey,
   labelDayKey,
@@ -30,6 +30,10 @@ import { ProgressBar, SectionHeader } from "@/components/ui/Misc";
 import { Reveal } from "@/components/ui/Reveal";
 import { BarsChart } from "@/components/charts";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { SportSetupWizard } from "@/components/sport/SportSetupWizard";
+import { sportIconFor, sportColorFor, weekdayOrder } from "@/components/sport/sport-meta";
+import { CircularProgress } from "@/components/risparmi/CircularProgress";
+import { cn } from "@/lib/cn";
 
 const PRESET_TYPES = [
   "Cardio",
@@ -105,6 +109,42 @@ export default function SportPage() {
 
   const weekStart = weekStartKey(today, db.settings.weekStart);
   const weekCount = useMemo(() => workoutsInWeek(db, weekStart), [db, weekStart]);
+
+  // ---------- Sport Zone: profilo discipline ----------
+  const profile = db.sportProfile ?? null;
+  const [wizardOpen, setWizardOpen] = useState(false);
+  // wizard mostrato di diritto se non c'è profilo (prima configurazione)
+  const needsSetup = profile === null;
+
+  function saveProfile(p: NonNullable<typeof profile>) {
+    updateDB((d) => ({ ...d, sportProfile: p }));
+    setWizardOpen(false);
+  }
+
+  const weekStats = useMemo(() => sportWeekStats(db, weekStart), [db, weekStart]);
+  const overload = useMemo(() => sportOverloadHint(db, weekStart), [db, weekStart]);
+  const streakWeeks = useMemo(() => sportConsecutiveWeeksDone(db, weekStart), [db, weekStart]);
+  // prossime 4 settimane al traguardo del prossimo +10%
+  const weeksToOverload = 4 - (streakWeeks % 4);
+
+  // anello progresso settimanale (sessioni fatte / target dal profilo)
+  const ringPct =
+    profile && profile.weeklySessionsTarget > 0
+      ? Math.min(100, Math.round((weekStats.sessions / profile.weeklySessionsTarget) * 100))
+      : 0;
+
+  // mappa giorno → discipline previste (per la strip settimanale)
+  const dowMap = useMemo(() => {
+    const map = new Map<number, string[]>();
+    for (const d of profile?.disciplines ?? []) {
+      for (const dow of d.weekDays) {
+        map.set(dow, [...(map.get(dow) ?? []), d.name]);
+      }
+    }
+    return map;
+  }, [profile]);
+  const weekdays = useMemo(() => weekdayOrder(), []);
+
   const weeklyGoal: WeeklyGoal | undefined = db.weeklyGoals.find(
     (g) => g.active && g.type === "workout_count"
   );
@@ -251,7 +291,16 @@ export default function SportPage() {
         />
       </Reveal>
 
-      {!hasWorkouts ? (
+      {/* ——— Wizard prima configurazione (sportProfile assente) ——— */}
+      {needsSetup && (
+        <Reveal delay={20}>
+          <Card hairline="accent">
+            <SportSetupWizard initial={profile} onSave={saveProfile} />
+          </Card>
+        </Reveal>
+      )}
+
+      {!hasWorkouts && !needsSetup && (
         <Reveal delay={30}>
           <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
             <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
@@ -266,7 +315,9 @@ export default function SportPage() {
             </div>
           </div>
         </Reveal>
-      ) : (
+      )}
+
+      {hasWorkouts && (
         <>
           {/* KPI: streak + totali mese */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -303,6 +354,174 @@ export default function SportPage() {
               />
             </Reveal>
           </div>
+
+          {/* ——— Profilo sport: anello settimanale + giorni + breakdown + sovraccarico ——— */}
+          {profile && (
+            <Reveal delay={20}>
+              <Card hairline="accent" texture>
+                <CardHeader>
+                  <div>
+                    <CardTitle>Profilo sport</CardTitle>
+                    <CardSubtitle>
+                      {profile.disciplines.length} disciplina{profile.disciplines.length === 1 ? "" : "e"} ·{" "}
+                      {weekStats.sessions}/{profile.weeklySessionsTarget} sessioni ·{" "}
+                      {fmtDur(weekStats.minutes)}/{fmtDur(profile.weeklyMinutesTarget)} a settimana
+                    </CardSubtitle>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => setWizardOpen(true)}>
+                    <Icon name="pencil" size={13} /> Modifica profilo
+                  </Button>
+                </CardHeader>
+
+                <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
+                  {/* Anello progresso settimanale */}
+                  <div className="flex shrink-0 flex-col items-center gap-2">
+                    <CircularProgress
+                      pct={ringPct}
+                      size={104}
+                      stroke={8}
+                      done={weekStats.done}
+                      label={
+                        <span className="text-sm">
+                          <span className="tnum text-base font-semibold">{weekStats.sessions}</span>
+                          <span className="tnum text-muted-foreground">/{profile.weeklySessionsTarget}</span>
+                        </span>
+                      }
+                    />
+                    <p className="text-[11px] text-muted-foreground">sessioni questa settimana</p>
+                  </div>
+
+                  <div className="min-w-0 flex-1 space-y-4">
+                    {/* Barra minuti settimanali */}
+                    <div>
+                      <div className="mb-1 flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Minuti settimana</span>
+                        <span className="tnum text-secondary-text">
+                          {fmtDur(weekStats.minutes)} / {fmtDur(profile.weeklyMinutesTarget)}
+                        </span>
+                      </div>
+                      <ProgressBar
+                        value={weekStats.minutes}
+                        max={Math.max(1, profile.weeklyMinutesTarget)}
+                        tone={weekStats.minutes >= profile.weeklyMinutesTarget ? "success" : "accent"}
+                      />
+                    </div>
+
+                    {/* Strip giorni della settimana con discipline previste */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {weekdays.map(({ dow, label, long }) => {
+                        const names = dowMap.get(dow) ?? [];
+                        const isToday = new Date(today + "T12:00:00").getDay() === dow;
+                        return (
+                          <div
+                            key={dow}
+                            title={names.length > 0 ? `${long}: ${names.join(", ")}` : long}
+                            className={cn(
+                              "flex min-w-[52px] flex-col items-center gap-0.5 rounded-lg border px-2 py-1.5",
+                              isToday
+                                ? "border-accent/60 bg-accent/10"
+                                : names.length > 0
+                                  ? "border-border bg-elevated/40"
+                                  : "border-border/60 bg-transparent opacity-60"
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "text-[10px] font-semibold uppercase",
+                                isToday ? "text-accent" : "text-muted-foreground"
+                              )}
+                            >
+                              {label}
+                            </span>
+                            <div className="flex h-4 items-center gap-0.5">
+                              {names.map((n, i) => (
+                                <span key={`${dow}-${i}`} style={{ color: sportColorFor(n) }}>
+                                  <Icon name={sportIconFor(n)} size={12} />
+                                </span>
+                              ))}
+                              {names.length === 0 && (
+                                <span className="text-[10px] leading-none text-muted-foreground/50">–</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Breakdown per sport */}
+                    <div className="space-y-1.5">
+                      {weekStats.perDiscipline.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          Nessuna disciplina configurata.
+                        </p>
+                      ) : (
+                        weekStats.perDiscipline.map((row) => {
+                          const color = sportColorFor(row.name);
+                          return (
+                            <div
+                              key={row.id}
+                              className="flex items-center gap-2.5 rounded-lg border border-border bg-elevated/40 px-2.5 py-1.5"
+                            >
+                              <span
+                                className="grid h-6 w-6 shrink-0 place-items-center rounded-md"
+                                style={{ backgroundColor: `${color}1f`, color }}
+                              >
+                                <Icon name={sportIconFor(row.name)} size={12} />
+                              </span>
+                              <span className="min-w-0 flex-1 truncate text-xs font-medium text-secondary-text">
+                                {row.name}
+                              </span>
+                              <span className="shrink-0 text-[11px] tnum text-accent">{fmtDur(row.minutes)}</span>
+                              <Badge tone="default" className="shrink-0">
+                                <span className="tnum">{row.sessions}</span> sessioni
+                              </Badge>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Sovraccarico progressivo (hint manuale) */}
+                    <div className="rounded-xl border border-border bg-card p-3">
+                      <p className="flex items-center gap-2 text-xs font-semibold text-secondary-text">
+                        <Icon name="zap" size={14} className="text-warning" /> Sovraccarico progressivo
+                      </p>
+                      {overload ? (
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          Hai completato il target per{" "}
+                          <span className="font-semibold text-success">{streakWeeks} settimane di fila</span>.{" "}
+                          Suggerimento manuale: passa a{" "}
+                          <span className="tnum font-semibold text-accent">
+                            {overload.suggestedMinutes} min/settimana
+                          </span>{" "}
+                          (+10%) dal pannello Modifica profilo quando ti senti pronto — non viene applicato
+                          in automatico.
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          Completa il target per{" "}
+                          <span className="tnum font-semibold text-secondary-text">{weeksToOverload}</span>{" "}
+                          settim{weeksToOverload === 1 ? "a" : "ane"} consecutive per sbloccare il suggerimento{" "}
+                          <span className="tnum">+10%</span> minuti (
+                          {fmtDur(Math.round(profile.weeklyMinutesTarget * Math.pow(1.1, Math.floor(streakWeeks / 4) + 1)))}
+                          ). Il riposo programmato non rompe la progressione.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Nota riposo intelligente */}
+                    <p className="flex items-center gap-2 text-xs leading-relaxed text-muted-foreground">
+                      <Icon name="heart" size={14} className="shrink-0 text-success" />
+                      <span>
+                        Giorni senza discipline in programma sono riposo: il riposo programmato non rompe lo
+                        streak attività — conta solo l&apos;allenamento registrato.
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </Reveal>
+          )}
 
           {/* Obiettivo settimanale (WeeklyGoal workout_count) */}
           <Reveal delay={40}>
@@ -428,6 +647,16 @@ export default function SportPage() {
           </Reveal>
         </>
       )}
+
+      {/* Modal modifica profilo sport — wizard precompilato */}
+      <Modal
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        title="Modifica profilo sport"
+        width="max-w-xl"
+      >
+        <SportSetupWizard initial={profile} onSave={saveProfile} />
+      </Modal>
 
       {/* Form crea/modifica */}
       <Modal
