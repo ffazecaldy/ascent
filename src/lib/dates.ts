@@ -128,6 +128,10 @@ export function tradingDayKey(
   settingsTimezone: string = "UTC"
 ): string {
   const tz = account.tradingDayTimezone || settingsTimezone || "UTC";
+  // Data SENZA ora (es. import "2026-08-24"): è già un day key dichiarato —
+  // niente conversione di timezone né rollover (altrimenti scivolerebbe al
+  // giorno prima/mezzanotte UTC).
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
   const { y, m, d } = partsInTZ(iso, tz);
   const { h, min } = timePartsInTZ(iso, tz);
   const roll = timeToMinutes(account.tradingDayRolloverTime || "00:00");

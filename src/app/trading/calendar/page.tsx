@@ -163,9 +163,10 @@ export default function TradingCalendarPage() {
     return pnlByTradingDay(
       db.trades.filter((t) => t.accountId === account.id),
       account,
-      month
+      month,
+      db.settings.timezone
     );
-  }, [db.trades, account, month]);
+  }, [db.trades, account, month, db.settings.timezone]);
 
   const summary = useMemo(() => {
     let pos = 0,

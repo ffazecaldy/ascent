@@ -373,25 +373,30 @@ export interface EquityPoint {
   value: number; // cumulativa valuta nativa (account) o base (aggregata)
 }
 
-/** Equity cumulativa di un account (valuta nativa), ordinata per chiusura. */
-export function equityCurve(trades: Trade[]): EquityPoint[] {
+/** Equity cumulativa di un account (valuta nativa), ordinata per chiusura.
+ *  `settingsTimezone` di fallback per il dayKey (mai UTC grezzo). */
+export function equityCurve(trades: Trade[], settingsTimezone: string = "UTC"): EquityPoint[] {
   const sorted = [...trades].sort((a, b) => a.closeDate.localeCompare(b.closeDate));
   let cum = 0;
   return sorted.map((t) => {
     cum += t.resultNative;
-    return { date: t.closeDate, dayKey: isoToDayKey(t.closeDate, "UTC"), value: cum };
+    return { date: t.closeDate, dayKey: isoToDayKey(t.closeDate, settingsTimezone), value: cum };
   });
 }
 
-/** P&L per trading day di un account (confine dell'account). */
+/** P&L per trading day di un account (confine dell'account).
+ *  `settingsTimezone` è il fallback quando l'account non dichiara una
+ *  timezone di sessione: il giorno di trading segue la timezone utente
+ *  (mai UTC grezzo, che sposterebbe i trade della sera al giorno prima). */
 export function pnlByTradingDay(
   trades: Trade[],
   account: TradingAccount,
-  monthKey: string
+  monthKey: string,
+  settingsTimezone: string = "UTC"
 ): { dayKey: string; pnl: number }[] {
   const map = new Map<string, number>();
   for (const t of trades) {
-    const dk = tradingDayKey(t.closeDate, account);
+    const dk = tradingDayKey(t.closeDate, account, settingsTimezone);
     if (monthKeyOf(dk) !== monthKey) continue;
     map.set(dk, (map.get(dk) ?? 0) + t.resultNative);
   }

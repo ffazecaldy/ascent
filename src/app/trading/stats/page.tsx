@@ -343,7 +343,7 @@ export default function TradingStatsPage() {
               let cum = 0;
               return sorted.map((t) => ({ date: t.closeDate, value: (cum += basePnl(db, t)) }));
             })()
-          : equityCurve(trades); // cumulata in resultNative (valuta nativa dell'account)
+          : equityCurve(trades, tz); // cumulata in resultNative (valuta nativa dell'account)
       return points.map((p) => ({ x: shortDay(isoToDayKey(p.date, tz)), y: p.value }));
     })();
 
