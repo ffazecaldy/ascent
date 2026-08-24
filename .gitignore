@@ -47,3 +47,4 @@ next-env.d.ts
 /dist/
 pkgbuild/out/
 pkgbuild/ascend-daemon.cjs
+pkgbuild/ascend.ico
