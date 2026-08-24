@@ -38,6 +38,9 @@ export function DataZone() {
     purgeAscendStorage();
     updateDB(() => seedDB());
     setConfirmOpen(false);
+    // reload COMPLETO voluto (non router.push): deve morire anche lo stato
+    // React in memoria di questa tab.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.assign("/");
   };
 

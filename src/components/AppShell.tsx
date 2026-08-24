@@ -7,7 +7,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useDB, updateDB } from "@/lib/storage";
+import { useDB, updateDB, purgeAscendStorage } from "@/lib/storage";
+import { seedDB } from "@/lib/db";
 import {
   activityStreak,
   evalProgress,
@@ -145,6 +146,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const db = useDB();
   const pathname = usePathname();
   const router = useRouter();
+
+  // RESET DA NUOVO UTENTE via query param (?reset=1): purga TUTTO lo storage
+  // Ascend e ricarica pulito. Funziona anche con bundle vecchi in memoria —
+  // è la via sicura per ripartire da zero senza passare dalle impostazioni.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reset") !== "1") return;
+    purgeAscendStorage();
+    updateDB(() => seedDB());
+    // rimuove il parametro dall'URL e ricarica COMPLETO
+    window.location.replace(window.location.origin + "/");
+  }, []);
 
   useEffect(() => {
     if (!db.settings.onboardingDone && pathname !== "/onboarding") {
