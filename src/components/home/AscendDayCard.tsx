@@ -60,18 +60,15 @@ export function AscendDayCard({ db }: { db: DB }) {
 
   const today = asc.today;
 
-  // --- Calendario attività stile GitHub: ultimi ~3 mesi, orizzontale largo ---
+  // --- Calendario attività stile GitHub: 13 settimane ESATTE, chiuse sulla
+  // settimana corrente (mai colonne di soli giorni futuri, anche se oggi è
+  // lunedì: il range parte dal lunedì di questa settimana meno 12 settimane).
   const calendar = useMemo(() => {
     const today = todayKey(db.settings.timezone);
-    // ~90 giorni fa allineato a lunedì
-    const startRaw = addDaysKey(today, -90);
-    const { y, m, d } = (() => {
-      const [yy, mm, dd] = startRaw.split("-").map(Number);
-      return { y: yy, m: mm, d: dd };
-    })();
-    const dow = new Date(y, m - 1, d).getDay(); // 0=dom
-    const monIndex = (dow + 6) % 7; // 0=lun
-    const start = addDaysKey(startRaw, -monIndex);
+    const [y0, m0, d0] = today.split("-").map(Number);
+    const todayDow = new Date(y0, m0 - 1, d0).getDay(); // 0=dom
+    const mondayOfThisWeek = addDaysKey(today, -((todayDow + 6) % 7));
+    const start = addDaysKey(mondayOfThisWeek, -12 * 7);
     type Cell = { dk: string; level: number; count: number; future: boolean };
     const weeks: Cell[][] = [];
     let activeDays = 0;
@@ -210,22 +207,24 @@ export function AscendDayCard({ db }: { db: DB }) {
               className="inline-block min-w-full"
               style={{ minWidth: DAY_COL_W + calendar.weeks.length * COL_PITCH }}
             >
-              {/* label mesi — ogni slot riserva span*COL_PITCH px, così il testo non
-                  trabocca mai su una label vicina; troncato se troppo lungo */}
-              <div className="flex" style={{ marginLeft: DAY_COL_W, height: 12 }}>
-                {calendar.weeks.map((_, ci) => {
-                  const lbl = calendar.monthLabels.find((m) => m.col === ci);
-                  if (!lbl) return <div key={ci} style={{ width: COL_PITCH }} />;
-                  return (
-                    <div
-                      key={ci}
-                      className="overflow-hidden"
-                      style={{ width: lbl.span * COL_PITCH }}
-                    >
-                      <span className="block truncate text-[11px] leading-[12px] text-muted-foreground">{lbl.label}</span>
-                    </div>
-                  );
-                })}
+              {/* label mesi — ogni label è POSIZIONATA al centro del proprio span di colonne
+                  (absolute: nessun accumulo di larghezze, la riga non può sforare la
+                  griglia). La prima label è allineata a sinistra dell'inizio griglia
+                  così il testo non viene mai troncato. */}
+              <div className="relative" style={{ marginLeft: DAY_COL_W, height: 12 }}>
+                {calendar.monthLabels.map((lbl, i) => (
+                  <span
+                    key={lbl.col}
+                    className="absolute top-0 block whitespace-nowrap text-[11px] leading-[12px] text-muted-foreground"
+                    style={
+                      i === 0
+                        ? { left: 0 }
+                        : { left: (lbl.col + lbl.span / 2) * COL_PITCH, transform: "translateX(-50%)" }
+                    }
+                  >
+                    {lbl.label}
+                  </span>
+                ))}
               </div>
               <div className="flex gap-[3px]">
                 {/* lettere giorni */}
