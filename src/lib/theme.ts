@@ -8,11 +8,11 @@
 // palette myfundedbook) e duplicati sotto [data-theme='black'].
 // ============================================================
 
-export type ThemeName = "default" | "black";
+export type ThemeName = "default" | "black" | "neon" | "aurora";
 
 export const THEME_STORAGE_KEY = "ascend:theme";
 
-const VALID_THEMES: readonly string[] = ["default", "black"];
+const VALID_THEMES: readonly string[] = ["default", "black", "neon", "aurora"];
 
 function isThemeName(v: unknown): v is ThemeName {
   return typeof v === "string" && VALID_THEMES.includes(v);
@@ -41,10 +41,10 @@ export function readTheme(): ThemeName {
  */
 export function applyTheme(theme: ThemeName): void {
   if (typeof document === "undefined") return;
-  if (theme === "black") {
-    document.documentElement.dataset.theme = "black";
-  } else {
+  if (theme === "default") {
     delete document.documentElement.dataset.theme;
+  } else {
+    document.documentElement.dataset.theme = theme;
   }
 }
 

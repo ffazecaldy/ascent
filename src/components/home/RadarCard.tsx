@@ -2,7 +2,7 @@
 
 // ============================================================
 // ASCEND — Home · Radar dell'equilibrio
-// Grafico a 8 assi (zero-dep): ogni categoria è un punto che si
+// Grafico a 9 assi (zero-dep): ogni categoria è un punto che si
 // sposta verso il bordo quanto più la categoria è forte.
 // Ogni asso ha un colore proprio vivace; al centro la media.
 // ============================================================
@@ -36,6 +36,7 @@ const AXES = [
   { key: "libri", label: "Libri", color: "#22d3ee" }, // ciano
   { key: "sport", label: "Sport", color: "#ec4899" }, // magenta
   { key: "pc", label: "PC", color: "var(--accent-2)" },
+  { key: "benessere", label: "Benessere", color: "#4ade80" }, // verde menta
   { key: "obiettivi", label: "Obiettivi", color: "#fbbf24" }, // ambra
 ] as const;
 
@@ -66,6 +67,22 @@ function axisValues(db: DB): Record<AxisKey, number> {
   });
   const studioGoal = 300;
 
+  // Benessere: 60% costanza (giorni con sonno o peso vs target 5/settimana)
+  // + 40% qualità del sonno (quota di notti nella fascia 7–9h)
+  let wLogged = 0;
+  let wSleep = 0;
+  let wSleepOk = 0;
+  for (const w of db.wellnessLogs ?? []) {
+    if (w.date < weekStart || w.date > weekEnd) continue;
+    if (w.sleepHours != null || w.weightKg != null) wLogged++;
+    if (w.sleepHours != null) {
+      wSleep++;
+      if (w.sleepHours >= 7 && w.sleepHours <= 9) wSleepOk++;
+    }
+  }
+  const wellness =
+    0.6 * Math.min(1, wLogged / 5) + 0.4 * (wSleep > 0 ? wSleepOk / wSleep : 0);
+
   return {
     trading: safe01((st.totalR / 10) * 0.5 + 0.5), // ±10R → 0..1
     finanze: safe01(Math.max(-500, Math.min(500, st.net || 0)) / 1000 + 0.5), // netto settimana ±500 → 0..1
@@ -74,6 +91,7 @@ function axisValues(db: DB): Record<AxisKey, number> {
     libri: safe01(st.pagesRead / 50),
     sport: safe01(st.workouts / Math.max(1, db.sportProfile?.weeklySessionsTarget ?? 3)),
     pc: safe01(st.pcMinutes / (7 * 120)), // 2h/giorno produttive in settimana
+    benessere: safe01(wellness),
     obiettivi: st.ascordTotal > 0 ? safe01(st.ascordWon / st.ascordTotal) : 0,
   };
 }
@@ -141,7 +159,7 @@ export function RadarCard({ db }: { db: DB }) {
             role="img"
             aria-label="Radar equilibrio categorie"
           >
-            {/* griglia ottagonale a 4 livelli */}
+            {/* griglia poligonale a 4 livelli */}
             {[0.25, 0.5, 0.75, 1].map((f) => (
               <polygon
                 key={f}

@@ -80,6 +80,67 @@
   --shadow-pop: 0 20px 60px -20px rgba(0, 0, 0, 0.9);
 }
 
+/* ============================================================
+   TEMA "NEON" — nero con sottotono verde + accento verde neon #00e576.
+   Attivato via <html data-theme="neon">. CTA e P&L condividono il
+   verde: è la firma del tema (scelta esplicita).
+   ============================================================ */
+[data-theme="neon"] {
+  --bg: #030705;
+  --bg-elev-1: #0a100c;
+  --bg-elev-2: #101812;
+  --bg-elev-3: #182118;
+  --bg-input: #070d09;
+  --border: #1e2b21;
+  --border-strong: #33503b;
+  --text-1: #eef7f0;
+  --text-2: #a3b8a8;
+  --text-3: #82948a;
+  --text-muted: #93a898;
+  --text-primary: #eef7f0;
+  --accent: #00e576;
+  --accent-2: #9dff57;
+  --accent-3: #2ef5c8;
+  --accent-glow: rgba(0, 229, 118, 0.35);
+  --accent-dim: rgba(0, 229, 118, 0.12);
+  --success: #34e89e;
+  --danger: #ff6b6b;
+  --warning: #f5c542;
+  --radius-sm: 0.45rem;
+  --radius: 0.7rem;
+  --radius-lg: 0.95rem;
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 30px -12px rgba(0, 0, 0, 0.6);
+  --shadow-pop: 0 20px 60px -20px rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="aurora"] {
+  --bg: #08060f;
+  --bg-elev-1: #0f0c1a;
+  --bg-elev-2: #16122a;
+  --bg-elev-3: #1e1835;
+  --bg-input: #0d0a16;
+  --border: #262040;
+  --border-strong: #3d3470;
+  --text-1: #f4f1ff;
+  --text-2: #b3aad6;
+  --text-3: #9488bd;
+  --text-muted: #a89dc9;
+  --text-primary: #f4f1ff;
+  --accent: #8b5cf6;
+  --accent-2: #22d3ee;
+  --accent-3: #f472b6;
+  --accent-glow: rgba(139, 92, 246, 0.4);
+  --accent-dim: rgba(139, 92, 246, 0.14);
+  --success: #2ddf9e;
+  --danger: #ff5c7a;
+  --warning: #f0b429;
+  --radius-sm: 0.45rem;
+  --radius: 0.7rem;
+  --radius-lg: 0.95rem;
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 30px -12px rgba(0, 0, 0, 0.7);
+  --shadow-pop: 0 20px 60px -20px rgba(0, 0, 0, 0.85);
+}
+
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--text-1);
@@ -127,6 +188,19 @@ body {
   background-image:
     radial-gradient(1200px 600px at 15% -10%, rgba(76, 126, 255, 0.035), transparent 60%),
     radial-gradient(1000px 500px at 100% 0%, rgba(157, 133, 255, 0.022), transparent 55%);
+}
+/* Tema "neon": aloni verdi tenui — la tinta del tema */
+[data-theme="neon"] body {
+  background-image:
+    radial-gradient(1200px 600px at 15% -10%, rgba(0, 229, 118, 0.055), transparent 60%),
+    radial-gradient(1000px 500px at 100% 0%, rgba(46, 245, 200, 0.04), transparent 55%);
+}
+
+/* Tema "aurora": aloni viola/ciano — la tinta del tema */
+[data-theme="aurora"] body {
+  background-image:
+    radial-gradient(1200px 600px at 15% -10%, rgba(139, 92, 246, 0.08), transparent 60%),
+    radial-gradient(1000px 500px at 100% 0%, rgba(34, 211, 238, 0.05), transparent 55%);
 }
 
 ::selection { background: rgba(76, 126, 255, 0.35); color: #fff; }

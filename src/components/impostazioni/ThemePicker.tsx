@@ -1,7 +1,8 @@
 "use client";
 // ============================================================
 // ASCEND — Impostazioni · Selettore tema (Card "Aspetto")
-// Due swatch cliccabili: Default (myfundedbook) / Nero puro.
+// Quattro swatch cliccabili: Default (myfundedbook) / Nero puro /
+// Neon (verde) / Aurora (viola).
 // Applica il tema via data-theme su <html> + persiste in
 // localStorage 'ascend:theme' (mai nel DB).
 // Il tema salvato viene applicato al mount e letto via
@@ -31,6 +32,18 @@ const THEMES: { id: ThemeName; label: string; hint: string; swatch: string[] }[]
     label: "Nero",
     hint: "OLED nero puro #000",
     swatch: ["#000000", "#4c7eff"],
+  },
+  {
+    id: "neon",
+    label: "Neon",
+    hint: "Nero · verde neon",
+    swatch: ["#030705", "#00e576"],
+  },
+  {
+    id: "aurora",
+    label: "Aurora",
+    hint: "Blu profondo · viola",
+    swatch: ["#08060f", "#8b5cf6"],
   },
 ];
 
