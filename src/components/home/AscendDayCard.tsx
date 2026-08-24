@@ -59,16 +59,17 @@ export function AscendDayCard({ db }: { db: DB }) {
 
   const today = asc.today;
 
-  // --- Calendario attività stile GitHub: 13 settimane ESATTE, chiuse sulla
-  // settimana corrente (mai colonne di soli giorni futuri, anche se oggi è
-  // lunedì: il range parte dal lunedì di questa settimana meno 12 settimane).
+  // --- Calendario attività stile GitHub: finestra RULLANTE di 26 settimane
+  // (≈6 mesi) che termina con la settimana corrente. Colonne = settimane
+  // lun→dom; label del mese sopra la prima colonna che lo apre, centrata sul
+  // suo blocco (in % della griglia: mai sforamenti a qualsiasi larghezza).
   const calendar = useMemo(() => {
     const today = todayKey(db.settings.timezone);
     const [y0, m0, d0] = today.split("-").map(Number);
     const todayDow = new Date(y0, m0 - 1, d0).getDay(); // 0=dom
     const mondayOfThisWeek = addDaysKey(today, -((todayDow + 6) % 7));
-    const start = addDaysKey(mondayOfThisWeek, -12 * 7);
-    type Cell = { dk: string; level: number; count: number; future: boolean };
+    const start = addDaysKey(mondayOfThisWeek, -25 * 7); // 26 colonne esatte
+    type Cell = { dk: string; level: number; count: number };
     const weeks: Cell[][] = [];
     let activeDays = 0;
     let totalActions = 0;
@@ -77,19 +78,17 @@ export function AscendDayCard({ db }: { db: DB }) {
       const col: Cell[] = [];
       for (let i = 0; i < 7; i++) {
         const dk = addDaysKey(cursor, i);
-        const future = dk > today;
-        const count = future ? 0 : actionsOnDay(db, dk).length;
+        const count = actionsOnDay(db, dk).length;
         if (count > 0) activeDays++;
         totalActions += count;
-        const level = future ? -1 : count === 0 ? 0 : count === 1 ? 1 : count === 2 ? 2 : count === 3 ? 3 : 4;
-        col.push({ dk, level, count, future });
+        const level = count === 0 ? 0 : count === 1 ? 1 : count === 2 ? 2 : count === 3 ? 3 : 4;
+        col.push({ dk, level, count });
       }
       weeks.push(col);
       cursor = addDaysKey(cursor, 7);
     }
-    // label mesi: sopra la prima colonna che inizia un mese nuovo.
-    // Ogni label riceve uno "span" = n° colonne fino alla prossima label, così
-    // il testo riserva lo spazio necessario e non trabocca su quella vicina.
+    // label mesi: sopra la prima colonna che apre un mese nuovo; ogni label
+    // copre lo span di colonne fino alla successiva (centrata nel blocco).
     const monthLabels: { col: number; label: string; span: number }[] = [];
     let lastMonth = -1;
     weeks.forEach((col, ci) => {
@@ -103,9 +102,9 @@ export function AscendDayCard({ db }: { db: DB }) {
         lastMonth = m2;
       }
     });
-    // l'ultima label arriva fino a fine griglia
     if (monthLabels.length > 0) {
-      monthLabels[monthLabels.length - 1].span = weeks.length - monthLabels[monthLabels.length - 1].col;
+      monthLabels[monthLabels.length - 1].span =
+        weeks.length - monthLabels[monthLabels.length - 1].col;
     }
     return { weeks, monthLabels, activeDays, totalActions };
   }, [db]);
@@ -201,7 +200,7 @@ export function AscendDayCard({ db }: { db: DB }) {
         <div className="flex min-w-0 flex-1 flex-col lg:border-l lg:border-l-border lg:pl-6">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Attività · ultime 13 settimane
+              Attività · ultimi 6 mesi
             </p>
             <p className="tnum text-xs text-secondary-text">
               {calendar.activeDays} giorni attivi · {calendar.totalActions} azioni
@@ -250,15 +249,10 @@ export function AscendDayCard({ db }: { db: DB }) {
                     col.map((cell) => (
                       <div
                         key={cell.dk}
-                        title={
-                          cell.future
-                            ? undefined
-                            : `${cell.dk.split("-").reverse().join("/")} · ${cell.count} ${cell.count === 1 ? "azione" : "azioni"}`
-                        }
+                        title={`${cell.dk.split("-").reverse().join("/")} · ${cell.count} ${cell.count === 1 ? "azione" : "azioni"}`}
                         style={{ aspectRatio: "1 / 1" }}
                         className={
-                          "rounded-[3px] transition-colors duration-300 " +
-                          (cell.future ? "bg-transparent" : LEVEL_BG[cell.level])
+                          "rounded-[4px] transition-colors duration-300 " + LEVEL_BG[cell.level]
                         }
                       />
                     ))
