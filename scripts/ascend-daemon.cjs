@@ -289,17 +289,38 @@ function openAppWindow() {
 }
 // Watchdog finestra: chiudere la finestra Ascend spegne tutto (app+sync+tracker+ollama)
 let windowWatchdog = null;
+let windowGraceUntil = 0; // entro 20s dalla nascita Edge può delegare il pid (relink)
+function findAscendBrowserPid() {
+  try {
+    const out = execFileSync(
+      "powershell.exe",
+      ["-NoProfile", "-Command", "Get-CimInstance Win32_Process -Filter \"Name='msedge.exe'\" | Where-Object { $_.CommandLine -like '*app-profile*' } | ForEach-Object { $_.ProcessId }"],
+      { stdio: ["ignore", "pipe", "ignore"], encoding: "utf8", windowsHide: true, timeout: 6000 }
+    );
+    const m = out.match(/\d+/);
+    return m ? Number(m[0]) : null;
+  } catch { return null; }
+}
 function startWindowWatchdog() {
   if (windowWatchdog || !browserPid) return;
+  windowGraceUntil = Date.now() + 20000;
   windowWatchdog = setInterval(() => {
     if (!browserPid) return;
-    try { process.kill(browserPid, 0); }
-    catch {
-      log("[ascend] finestra chiusa — spegnimento completo");
-      clearInterval(windowWatchdog); windowWatchdog = null;
-      stopCompanions("finestra chiusa");
-      setTimeout(() => process.exit(0), 1200);
+    let alive = true;
+    try { process.kill(browserPid, 0); } catch { alive = false; }
+    if (alive) return;
+    if (Date.now() < windowGraceUntil) return; // possibile delega di Edge: attendi
+    const newPid = findAscendBrowserPid();
+    if (newPid) {
+      browserPid = newPid;
+      windowGraceUntil = Date.now() + 5000;
+      log("[ascend] finestra ricalibrata (delega Edge: pid → " + newPid + ")");
+      return;
     }
+    log("[ascend] finestra chiusa — spegnimento completo");
+    clearInterval(windowWatchdog); windowWatchdog = null;
+    stopCompanions("finestra chiusa");
+    setTimeout(() => process.exit(0), 1200);
   }, 2000);
 }
 function closeAppWindow() {
