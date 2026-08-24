@@ -56,6 +56,9 @@ export function actionsOnDay(db: DB, dayKey: string): string[] {
   if (db.studySessions.some((s) => s.date === dayKey)) actions.push("studio");
   // lettura: confronto nella timezone utente (mai quella del browser)
   if (db.books.some((b) => isoToDayKey(b.updatedAt, tz) === dayKey)) actions.push("lettura");
+  // benessere: contano solo sonno e peso (l'umore da solo non attiva il giorno)
+  const wl = db.wellnessLogs.find((w) => w.date === dayKey);
+  if (wl && (wl.sleepHours != null || wl.weightKg != null)) actions.push("benessere");
   return actions;
 }
 

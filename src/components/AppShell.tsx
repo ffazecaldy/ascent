@@ -68,6 +68,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/studio", label: "Studio", icon: { img: "/icons/studio.png", alt: "Studio" } },
       { href: "/libri", label: "Libri", icon: "book-open" },
       { href: "/sport", label: "Sport", icon: "dumbbell" },
+      { href: "/benessere", label: "Benessere", icon: "moon" },
     ],
   },
   {

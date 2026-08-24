@@ -20,6 +20,7 @@ import { TradingCalendarCard } from "@/components/home/TradingCalendarCard";
 import { EquityCurveCard } from "@/components/home/EquityCurveCard";
 import { SavingsSummaryCard } from "@/components/home/SavingsSummaryCard";
 import { SportReminderCard } from "@/components/home/SportReminderCard";
+import { WellnessTodayCard } from "@/components/home/WellnessTodayCard";
 import { EveningReviewCard } from "@/components/home/EveningReviewCard";
 import { RadarCard } from "@/components/home/RadarCard";
 
@@ -55,6 +56,11 @@ export default function HomePage() {
       {/* ——— Promemoria sport (solo con profilo configurato) ——— */}
       <Reveal delay={30}>
         <SportReminderCard db={db} />
+      </Reveal>
+
+      {/* ——— Benessere: sonno + peso in un colpo d'occhio ——— */}
+      <Reveal delay={35}>
+        <WellnessTodayCard db={db} />
       </Reveal>
 
       {/* ——— Panoramica: tutta l'app in un colpo d'occhio ——— */}

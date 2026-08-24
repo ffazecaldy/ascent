@@ -259,6 +259,21 @@ export interface SavingsGoal {
   createdAt: string;
 }
 
+// ============================================================
+// BENESSERE — log giornaliero sonno / umore / peso
+// ============================================================
+
+export interface WellnessLog {
+  id: string;
+  date: string; // "yyyy-MM-dd" (una riga per giorno)
+  sleepHours: number | null; // ore (7-9 consigliate)
+  sleepQuality?: 1 | 2 | 3 | 4 | 5 | null; // opzionale
+  mood: 1 | 2 | 3 | 4 | 5 | null; // 1=pessimissimo … 5=ottimo
+  weightKg: number | null;
+  note?: string;
+  createdAt: string;
+}
+
 export interface SavingsDeposit {
   id: string;
   goalId?: string | null; // opzionale: a quale obiettivo è allocato
@@ -320,10 +335,11 @@ export interface DB {
   savingsDeposits: SavingsDeposit[];
   sportProfile: SportProfile | null;
   recurringRules: RecurringRule[];
+  wellnessLogs: WellnessLog[];
   badges: Badge[];
 }
 
-export const DB_VERSION = 6;
+export const DB_VERSION = 7;
 
 /**
  * Regola di transazione ricorrente mensile (affitto, abbonamenti...).

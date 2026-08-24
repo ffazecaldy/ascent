@@ -45,6 +45,7 @@ const emptyDB = (): DB => ({
   savingsDeposits: [],
   sportProfile: null,
   recurringRules: [],
+  wellnessLogs: [],
   badges: [],
 });
 
@@ -140,6 +141,9 @@ function migrate(db: DB): DB {
     } else if (out.version < 6) {
       // v5 → v6: Ricorrenti — nuova collezione `recurringRules` vuota.
       out = { ...out, version: 6, recurringRules: out.recurringRules ?? [] };
+    } else if (out.version < 7) {
+      // v6 → v7: Benessere — nuova collezione `wellnessLogs` vuota.
+      out = { ...out, version: 7, wellnessLogs: out.wellnessLogs ?? [] };
     } else {
       break;
     }
