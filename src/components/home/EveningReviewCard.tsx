@@ -18,6 +18,7 @@ import { Card, CardHeader, CardSubtitle, CardTitle } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { formatSignedMoney } from "@/lib/format";
+import { maskMoney, moneyMasked } from "@/lib/privacy";
 import { cn } from "@/lib/cn";
 
 /** Ora corrente nella timezone utente (fallback: orologio del browser). */
@@ -136,7 +137,9 @@ export function EveningReviewCard({ db }: { db: DB }) {
         tradesToday.length === 0
           ? null
           : pnlBase !== null
-            ? formatSignedMoney(pnlBase, db.settings.baseCurrency, db.settings.locale)
+            ? moneyMasked(db.settings.privacyMode)
+              ? maskMoney()
+              : formatSignedMoney(pnlBase, db.settings.baseCurrency, db.settings.locale)
             : `${tradesToday.length} trade chius${tradesToday.length === 1 ? "o" : "i"}`,
     };
 

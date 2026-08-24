@@ -164,12 +164,27 @@ function handleError(e) {
 // ------------------------------------------------------------------
 // HTTP server
 // ------------------------------------------------------------------
-function send(res, code, obj) {
-  res.writeHead(code, {
+// CORS allowlist: solo l'app Ascend in dev (localhost:3000/3001). MAI '*':
+// le API espongono i titoli delle finestre attive — un sito web qualunque
+// non deve poterli leggere dal browser.
+const ALLOWED_ORIGINS = new Set([
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3001",
+]);
+function corsOrigin(req) {
+  const o = req.headers.origin;
+  return o && ALLOWED_ORIGINS.has(o) ? o : null;
+}
+function send(res, code, obj, req) {
+  const h = {
     "Content-Type": "application/json; charset=utf-8",
-    "Access-Control-Allow-Origin": "*",
     "Cache-Control": "no-store",
-  });
+  };
+  const origin = corsOrigin(req);
+  if (origin) h["Access-Control-Allow-Origin"] = origin;
+  res.writeHead(code, h);
   res.end(JSON.stringify(obj));
 }
 
@@ -253,7 +268,13 @@ const server = createServer(async (req, res) => {
 
   try {
     if (req.method === "OPTIONS") {
-      res.writeHead(204, { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET,OPTIONS", "Access-Control-Allow-Headers": "*" });
+      const origin = corsOrigin(req);
+      res.writeHead(
+        204,
+        origin
+          ? { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "GET,OPTIONS", "Access-Control-Allow-Headers": "*" }
+          : {}
+      );
       return res.end();
     }
 
@@ -269,7 +290,7 @@ const server = createServer(async (req, res) => {
         lastAt: lastSample?.ts ?? null,
         platform: process.platform,
         mode: hookAlive ? "hook-event" : "polling",
-      });
+      }, req);
     }
 
     if (p === "/api/active") {
@@ -279,14 +300,14 @@ const server = createServer(async (req, res) => {
         last: lastSample,
         lastAt: lastSample?.ts ?? null,
         interval: INTERVAL,
-      });
+      }, req);
     }
 
     if (p === "/api/today") {
       const d = new Date();
       const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       const samples = await readDateLines(ymd);
-      return send(res, 200, { ok: true, date: ymd, count: samples.length, samples });
+      return send(res, 200, { ok: true, date: ymd, count: samples.length, samples }, req);
     }
 
     if (p === "/api/since") {
@@ -296,7 +317,7 @@ const server = createServer(async (req, res) => {
       const samples = await readDateLines(ymd);
       const from = ts ? new Date(ts).getTime() : 0;
       const filtered = ts ? samples.filter((s) => new Date(s.ts).getTime() > from) : samples;
-      return send(res, 200, { ok: true, date: ymd, count: filtered.length, samples: filtered });
+      return send(res, 200, { ok: true, date: ymd, count: filtered.length, samples: filtered }, req);
     }
 
     if (p === "/api/today/csv") {
@@ -305,7 +326,12 @@ const server = createServer(async (req, res) => {
       const d = new Date();
       const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       const samples = await readDateLines(ymd);
-      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store" });
+      const origin = corsOrigin(req);
+      res.writeHead(200, {
+        "Content-Type": "text/plain; charset=utf-8",
+        ...(origin ? { "Access-Control-Allow-Origin": origin } : {}),
+        "Cache-Control": "no-store",
+      });
       res.end(`date,category,minutes,source\n` + samples.map(() => `${ymd},auto,0.5,auto`).join("\n"));
       return;
     }
@@ -322,10 +348,10 @@ const server = createServer(async (req, res) => {
       );
     }
 
-    return send(res, 404, { ok: false, error: "not found" });
+    return send(res, 404, { ok: false, error: "not found" }, req);
   } catch (e) {
     handleError(e);
-    return send(res, 500, { ok: false, error: String(e?.message ?? e) });
+    return send(res, 500, { ok: false, error: String(e?.message ?? e) }, req);
   }
 });
 

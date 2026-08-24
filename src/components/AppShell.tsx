@@ -174,9 +174,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       ...d,
       transactions: [...d.transactions, ...newTx],
       recurringRules: d.recurringRules.map((r) => updatedRules.find((u) => u.id === r.id) ?? r),
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+          }));
+          // deps sui dati reali: al primo render (pre-hydration) il DB è vuoto e l'effect
+          // esce prima del ref-guard; il cambio di riferimento post-hydration lo fa ripartire.
+        }, [db.recurringRules, db.settings.timezone]);
 
   // PROMOZIONE EVAL → FINANZIATO (globale: scatta da qualunque pagina)
   const [evalToast, setEvalToast] = useState<string | null>(null);
@@ -217,36 +218,43 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const [riskAckVersion, setRiskAckVersion] = useState(0);
 
-  // ack letti a ogni cambio versione (bottone ✕) — fuori dal DB, solo localStorage
-  const riskAcks = useMemo(() => {
-    void riskAckVersion;
-    try {
-      const raw = localStorage.getItem(RISK_ACK_KEY);
-      return raw ? (JSON.parse(raw) as Record<string, number>) : {};
-    } catch {
-      return {};
-    }
-  }, [riskAckVersion]);
+  // ack letti a ogni cambio versione (bottone ✕) — fuori dal DB, solo localStorage.
+    // Il valore salvato è il BUCKET di soglia ack-ato (80|90|100): un ack resta valido
+    // finché il consumo non sale a un bucket superiore (riskAckBucket in compute.ts).
+    const riskAcks = useMemo(() => {
+      void riskAckVersion;
+      try {
+        const raw = localStorage.getItem(RISK_ACK_KEY);
+        const map: Record<string, number> = raw ? JSON.parse(raw) : {};
+        // Migrazione: prima del bucket-fix qui finivano timestamp epoch (>100):
+        // li trattiamo come ack a bucket 80 → il banner riappare se si sale ≥90%.
+        for (const k of Object.keys(map)) {
+          if (map[k] > 100) map[k] = 80;
+        }
+        return map;
+      } catch {
+        return {};
+      }
+    }, [riskAckVersion]);
 
-  // banner attivi = alert la cui soglia non è stata ancora ack-ata
-  // (l'ack è valido finché il consumo resta nella stessa fascia: 80|100)
-  const activeRiskAlerts = riskAlerts.filter((a) => {
-    const ackAt = riskAcks[`${a.accountId}-${a.kind}`];
-    if (!ackAt) return true;
-    return false;
-  });
+    // banner attivi = alert la cui soglia supera il bucket ack-ato
+    const activeRiskAlerts = riskAlerts.filter((a) => {
+      const ackBucket = riskAcks[`${a.accountId}-${a.kind}`];
+      if (ackBucket === undefined) return true;
+      return riskAckBucket(a.pct) > ackBucket;
+    });
 
-  const ackRiskAlert = (a: RiskLimitAlert) => {
-    try {
-      const raw = localStorage.getItem(RISK_ACK_KEY);
-      const map: Record<string, number> = raw ? JSON.parse(raw) : {};
-      map[`${a.accountId}-${a.kind}`] = Date.now();
-      localStorage.setItem(RISK_ACK_KEY, JSON.stringify(map));
-      setRiskAckVersion((v) => v + 1); // forza il filtro degli ack senza toccare il DB
-    } catch {
-      /* localStorage indisponibile: il banner riapparirà al prossimo render */
-    }
-  };
+    const ackRiskAlert = (a: RiskLimitAlert) => {
+      try {
+        const raw = localStorage.getItem(RISK_ACK_KEY);
+        const map: Record<string, number> = raw ? JSON.parse(raw) : {};
+        map[`${a.accountId}-${a.kind}`] = riskAckBucket(a.pct);
+        localStorage.setItem(RISK_ACK_KEY, JSON.stringify(map));
+        setRiskAckVersion((v) => v + 1); // forza il filtro degli ack senza toccare il DB
+      } catch {
+        /* localStorage indisponibile: il banner riapparirà al prossimo render */
+      }
+    };
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 

@@ -14,7 +14,8 @@
 # ------------------------------------------------------------
 # CONFIGURAZIONE (modificabile via variabili d'ambiente)
 # ------------------------------------------------------------
-$IntervalSec = $env:INTERVAL_SEC ?? 30          # secondi tra campioni (default 30s)
+$IntervalSec = 30                                   # secondi tra campioni (default 30s)
+if ($env:INTERVAL_SEC -and $env:INTERVAL_SEC -match '^\d{1,4}$') { $IntervalSec = [int]$env:INTERVAL_SEC }
 $DataDir     = "$env:LOCALAPPDATA\Ascend\pc-usage"
 $LogErrors   = $true                            # log errori su stderr
 
