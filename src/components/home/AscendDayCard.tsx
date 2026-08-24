@@ -27,12 +27,11 @@ const DAY_LETTERS = ["L", "M", "M", "G", "V", "S", "D"];
 const MONTH_LABELS = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
 
 /**
- * Geometria calendario — deve combaciare con le classi utility usate nella griglia:
- * celle 13px, gap 3px tra colonne, colonna lettere w-4 (16px) + mr-1 (4px).
+ * Geometria calendario — la misura effettiva è FLUIDa (ResizeObserver sulla
+ * colonna): le celle riempiono tutta la larghezza disponibile. Questa costante
+ * è solo il fallback pre-misurazione (SSR e primo render client identici).
  */
 const CELL_SIZE = 13;
-const CELL_GAP = 3;
-const COL_PITCH = CELL_SIZE + CELL_GAP; // 16px di passo per colonna-settimana
 const DAY_COL_W = 16 + 4; // larghezza totale colonna lettere giorni
 
 export function AscendDayCard({ db }: { db: DB }) {
@@ -111,6 +110,12 @@ export function AscendDayCard({ db }: { db: DB }) {
     return { weeks, monthLabels, activeDays, totalActions };
   }, [db]);
   const days = Array.from({ length: 7 }, (_, i) => addDaysKey(weekStart, i));
+
+  // Griglia FLUIDA via CSS puro: colonne `repeat(N, minmax(CELL_SIZE px, 1fr))`
+  // + celle aspect-square → il browser distribuisce da solo TUTTA la larghezza
+  // disponibile (nessuna misura JS, zero mismatch, si adatta a ogni viewport).
+  const N = calendar.weeks.length;
+  const FLUID_GAP = 4;
 
   return (
     <Card hairline="success" className="flex flex-col gap-4 p-5 lg:p-6">
@@ -203,14 +208,11 @@ export function AscendDayCard({ db }: { db: DB }) {
             </p>
           </div>
           <div className="overflow-x-auto pb-1">
-            <div
-              className="inline-block min-w-full"
-              style={{ minWidth: DAY_COL_W + calendar.weeks.length * COL_PITCH }}
-            >
-              {/* label mesi — ogni label è POSIZIONATA al centro del proprio span di colonne
-                  (absolute: nessun accumulo di larghezze, la riga non può sforare la
-                  griglia). La prima label è allineata a sinistra dell'inizio griglia
-                  così il testo non viene mai troncato. */}
+            <div className="inline-block w-full">
+              {/* label mesi — absolute, centrate sullo span di colonne; left in %
+                  sulla larghezza della griglia (margine lettere a parte), nessun
+                  accumulo di larghezze → mai sforamento. Prima label flush a
+                  sinistra, mai troncata. */}
               <div className="relative" style={{ marginLeft: DAY_COL_W, height: 12 }}>
                 {calendar.monthLabels.map((lbl, i) => (
                   <span
@@ -219,24 +221,33 @@ export function AscendDayCard({ db }: { db: DB }) {
                     style={
                       i === 0
                         ? { left: 0 }
-                        : { left: (lbl.col + lbl.span / 2) * COL_PITCH, transform: "translateX(-50%)" }
+                        : { left: `${((lbl.col + lbl.span / 2) / N) * 100}%`, transform: "translateX(-50%)" }
                     }
                   >
                     {lbl.label}
                   </span>
                 ))}
               </div>
-              <div className="flex gap-[3px]">
-                {/* lettere giorni */}
-                <div className="mr-1 flex w-4 flex-col gap-[3px]">
+              <div className="flex items-stretch" style={{ gap: FLUID_GAP }}>
+                {/* lettere giorni — riempiono l'intera altezza della griglia */}
+                <div className="flex w-4 shrink-0 flex-col" style={{ gap: FLUID_GAP }}>
                   {DAY_LETTERS.map((l, i) => (
-                    <span key={i} className="flex h-[13px] items-center text-[11px] leading-none text-muted-foreground">{l}</span>
+                    <span
+                      key={i}
+                      className="flex flex-1 items-center justify-center text-[11px] leading-none text-muted-foreground"
+                    >
+                      {l}
+                    </span>
                   ))}
                 </div>
-                {/* colonne settimane */}
-                {calendar.weeks.map((col, ci) => (
-                  <div key={ci} className="flex flex-col gap-[3px]">
-                    {col.map((cell) => (
+                {/* colonne settimane — celle quadrate: 1fr distribuisce tutta la
+                    larghezza disponibile, aspect-ratio rende la cella quadrata */}
+                <div
+                  className="grid min-w-0 flex-1"
+                  style={{ gridTemplateColumns: `repeat(${N}, minmax(${CELL_SIZE}px, 1fr))`, gap: FLUID_GAP }}
+                >
+                  {calendar.weeks.map((col) =>
+                    col.map((cell) => (
                       <div
                         key={cell.dk}
                         title={
@@ -244,14 +255,15 @@ export function AscendDayCard({ db }: { db: DB }) {
                             ? undefined
                             : `${cell.dk.split("-").reverse().join("/")} · ${cell.count} ${cell.count === 1 ? "azione" : "azioni"}`
                         }
+                        style={{ aspectRatio: "1 / 1" }}
                         className={
-                          "h-[13px] w-[13px] rounded-[3px] transition-colors duration-300 " +
+                          "rounded-[3px] transition-colors duration-300 " +
                           (cell.future ? "bg-transparent" : LEVEL_BG[cell.level])
                         }
                       />
-                    ))}
-                  </div>
-                ))}
+                    ))
+                  )}
+                </div>
               </div>
               {/* legenda — riga propria sotto le celle, mai a contatto con esse */}
               <div className="mt-2 flex flex-wrap items-center justify-end gap-x-1.5 gap-y-1">
