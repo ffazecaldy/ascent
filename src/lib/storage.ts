@@ -10,6 +10,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import type { DB } from "./types";
 import { DB_VERSION } from "./types";
+import { mirrorPush, mirrorPull } from "./mirror";
 
 const STORAGE_KEY = "ascend:db";
 
@@ -221,6 +222,7 @@ export function loadDB(): DB {
 export function saveDB(db: DB): void {
   const deduped = dedupeCollections(db);
   cache = deduped;
+  mirrorPush(deduped);
   if (typeof window === "undefined") return;
   try {
     // Snapshot rotante di sicurezza: massimo una copia/ora, 3 copie totali.
@@ -332,6 +334,21 @@ export function markHydrated(): void {
   if (!hydrated) {
     hydrated = true;
     listeners.forEach((l) => l());
+    // Mirror boot: se il file del daemon ha un DB e il localStorage è vuoto
+    // (profilo browser nuovo / EXE al primo avvio), adottiamo i dati del file.
+    void mirrorPull().then((remote) => {
+      if (!remote || !isValidDBShape(remote)) return;
+      const local = loadDB();
+      const localEmpty =
+        local.transactions.length === 0 &&
+        local.trades.length === 0 &&
+        local.pcUsageLogs.length === 0;
+      if (localEmpty) {
+        cache = migrate({ ...emptyDB(), ...(remote as DB), settings: { ...emptyDB().settings, ...(remote as DB).settings } });
+        saveDB(cache);
+        listeners.forEach((l) => l());
+      }
+    });
   }
 }
 

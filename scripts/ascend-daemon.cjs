@@ -371,6 +371,14 @@ const server = http.createServer(async (req, res) => {
           json(res, 400, { ok: false, error: "DB non valido" }, cors);
           return;
         }
+        // ?replace=1: sovrascrive il file senza merge (usato dal reset totale
+        // dell'app: altrimenti il merge resusciterebbe le voci eliminate).
+        if (url.searchParams.get("replace") === "1") {
+          saveSync(body.db);
+          syncCache = body.db;
+          json(res, 200, { ok: true, db: body.db, mergedAt, stats: { added: 0, updated: 0 } }, cors);
+          return;
+        }
         const merged = mergeDb(loadSync(), body.db);
         saveSync(merged.db);
         syncCache = merged.db;

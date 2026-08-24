@@ -7,6 +7,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useDB, updateDB, purgeAscendStorage } from "@/lib/storage";
+import { mirrorReplace } from "@/lib/mirror";
 import { seedDB } from "@/lib/db";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -36,6 +37,7 @@ export function DataZone() {
     // dall'onboarding come al primo avvio. Il redirect con reload COMPLETO
     // elimina anche eventuale stato React obsoleto in memoria.
     purgeAscendStorage();
+    mirrorReplace(seedDB());
     updateDB(() => seedDB());
     setConfirmOpen(false);
     // reload COMPLETO voluto (non router.push): deve morire anche lo stato
