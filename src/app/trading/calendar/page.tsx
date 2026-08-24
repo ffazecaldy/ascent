@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 import Link from "next/link";
 
 import { useDB } from "@/lib/storage";
-import { pnlByTradingDay } from "@/lib/compute";
+import { pnlByLocalDay } from "@/lib/compute";
 import { monthKeyOf, todayKey } from "@/lib/dates";
 import { calendarNeutral, moneyMasked } from "@/lib/privacy";
 import { formatSignedMoney } from "@/lib/format";
@@ -160,9 +160,8 @@ export default function TradingCalendarPage() {
 
   const days = useMemo(() => {
     if (!account) return [];
-    return pnlByTradingDay(
+    return pnlByLocalDay(
       db.trades.filter((t) => t.accountId === account.id),
-      account,
       month,
       db.settings.timezone
     );

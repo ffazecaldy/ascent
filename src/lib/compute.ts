@@ -403,6 +403,26 @@ export function pnlByTradingDay(
   return Array.from(map.entries()).map(([dayKey, pnl]) => ({ dayKey, pnl })).sort((a, b) => a.dayKey.localeCompare(b.dayKey));
 }
 
+/** P&L per giorno CALENDARIO (timezone utente, NON confine di sessione):
+ *  la cella del calendario mostra il giorno in cui l'utente ha chiuso il
+ *  trade (Europe/Rome), mai il trading day della sessione dell'account
+ *  (che per sessioni USA spostava i trade a ieri/domani).
+ *  Date senza ora ("yyyy-MM-dd") = giorno dichiarato, senza conversioni.
+ */
+export function pnlByLocalDay(
+  trades: Trade[],
+  monthKey: string,
+  settingsTimezone: string
+): { dayKey: string; pnl: number }[] {
+  const map = new Map<string, number>();
+  for (const t of trades) {
+    const dk = /^\d{4}-\d{2}-\d{2}$/.test(t.closeDate) ? t.closeDate : isoToDayKey(t.closeDate, settingsTimezone);
+    if (monthKeyOf(dk) !== monthKey) continue;
+    map.set(dk, (map.get(dk) ?? 0) + t.resultNative);
+  }
+  return Array.from(map.entries()).map(([dayKey, pnl]) => ({ dayKey, pnl })).sort((a, b) => a.dayKey.localeCompare(b.dayKey));
+}
+
 export function monthPnlTrades(db: DB, monthKey: string): { native: number; base: number } {
   const tz = db.settings.timezone;
   let native = 0, base = 0;
