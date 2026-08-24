@@ -15,6 +15,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
 const { spawn, execFileSync } = require("node:child_process");
+const net = require("node:net");
 
 const IS_PKG = !!process.pkg;
 // In pkg: snapshot virtuale — la radice dipende da dove vive il package.json
@@ -48,6 +49,10 @@ const SYNC_HOST = "0.0.0.0";
 const DATA_DIR = path.join(os.homedir(), "AppData", "Local", "Ascend");
 const SYNC_FILE = path.join(DATA_DIR, "sync-db.json");
 const PROFILE_DIR = path.join(DATA_DIR, "app-profile");
+const RUNTIME_DIR = path.join(DATA_DIR, "runtime");
+const TRACKER_PORT = Number(process.env.ASCEND_TRACKER_PORT ?? 4877);
+const OLLAMA_PORT = Number(process.env.ASCEND_OLLAMA_PORT ?? 11434);
+const OLLAMA_EXE_DEFAULT = path.join(os.homedir(), "AppData", "Local", "Programs", "Ollama", "ollama.exe");
 
 if (!process.env.ASCEND_SYNC_TOKEN) {
   console.log("[ascend] token: 'ascend-sync' (default) — imposta ASCEND_SYNC_TOKEN per cambiarlo");
@@ -314,6 +319,7 @@ const server = http.createServer(async (req, res) => {
         json(res, 200, { ok: true, message: "Ascend spento — puoi chiudere questa finestra" }, cors);
         setTimeout(() => {
           closeAppWindow();
+          stopCompanions("tasto Spegni");
           server.close();
           setTimeout(() => process.exit(0), 300);
         }, 400);
@@ -386,5 +392,147 @@ http
     console.log(`[ascend] sync server su :${SYNC_PORT} (LAN) — dall'altro PC: http://<IP-questo>:${SYNC_PORT}`);
   });
 
-process.on("SIGINT", () => { closeAppWindow(); process.exit(0); });
-process.on("SIGTERM", () => { closeAppWindow(); process.exit(0); });
+// ------------------------------------------------------------
+// Tracker di sistema + Ollama: si avviano con l'app e si spengono
+// con essa (anche se erano già attivi: adottati e fermati).
+// ------------------------------------------------------------
+let trackerPid = 0;
+let ollamaPid = 0;
+
+function pidsOnPort(port) {
+  try {
+    const out = execFileSync("netstat", ["-ano"], { windowsHide: true, encoding: "utf8", timeout: 5000 });
+    const pids = new Set();
+    for (const line of out.split("\n")) {
+      if (!line.includes(`:${port} `) || !/LISTENING/i.test(line)) continue;
+      const pid = Number(line.trim().split(/\s+/).pop());
+      if (pid > 0) pids.add(pid);
+    }
+    return [...pids];
+  } catch {
+    return [];
+  }
+}
+
+async function portInUse(port) {
+  return new Promise((resolve) => {
+    const sock = net.connect({ host: "127.0.0.1", port, timeout: 1000 });
+    sock.on("connect", () => { sock.destroy(); resolve(true); });
+    sock.on("error", () => resolve(false));
+  });
+}
+
+function looksLikeOllama() {
+  try {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 1500);
+    return fetch(`http://127.0.0.1:${OLLAMA_PORT}/api/version`, { signal: ctl.signal })
+      .then((r) => (r.ok ? r.text() : "").includes("version"))
+      .catch(() => false)
+      .finally(() => clearTimeout(timer));
+  } catch {
+    return Promise.resolve(false);
+  }
+}
+
+function findNode() {
+  const candidates = [
+    path.join(process.env.ProgramFiles ?? "C:\\Program Files", "nodejs", "node.exe"),
+    path.join(process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)", "nodejs", "node.exe"),
+    path.join(os.homedir(), "AppData", "Local", "Programs", "nodejs", "node.exe"),
+  ];
+  const hit = candidates.find((c) => fs.existsSync(c));
+  if (hit) return hit;
+  try { return execFileSync("where", ["node"], { windowsHide: true, encoding: "utf8", timeout: 4000 }).split(/\r?\n/)[0] || null; } catch { return null; }
+}
+
+function findOllama() {
+  if (process.env.ASCEND_OLLAMA_EXE && fs.existsSync(process.env.ASCEND_OLLAMA_EXE)) return process.env.ASCEND_OLLAMA_EXE;
+  if (fs.existsSync(OLLAMA_EXE_DEFAULT)) return OLLAMA_EXE_DEFAULT;
+  return "ollama"; // dal PATH
+}
+
+/** Avvia il tracker (o adotta quello già attivo). */
+async function startTracker() {
+  if (await portInUse(TRACKER_PORT)) {
+    const [pid] = pidsOnPort(TRACKER_PORT);
+    trackerPid = pid ?? 0;
+    console.log(`[ascend] tracker già attivo su :${TRACKER_PORT} — adottato${trackerPid ? ` (pid ${trackerPid})` : ""} e lo fermerò allo spegnimento`);
+    return;
+  }
+  const node = findNode();
+  if (!node) {
+    console.log("[ascend] tracker NON avviato: node.exe non trovato (installalo o usa il progetto dev)");
+    return;
+  }
+  let trackerFile;
+  if (IS_PKG) {
+    try {
+      fs.mkdirSync(RUNTIME_DIR, { recursive: true });
+      const src = path.join(__dirname, "tracker-server.mjs");
+      trackerFile = path.join(RUNTIME_DIR, "tracker-server.mjs");
+      fs.writeFileSync(trackerFile, fs.readFileSync(src));
+    } catch (e) {
+      console.log("[ascend] tracker NON avviato: estrazione asset fallita", e.message);
+      return;
+    }
+  } else {
+    trackerFile = path.join(ROOT, "scripts", "tracker-server.mjs");
+    if (!fs.existsSync(trackerFile)) {
+      console.log("[ascend] tracker NON avviato: scripts/tracker-server.mjs non trovato");
+      return;
+    }
+  }
+  console.log("[ascend] avvio tracker di sistema...");
+  const child = spawn(node, [trackerFile], { stdio: "ignore", windowsHide: true });
+  child.on("error", (e) => console.log("[ascend] avvio tracker fallito:", e.message));
+  trackerPid = child.pid ?? 0;
+  // attesa porta (best effort)
+  for (let i = 0; i < 8 && !(await portInUse(TRACKER_PORT)); i++) await new Promise((r) => setTimeout(r, 500));
+  console.log((await portInUse(TRACKER_PORT)) ? `[ascend] tracker su :${TRACKER_PORT} (pid ${trackerPid})` : `[ascend] tracker avviato ma non risponde su :${TRACKER_PORT}`);
+}
+
+/** Avvia Ollama (o adotta quello già attivo). */
+async function startOllama() {
+  if (await portInUse(OLLAMA_PORT)) {
+    if (await looksLikeOllama()) {
+      const [pid] = pidsOnPort(OLLAMA_PORT);
+      ollamaPid = pid ?? 0;
+      console.log(`[ascend] Ollama già attivo su :${OLLAMA_PORT} — adottato${ollamaPid ? ` (pid ${ollamaPid})` : ""} e lo fermerò allo spegnimento`);
+    } else {
+      console.log(`[ascend] :${OLLAMA_PORT} occupato da altro servizio — Coach AI non disponibile (porta lasciata intatta)`);
+    }
+    return;
+  }
+  const exe = findOllama();
+  console.log(`[ascend] avvio Ollama serve (${exe})...`);
+  const child = spawn(exe, ["serve"], { stdio: "ignore", windowsHide: true });
+  child.on("error", (e) => {
+    if (e.code === "ENOENT") console.log("[ascend] Ollama non trovato — Coach AI non disponibile");
+    else console.log("[ascend] avvio Ollama fallito:", e.message);
+  });
+  ollamaPid = child.pid ?? 0;
+  for (let i = 0; i < 12 && !(await portInUse(OLLAMA_PORT)); i++) await new Promise((r) => setTimeout(r, 500));
+  console.log((await portInUse(OLLAMA_PORT)) ? `[ascend] Ollama su :${OLLAMA_PORT} (pid ${ollamaPid})` : `[ascend] Ollama avviato ma non ancora su :${OLLAMA_PORT}`);
+}
+
+/** Ferma tracker e Ollama (figli o adottati). */
+function stopCompanions(reason) {
+  for (const [label, pid] of [["tracker", trackerPid], ["ollama", ollamaPid]]) {
+    if (!pid) continue;
+    try {
+      execFileSync("taskkill", ["/pid", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+      console.log(`[ascend] ${label} fermato (pid ${pid}, ${reason})`);
+    } catch { /* già chiuso */ }
+  }
+  trackerPid = 0;
+  ollamaPid = 0;
+}
+
+// Avvio companion dopo i server
+setTimeout(() => { void startOllama(); void startTracker(); }, 400);
+
+process.on("exit", () => stopCompanions("exit"));
+
+process.on("SIGINT", () => { closeAppWindow(); stopCompanions("SIGINT"); process.exit(0); });
+process.on("SIGTERM", () => { closeAppWindow(); stopCompanions("SIGTERM"); process.exit(0); });

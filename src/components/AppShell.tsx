@@ -23,7 +23,8 @@ import { moneyMasked, maskMoney } from "@/lib/privacy";
 import type { PrivacyMode } from "@/lib/types";
 import { PRIVACY_ORDER } from "@/lib/privacy";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { syncNow, readSyncConfig } from "@/lib/sync";
+import { syncNow, readSyncConfig, testSyncConnection, shutdownAscend } from "@/lib/sync";
+import { ConfirmDialog } from "@/components/ui/Modal";
 
 interface NavItem {
   href: string;
@@ -301,6 +302,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => clearInterval(iv);
   }, []);
 
+  // Tasto Spegni nell'header: visibile quando l'app gira sotto l'exe (daemon).
+  const [isDaemon, setIsDaemon] = useState(false);
+  const [shutdownConfirm, setShutdownConfirm] = useState(false);
+  useEffect(() => {
+    const cfg = readSyncConfig();
+    if (!cfg.url.startsWith("http") || !cfg.token) return;
+    queueMicrotask(() => {
+      void testSyncConnection(cfg.url, cfg.token).then((r) => {
+        if (r.ok && r.service === "ascend-daemon") setIsDaemon(true);
+      });
+    });
+     
+  }, []);
+
   return (
     <div className="relative flex min-h-screen">
       {/* Semi-sfondo: wallpaper che svanisce gradualmente verso il basso (a malapena visibile) */}
@@ -350,6 +365,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {isDaemon && (
+              <button
+                onClick={() => setShutdownConfirm(true)}
+                title="Spegni Ascend (chiude app, tracker e Ollama)"
+                aria-label="Spegni Ascend"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-danger/30 bg-danger/10 text-danger transition-colors hover:bg-danger/20"
+              >
+                <Icon name="power" size={15} />
+              </button>
+            )}
             <StreakPill />
             <PrivacyToggle />
           </div>
@@ -396,6 +421,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Toast promozione eval */}
+      {/* Conferma spegnimento (solo sotto l'exe) */}
+      <ConfirmDialog
+        open={shutdownConfirm}
+        onClose={() => setShutdownConfirm(false)}
+        onConfirm={() => {
+          void shutdownAscend();
+          setShutdownConfirm(false);
+        }}
+        title="Spegnere Ascend?"
+        message="Verranno chiusi: app, sync server, tracker di sistema e Ollama. I dati sono già salvati in locale."
+        confirmLabel="Spegni"
+      />
+
       {evalToast && (
         <div className="animate-pop fixed left-1/2 top-4 z-[60] w-[min(92vw,420px)] -translate-x-1/2 rounded-xl border border-success/30 bg-[--bg-elev-1] px-4 py-3 shadow-[--shadow-pop]">
           <div className="flex items-center gap-3">
@@ -428,7 +466,7 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
           <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-accent via-accent-2 to-accent-3 opacity-90 blur-[6px]" />
           {/* eslint-disable-next-line @next/next/no-img-element -- icona statica locale: next/image richiederebbe width/height espliciti e cambierebbe il layout della sidebar */}
           <img
-            src="/icons/studio.png"
+            src="/icons/app-icon.png"
             alt="Ascend"
             className="relative h-9 w-9 rounded-xl object-cover shadow-lg ring-1 ring-white/10"
           />

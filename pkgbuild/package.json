@@ -6,7 +6,8 @@
   "bin": "ascend-daemon.cjs",
   "pkg": {
     "assets": [
-      "out/**"
+      "out/**",
+      "tracker-server.mjs"
     ],
     "outputPath": ".",
     "icon": "ascend.ico"

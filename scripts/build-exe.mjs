@@ -17,29 +17,37 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PKGBUILD = path.join(ROOT, "pkgbuild");
 const DIST = path.join(ROOT, "dist");
 
+function q(a) {
+  const s = String(a);
+  return /[\s"]/.test(s) ? '"' + s.replace(/"/g, '\\"') + '"' : s;
+}
 function run(cmd, args, cwd) {
-  console.log(`> ${cmd} ${args.join(" ")}`);
-  execFileSync(cmd, args, { cwd, stdio: "inherit", shell: process.platform === "win32" });
+  const line = [cmd, ...args].map(q).join(" ");
+  console.log("> " + line);
+  // cmd.exe /d /s /c con quoting manuale: i path con spazi (OneDrive…) non
+  // si spezzano, e i .cmd (npx) girano senza i limiti di shell:true.
+  execFileSync("cmd.exe", ["/d", "/s", "/c", line], { cwd, stdio: "inherit", shell: false });
 }
 
 // 1. Build statica
-run("npx", ["next", "build"], ROOT);
+  run("npx.cmd", ["next", "build"], ROOT);
 if (!existsSync(path.join(ROOT, "out", "index.html"))) {
   console.error("out/index.html manca — build fallita");
   process.exit(1);
 }
 
-// 2. Prep pkgbuild (icona + daemon + app statica)
+// 2. Prep pkgbuild (icona+asset PWA, tracker, daemon, app statica)
 mkdirSync(PKGBUILD, { recursive: true });
-run("node", ["scripts/make-ico.mjs"], ROOT);
+run("node.exe", ["scripts/make-assets.mjs"], ROOT);
 rmSync(path.join(PKGBUILD, "out"), { recursive: true, force: true });
 cpSync(path.join(ROOT, "out"), path.join(PKGBUILD, "out"), { recursive: true });
+cpSync(path.join(ROOT, "scripts", "tracker-server.mjs"), path.join(PKGBUILD, "tracker-server.mjs"));
 cpSync(path.join(ROOT, "scripts", "ascend-daemon.cjs"), path.join(PKGBUILD, "ascend-daemon.cjs"));
 
 // 3. pkg → ascend-core.exe (daemon; MAI patchato: le risorse Win32
 //    rompono lo snapshot pkg, quindi l'icona vive nel launcher)
 mkdirSync(DIST, { recursive: true });
-run("npx", ["pkg", ".", "--targets", "node18-win-x64", "--output", path.join(DIST, "ascend-core.exe")], PKGBUILD);
+run("npx.cmd", ["pkg", ".", "--targets", "node18-win-x64", "--output", path.relative(PKGBUILD, path.join(DIST, "ascend-core.exe"))], PKGBUILD);
 
 // 4. Launcher C# ("Ascend.exe" visibile, con icona compilata dentro)
 const CSC_CANDIDATES = [
@@ -50,9 +58,9 @@ const CSC_CANDIDATES = [
 const csc = CSC_CANDIDATES.find((c) => existsSync(c) || c === "csc.exe");
 run(csc, [
   "/nologo", "/target:winexe", "/optimize+",
-  "/win32icon:" + path.join(PKGBUILD, "ascend.ico"),
-  "/out:" + path.join(DIST, "Ascend.exe"),
-  path.join(PKGBUILD, "Launcher.cs"),
+  "/win32icon:" + path.relative(PKGBUILD, path.join(PKGBUILD, "ascend.ico")),
+  "/out:" + path.relative(PKGBUILD, path.join(DIST, "Ascend.exe")),
+  path.relative(PKGBUILD, path.join(PKGBUILD, "Launcher.cs")),
 ], PKGBUILD);
 
 console.log("\nOK — Ascend.exe pronto (insieme al suo core):");
