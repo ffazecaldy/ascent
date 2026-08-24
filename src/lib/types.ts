@@ -246,6 +246,23 @@ export interface StudySession {
   subject: string; // materia
   minutes: number;
   note?: string;
+  attachments?: StudyAttachment[]; // file allegati (es. PDF), blob in IndexedDB
+  createdAt: string;
+}
+
+/** Allegato di una sessione di studio: metadati nel DB, blob in IndexedDB (id). */
+export interface StudyAttachment {
+  id: string;
+  name: string;
+  mime: string;
+  size: number; // byte
+  createdAt: string;
+}
+
+/** Materia personalizzata salvata dall'utente (appare nel select e nelle chips). */
+export interface StudySubject {
+  id: string;
+  name: string;
   createdAt: string;
 }
 
@@ -331,6 +348,7 @@ export interface DB {
   books: Book[];
   workouts: Workout[];
   studySessions: StudySession[];
+  studySubjects: StudySubject[];
   savingsGoals: SavingsGoal[];
   savingsDeposits: SavingsDeposit[];
   sportProfile: SportProfile | null;
@@ -339,7 +357,7 @@ export interface DB {
   badges: Badge[];
 }
 
-export const DB_VERSION = 7;
+export const DB_VERSION = 8;
 
 /**
  * Regola di transazione ricorrente mensile (affitto, abbonamenti...).

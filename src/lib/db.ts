@@ -68,6 +68,7 @@ export function seedDB(): DB {
     sportProfile: null,
     recurringRules: [],
     wellnessLogs: [],
+    studySubjects: [],
     badges: [],
   };
 }

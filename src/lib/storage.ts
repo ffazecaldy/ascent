@@ -43,9 +43,10 @@ const emptyDB = (): DB => ({
   studySessions: [],
   savingsGoals: [],
   savingsDeposits: [],
-  sportProfile: null,
+    sportProfile: null,
   recurringRules: [],
   wellnessLogs: [],
+  studySubjects: [],
   badges: [],
 });
 
@@ -144,6 +145,9 @@ function migrate(db: DB): DB {
     } else if (out.version < 7) {
       // v6 → v7: Benessere — nuova collezione `wellnessLogs` vuota.
       out = { ...out, version: 7, wellnessLogs: out.wellnessLogs ?? [] };
+    } else if (out.version < 8) {
+      // v7 → v8: Studio — nuova collezione `studySubjects` vuota.
+      out = { ...out, version: 8, studySubjects: out.studySubjects ?? [] };
     } else {
       break;
     }
@@ -289,6 +293,14 @@ export function purgeAscendStorage(): void {
     doomed.forEach((k) => window.localStorage.removeItem(k));
   } catch {
     /* localStorage indisponibile: la cache invalidata basta per il flusso */
+  }
+  // Anche i blob degli allegati (IndexedDB 'ascend-files'): reset davvero totale.
+  try {
+    if (typeof indexedDB !== "undefined") {
+      indexedDB.deleteDatabase("ascend-files");
+    }
+  } catch {
+    /* best effort: se IDB è bloccato il reset procede comunque */
   }
 }
 

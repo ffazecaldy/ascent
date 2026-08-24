@@ -16,6 +16,7 @@ import { ConfirmDialog } from "@/components/ui/Modal";
 import { Reveal } from "@/components/ui/Reveal";
 import { Icon } from "@/components/ui/Icon";
 import { fmtDur, subjectColor, subjectGradient, subjectIcon } from "./constants";
+import { downloadAttachment, fmtBytes } from "@/lib/file-store";
 
 export function StudyLog({ onEdit }: { onEdit: (s: StudySession) => void }) {
   const db = useDB();
@@ -81,6 +82,19 @@ export function StudyLog({ onEdit }: { onEdit: (s: StudySession) => void }) {
                       {s.note}
                     </span>
                   )}
+                  {/* allegati: download diretto dal log */}
+                  {(s.attachments ?? []).map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => void downloadAttachment(a.id, a.name)}
+                      title={`Scarica ${a.name} (${fmtBytes(a.size)})`}
+                      className="inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-medium text-accent transition-colors hover:bg-accent/20"
+                    >
+                      <Icon name="clipboard" size={11} />
+                      <span className="max-w-[140px] truncate">{a.name}</span>
+                    </button>
+                  ))}
                 </div>
 
                 <span className="text-[11px] tnum text-muted-foreground">

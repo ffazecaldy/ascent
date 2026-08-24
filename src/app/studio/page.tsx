@@ -9,7 +9,7 @@
 
 import { useState } from "react";
 import { useDB, updateDB, upsert, uid, nowISO } from "@/lib/storage";
-import type { StudySession } from "@/lib/types";
+import type { StudyAttachment, StudySession } from "@/lib/types";
 import { SectionHeader } from "@/components/ui/Misc";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -19,6 +19,7 @@ import { StudyLog } from "@/components/studio/StudyLog";
 import { StudyTimer } from "@/components/studio/StudyTimer";
 import { StudyKpis } from "@/components/studio/StudyKpis";
 import { StudyCharts } from "@/components/studio/StudyCharts";
+import { SubjectManager } from "@/components/studio/SubjectManager";
 import { Icon } from "@/components/ui/Icon";
 
 export default function StudioPage() {
@@ -41,7 +42,13 @@ export default function StudioPage() {
     setEditing(null);
   }
 
-  function save(p: { date: string; subject: string; minutes: number; note?: string }) {
+  function save(p: {
+    date: string;
+    subject: string;
+    minutes: number;
+    note?: string;
+    attachments?: StudyAttachment[];
+  }) {
     const s: StudySession = editing
       ? {
           ...editing,
@@ -49,6 +56,7 @@ export default function StudioPage() {
           subject: p.subject,
           minutes: p.minutes,
           note: p.note,
+          attachments: p.attachments,
         }
       : {
           id: uid(),
@@ -56,6 +64,7 @@ export default function StudioPage() {
           subject: p.subject,
           minutes: p.minutes,
           note: p.note,
+          attachments: p.attachments,
           createdAt: nowISO(),
         };
     updateDB((d) => ({ ...d, studySessions: upsert(d.studySessions, s) }));
@@ -110,6 +119,9 @@ export default function StudioPage() {
             <StudyKpis />
           </Reveal>
           <StudyCharts />
+          <Reveal delay={30}>
+            <SubjectManager />
+          </Reveal>
           <StudyLog onEdit={openEdit} />
         </>
       )}
