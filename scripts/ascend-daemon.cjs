@@ -224,10 +224,21 @@ function serveStatic(req, res, url) {
   try {
     data = fs.readFileSync(file);
   } catch {
-    // SPA fallback sulla home per rotte client-side (raro con export)
-    if (!p.endsWith(".html")) return json(res, 404, { ok: false, error: "non trovato" });
-    try { data = fs.readFileSync(path.join(OUT_DIR, "index.html")); }
-    catch { return json(res, 404, { ok: false, error: "non trovato" }); }
+    // Fallback: rotta pulita senza slash finale (es. /sync → /sync/index.html)
+    if (!p.endsWith(".html") && !path.extname(p)) {
+      try {
+        data = fs.readFileSync(path.join(OUT_DIR, p, "index.html"));
+        p = p + "/index.html";
+      } catch {
+        return json(res, 404, { ok: false, error: "non trovato" });
+      }
+    } else if (!p.endsWith(".html")) {
+      return json(res, 404, { ok: false, error: "non trovato" });
+    } else {
+      // SPA fallback sulla home per rotte client-side (raro con export)
+      try { data = fs.readFileSync(path.join(OUT_DIR, "index.html")); }
+      catch { return json(res, 404, { ok: false, error: "non trovato" }); }
+    }
   }
   const ext = path.extname(file).toLowerCase();
   const isHtml = ext === ".html";

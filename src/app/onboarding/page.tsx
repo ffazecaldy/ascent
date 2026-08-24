@@ -39,8 +39,8 @@ export default function OnboardingPage() {
   const setTarget = (type: GoalType, target: number) =>
     setGoals((gs) => gs.map((g) => (g.type === type ? { ...g, target } : g)));
 
-  const finish = () => {
-    const activeGoals = goals.filter((g) => g.active);
+  const finish = (withGoals: GoalDef[] = goals) => {
+    const activeGoals = withGoals.filter((g) => g.active);
     updateDB((d) => {
       const activeTypes = new Set<GoalType>(activeGoals.map((g) => g.type));
       return {
@@ -126,13 +126,21 @@ export default function OnboardingPage() {
             </Button>
           )}
           <div className="flex-1" />
+          <Button
+            variant="ghost"
+            size="md"
+            onClick={() => finish([])}
+            title="Entra subito in home senza configurare obiettivi (potrai aggiungerli da Impostazioni in qualsiasi momento)"
+          >
+            Vai alla home
+          </Button>
           {step < STEPS.length - 1 ? (
             <Button size="lg" onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}>
               Continua
               <Icon name="arrow-right" size={15} strokeWidth={2.4} />
             </Button>
           ) : (
-            <Button size="lg" className="grad-animated" onClick={finish}>
+            <Button size="lg" className="grad-animated" onClick={() => finish()}>
               Inizia
             </Button>
           )}
