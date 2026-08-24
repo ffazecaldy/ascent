@@ -251,7 +251,7 @@ function RiskBody({ accountId }: { accountId: string }) {
   // usage.max = consumo su equity live (capital - live equity). Stesse soglie di
   // accounts/page.tsx (distanza = max(0, limite - consumo)). NON usa più il
   // peggior giorno storico di riskStats.
-  const usage = limitUsage(account, accountTrades, new Date());
+  const usage = limitUsage(account, accountTrades, new Date(), db.settings.timezone);
   const ddDist = dl != null ? Math.max(0, dl - usage.daily) : null;
   const mdDist = ml != null ? Math.max(0, ml - usage.max) : null;
 

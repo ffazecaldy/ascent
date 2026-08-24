@@ -136,13 +136,15 @@ export function tradingDayKey(
   const { h, min } = timePartsInTZ(iso, tz);
   const roll = timeToMinutes(account.tradingDayRolloverTime || "00:00");
   const nowMin = h * 60 + min;
-  if (nowMin < roll) {
-    // è prima del rollover di oggi → appartiene al trading day di ieri
-    const dt = new Date(y, m - 1, d - 1);
-    return dateKey(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+    // Sessione col rollover attivo: la fascia [roll …) è del trading day SUCCESSIVO
+    // (doc: "le 18:00 di mar 5 appartengono al trading day di mer 6").
+    // Con rollover non impostato ("00:00") nessun confine: il giorno è quello del fuso.
+  if (roll > 0 && nowMin >= roll) {
+      const dt = new Date(y, m - 1, d + 1);
+      return dateKey(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+    }
+    return dateKey(y, m, d);
   }
-  return dateKey(y, m, d);
-}
 
 /** Range di day key per una month key "yyyy-MM". */
 export function monthRange(month: string): { start: string; end: string } {

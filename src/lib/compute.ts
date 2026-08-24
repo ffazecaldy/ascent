@@ -467,10 +467,15 @@ export interface LimitUsage {
  *  - max   = max(0, capital - equity live), con equity live = capital + Σ resultNative.
  * `now` è l'istante di valutazione. PURE.
  */
-export function limitUsage(account: TradingAccount, trades: Trade[], now: Date): LimitUsage {
-  const tdk = tradingDayKey(now.toISOString(), account);
+export function limitUsage(
+  account: TradingAccount,
+  trades: Trade[],
+  now: Date,
+  settingsTimezone = "UTC"
+): LimitUsage {
+  const tdk = tradingDayKey(now.toISOString(), account, settingsTimezone);
   const dayPnl = trades
-    .filter((t) => tradingDayKey(t.closeDate, account) === tdk)
+    .filter((t) => tradingDayKey(t.closeDate, account, settingsTimezone) === tdk)
     .reduce((s, t) => s + t.resultNative, 0);
   const live = account.capital + trades.reduce((s, t) => s + t.resultNative, 0);
   return { daily: Math.max(0, -dayPnl), max: Math.max(0, account.capital - live) };
@@ -481,12 +486,12 @@ export function riskStats(db: DB, account: TradingAccount): RiskStats {
     .filter((t) => t.accountId === account.id)
     .sort((a, b) => a.closeDate.localeCompare(b.closeDate));
 
-  // per-trading-day P&L (tutti i mesi)
+  // per-trading-day P&L (tutti i mesi) — fallback timezone utente
   const dayMap = new Map<string, number>();
-  for (const t of trades) {
-    const dk = tradingDayKey(t.closeDate, account);
-    dayMap.set(dk, (dayMap.get(dk) ?? 0) + t.resultNative);
-  }
+    for (const t of trades) {
+    const dk = tradingDayKey(t.closeDate, account, db.settings.timezone);
+      dayMap.set(dk, (dayMap.get(dk) ?? 0) + t.resultNative);
+    }
   const days = Array.from(dayMap.entries()).map(([dayKey, pnl]) => ({ dayKey, pnl })).sort((a, b) => a.dayKey.localeCompare(b.dayKey));
   const dailyDrawdown = Math.min(0, ...days.map((d) => d.pnl));
   const bestDay = days.length ? days.reduce((a, b) => (a.pnl >= b.pnl ? a : b)) : null;
@@ -507,10 +512,11 @@ export function riskStats(db: DB, account: TradingAccount): RiskStats {
     ? losses.reduce((s, t) => s + Math.abs(t.resultNative), 0) / losses.length
     : 0;
 
-  const todayLocal = todayKey(account.tradingDayTimezone || db.settings.timezone);
-  // consumo reale dei limiti (stessa semantica di riskLimitAlerts): daily =
-  // netto negativo del trading day corrente; max = capital - equity live
-  const usage = limitUsage(account, trades, new Date());
+  // "oggi" per i bucket = il trading day corrente (coerente col rollover)
+  const todayLocal = tradingDayKey(new Date().toISOString(), account, db.settings.timezone);
+    // consumo reale dei limiti (stessa semantica di riskLimitAlerts): daily =
+    // netto negativo del trading day corrente; max = capital - equity live
+  const usage = limitUsage(account, trades, new Date(), db.settings.timezone);
 
   const dist = (limit: number | null | undefined, used: number) => {
     if (limit == null) return null;
