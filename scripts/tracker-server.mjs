@@ -65,6 +65,24 @@ function retentionDays() {
 }
 
 // ------------------------------------------------------------------
+// PRIVACY TITOLI: i titoli delle finestre possono contenere dati
+// sensibili (oggetto mail, chat, ricerca). Di default il JSONL
+// salva SOLO le prime 2 parole del titolo (l'app categorizza con
+// exe + inizio titolo); ASCEND_TITLES=full ripristina il testo
+// completo per chi vuole la cronologia letterale.
+// ------------------------------------------------------------------
+let titlePrivacyLogged = false;
+function scrubTitle(title) {
+  if (!title) return title;
+  if (process.env.ASCEND_TITLES === "full") return title;
+  if (!titlePrivacyLogged) {
+    console.log("[tracker] privacy titoli: solo prime 2 parole nel JSONL (ASCEND_TITLES=full per disattivare)");
+    titlePrivacyLogged = true;
+  }
+  return title.split(/\s+/).slice(0, 2).join(" ");
+}
+
+// ------------------------------------------------------------------
 // LOCK SINGLE-INSTANCE (.lock nel data dir, pid + staleness check)
 // ------------------------------------------------------------------
 function lockFile() {
@@ -129,7 +147,7 @@ function enqueueAppend(file, line) {
 
 async function appendSample(obj) {
   const file = todayFile();
-  const line = JSON.stringify({ ts: new Date().toISOString(), ...obj }) + "\n";
+  const line = JSON.stringify({ ts: new Date().toISOString(), ...obj, title: scrubTitle(obj.title) }) + "\n";
   await enqueueAppend(file, line);
   return true;
 }
@@ -324,8 +342,11 @@ function handleHookLine(line) {
   try {
     const obj = JSON.parse(t);
     if (obj && typeof obj.ts === "string" && typeof obj.exe === "string") {
+      // privacy: il titolo completo vive solo in memoria (API /api/active),
+      // nel JSONL persistito va troncato
+      const persisted = { ...obj, title: scrubTitle(obj.title) };
       lastSample = obj;
-      enqueueAppend(todayFile(), JSON.stringify(obj) + "\n");
+      enqueueAppend(todayFile(), JSON.stringify(persisted) + "\n");
     }
   } catch { /* riga non JSON */ }
 }
