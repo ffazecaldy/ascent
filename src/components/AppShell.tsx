@@ -154,7 +154,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [db.settings.onboardingDone, pathname]);
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
+    // Service worker SOLO in produzione: in dev cacherebbe i chunk _next e
+    // servirebbe codice vecchio dopo ogni modifica ("pagina come prima").
+    if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
   }, []);
