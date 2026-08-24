@@ -33,10 +33,12 @@ export function DataZone() {
   const doReset = () => {
     // purga TUTTO lo storage Ascend (DB, snapshot di backup, ack banner,
     // timer studio…) e poi semina lo stato nuovo-utente: l'app riparte
-    // dall'onboarding come al primo avvio.
+    // dall'onboarding come al primo avvio. Il redirect con reload COMPLETO
+    // elimina anche eventuale stato React obsoleto in memoria.
     purgeAscendStorage();
     updateDB(() => seedDB());
     setConfirmOpen(false);
+    window.location.assign("/");
   };
 
   return (
