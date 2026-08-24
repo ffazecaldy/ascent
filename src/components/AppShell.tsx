@@ -150,12 +150,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  useEffect(() => {
-    if (!db.settings.onboardingDone && pathname !== "/onboarding") {
-      router.replace("/onboarding");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [db.settings.onboardingDone, pathname]);
+  // NOTA: nessun redirect forzato all'onboarding — l'app è una normalissima
+  // app desktop: si apre SEMPRE sulla home (il wizard resta su /onboarding
+  // solo se ci si naviga esplicitamente).
 
   useEffect(() => {
     // Service worker SOLO in produzione: in dev cacherebbe i chunk _next e

@@ -559,11 +559,19 @@ async function startOllama() {
 /** Ferma tracker e Ollama (figli o adottati). */
 function stopCompanions(reason) {
   for (const [label, pid] of [["tracker", trackerPid], ["ollama", ollamaPid]]) {
-    if (!pid) continue;
-    try {
-      execFileSync("taskkill", ["/pid", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
-      log(`[ascend] ${label} fermato (pid ${pid}, ${reason})`);
-    } catch { /* già chiuso */ }
+    if (pid) {
+      try {
+        execFileSync("taskkill", ["/pid", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+        log(`[ascend] ${label} fermato (pid ${pid}, ${reason})`);
+      } catch { /* già chiuso */ }
+    } else if (label === "ollama") {
+      // Fallback per nome: qualsiasi istanza di Ollama non tracciata (es. partita
+      // dopo il boot del daemon) va comunque spenta quando si spegne l'app.
+      try {
+        execFileSync("taskkill", ["/IM", "ollama.exe", "/F"], { windowsHide: true, stdio: "ignore" });
+        log(`[ascend] ollama fermato (per nome, ${reason})`);
+      } catch { /* nessuna istanza */ }
+    }
   }
   trackerPid = 0;
   ollamaPid = 0;
