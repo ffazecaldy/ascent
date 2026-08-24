@@ -73,7 +73,16 @@ export function StreakHero() {
             "Inizia da zero."
           ) : (
             <>
-              Streak di <span className="grad-text inline-flex items-center gap-1"><Icon name="flame" size={19} /> {streak.days}</span> {streak.days === 1 ? "giorno" : "giorni"}
+              Streak di{" "}
+              <span className="grad-text inline-flex items-baseline gap-1.5">
+                <Icon name="flame" size={19} className="self-center" />{" "}
+                <AnimatedNumber
+                  value={streak.days}
+                  className="tnum text-3xl font-bold"
+                  fmt={(n) => String(Math.round(n))}
+                />
+              </span>{" "}
+              {streak.days === 1 ? "giorno d'ascesa" : "giorni d'ascesa"}
             </>
           )}
         </p>

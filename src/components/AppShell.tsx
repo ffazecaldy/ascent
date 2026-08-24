@@ -103,7 +103,7 @@ function StreakPill() {
       <Icon name="flame" size={14} className={cn(streak.days > 0 ? "text-accent animate-pulse-dot" : "text-muted-foreground")} />
       <span className="tnum">{streak.days}</span>
       <span className="text-[11px] font-medium text-secondary-text">
-        {streak.days === 1 ? "giorno" : "giorni"}
+        {streak.days === 1 ? "giorno d'ascesa" : "giorni d'ascesa"}
         {streak.freezeUsed ? " · freeze" : ""}
       </span>
     </Link>
