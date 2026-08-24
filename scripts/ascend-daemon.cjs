@@ -50,15 +50,16 @@ const DATA_DIR = path.join(os.homedir(), "AppData", "Local", "Ascend");
 const SYNC_FILE = path.join(DATA_DIR, "sync-db.json");
 const PROFILE_DIR = path.join(DATA_DIR, "app-profile");
 const RUNTIME_DIR = path.join(DATA_DIR, "runtime");
+const LOG_FILE = path.join(RUNTIME_DIR, "ascend.log");
 const TRACKER_PORT = Number(process.env.ASCEND_TRACKER_PORT ?? 4877);
 const OLLAMA_PORT = Number(process.env.ASCEND_OLLAMA_PORT ?? 11434);
 const OLLAMA_EXE_DEFAULT = path.join(os.homedir(), "AppData", "Local", "Programs", "Ollama", "ollama.exe");
 
 if (!process.env.ASCEND_SYNC_TOKEN) {
-  console.log("[ascend] token: 'ascend-sync' (default) — imposta ASCEND_SYNC_TOKEN per cambiarlo");
+  log("[ascend] token: 'ascend-sync' (default) — imposta ASCEND_SYNC_TOKEN per cambiarlo");
 }
-console.log(`[ascend] app su :${APP_PORT} · sync su :${SYNC_PORT} · dati in ${DATA_DIR}`);
-console.log(`[ascend] ${IS_PKG ? "EXE pkg" : "dev"} mode · static: ${OUT_DIR}`);
+log(`[ascend] app su :${APP_PORT} · sync su :${SYNC_PORT} · dati in ${DATA_DIR}`);
+log(`[ascend] ${IS_PKG ? "EXE pkg" : "dev"} mode · static: ${OUT_DIR}`);
 
 // ------------------------------------------------------------
 // Merge sync (stessa spec di src/lib/merge.ts)
@@ -171,6 +172,18 @@ function json(res, code, data, extra = {}) {
   });
   res.end(body);
 }
+// --- Log su file (per la diagnosi degli errori di avvio) ---
+function log(...args) {
+  const line = `[${new Date().toISOString()}] ${args.join(" ")}`;
+  try { fs.mkdirSync(RUNTIME_DIR, { recursive: true }); fs.appendFileSync(LOG_FILE, line + "\n"); } catch { /* noop */ }
+  console.log(line);
+}
+
+process.on("uncaughtException", (e) => {
+  log("ERRORE NON GESTITO:", e?.stack ?? String(e));
+  setTimeout(() => process.exit(1), 300);
+});
+
 function readBody(req, cap = 100 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
     let size = 0;
@@ -238,12 +251,12 @@ function findBrowser() {
 }
 function openAppWindow() {
   if (process.env.ASCEND_NO_BROWSER === "1") {
-    console.log(`[ascend] browser non aperto (ASCEND_NO_BROWSER=1) — apri http://localhost:${APP_PORT}`);
+    log(`[ascend] browser non aperto (ASCEND_NO_BROWSER=1) — apri http://localhost:${APP_PORT}`);
     return;
   }
   const exe = findBrowser();
   if (!exe) {
-    console.log(`[ascend] nessun Edge/Chrome trovato — apri http://localhost:${APP_PORT}`);
+    log(`[ascend] nessun Edge/Chrome trovato — apri http://localhost:${APP_PORT}`);
     return;
   }
   const url = `http://localhost:${APP_PORT}/`;
@@ -254,16 +267,16 @@ function openAppWindow() {
   });
   browserPid = child.pid ?? 0;
   child.on("error", () => {
-    console.log(`[ascend] avvio browser fallito — apri ${url} manualmente`);
+    log(`[ascend] avvio browser fallito — apri ${url} manualmente`);
     browserPid = 0;
   });
-  console.log(`[ascend] finestra dedicata aperta (pid ${browserPid})`);
+  log(`[ascend] finestra dedicata aperta (pid ${browserPid})`);
 }
 function closeAppWindow() {
   if (!browserPid) return;
   try {
     execFileSync("taskkill", ["/pid", String(browserPid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
-    console.log(`[ascend] finestra Ascend chiusa (pid ${browserPid})`);
+    log(`[ascend] finestra Ascend chiusa (pid ${browserPid})`);
   } catch { /* già chiusa */ }
   browserPid = 0;
 }
@@ -315,7 +328,7 @@ const server = http.createServer(async (req, res) => {
       }
       // ——— SPEGNIMENTO: chiude finestra dedicata + server + processo ———
       if (req.method === "POST" && url.pathname === "/api/shutdown") {
-        console.log("[ascend] spegnimento richiesto dal tasto Spegni…");
+        log("[ascend] spegnimento richiesto dal tasto Spegni…");
         json(res, 200, { ok: true, message: "Ascend spento — puoi chiudere questa finestra" }, cors);
         setTimeout(() => {
           closeAppWindow();
@@ -346,7 +359,7 @@ server.on("error", (e) => {
 });
 
 server.listen(APP_PORT, "127.0.0.1", () => {
-  console.log(`[ascend] app pronta su http://localhost:${APP_PORT}`);
+  log(`[ascend] app pronta su http://localhost:${APP_PORT}`);
   openAppWindow();
 });
 // sync server: stesso processo, porta separata (0.0.0.0 per la LAN)
@@ -389,7 +402,7 @@ http
     json(res, 404, { ok: false, error: "rotta non trovata" }, cors);
   })
   .listen(SYNC_PORT, SYNC_HOST, () => {
-    console.log(`[ascend] sync server su :${SYNC_PORT} (LAN) — dall'altro PC: http://<IP-questo>:${SYNC_PORT}`);
+    log(`[ascend] sync server su :${SYNC_PORT} (LAN) — dall'altro PC: http://<IP-questo>:${SYNC_PORT}`);
   });
 
 // ------------------------------------------------------------
@@ -457,12 +470,12 @@ async function startTracker() {
   if (await portInUse(TRACKER_PORT)) {
     const [pid] = pidsOnPort(TRACKER_PORT);
     trackerPid = pid ?? 0;
-    console.log(`[ascend] tracker già attivo su :${TRACKER_PORT} — adottato${trackerPid ? ` (pid ${trackerPid})` : ""} e lo fermerò allo spegnimento`);
+    log(`[ascend] tracker già attivo su :${TRACKER_PORT} — adottato${trackerPid ? ` (pid ${trackerPid})` : ""} e lo fermerò allo spegnimento`);
     return;
   }
   const node = findNode();
   if (!node) {
-    console.log("[ascend] tracker NON avviato: node.exe non trovato (installalo o usa il progetto dev)");
+    log("[ascend] tracker NON avviato: node.exe non trovato (installalo o usa il progetto dev)");
     return;
   }
   let trackerFile;
@@ -473,23 +486,23 @@ async function startTracker() {
       trackerFile = path.join(RUNTIME_DIR, "tracker-server.mjs");
       fs.writeFileSync(trackerFile, fs.readFileSync(src));
     } catch (e) {
-      console.log("[ascend] tracker NON avviato: estrazione asset fallita", e.message);
+      log("[ascend] tracker NON avviato: estrazione asset fallita", e.message);
       return;
     }
   } else {
     trackerFile = path.join(ROOT, "scripts", "tracker-server.mjs");
     if (!fs.existsSync(trackerFile)) {
-      console.log("[ascend] tracker NON avviato: scripts/tracker-server.mjs non trovato");
+      log("[ascend] tracker NON avviato: scripts/tracker-server.mjs non trovato");
       return;
     }
   }
-  console.log("[ascend] avvio tracker di sistema...");
+  log("[ascend] avvio tracker di sistema...");
   const child = spawn(node, [trackerFile], { stdio: "ignore", windowsHide: true });
-  child.on("error", (e) => console.log("[ascend] avvio tracker fallito:", e.message));
+  child.on("error", (e) => log("[ascend] avvio tracker fallito:", e.message));
   trackerPid = child.pid ?? 0;
   // attesa porta (best effort)
   for (let i = 0; i < 8 && !(await portInUse(TRACKER_PORT)); i++) await new Promise((r) => setTimeout(r, 500));
-  console.log((await portInUse(TRACKER_PORT)) ? `[ascend] tracker su :${TRACKER_PORT} (pid ${trackerPid})` : `[ascend] tracker avviato ma non risponde su :${TRACKER_PORT}`);
+  log((await portInUse(TRACKER_PORT)) ? `[ascend] tracker su :${TRACKER_PORT} (pid ${trackerPid})` : `[ascend] tracker avviato ma non risponde su :${TRACKER_PORT}`);
 }
 
 /** Avvia Ollama (o adotta quello già attivo). */
@@ -498,22 +511,22 @@ async function startOllama() {
     if (await looksLikeOllama()) {
       const [pid] = pidsOnPort(OLLAMA_PORT);
       ollamaPid = pid ?? 0;
-      console.log(`[ascend] Ollama già attivo su :${OLLAMA_PORT} — adottato${ollamaPid ? ` (pid ${ollamaPid})` : ""} e lo fermerò allo spegnimento`);
+      log(`[ascend] Ollama già attivo su :${OLLAMA_PORT} — adottato${ollamaPid ? ` (pid ${ollamaPid})` : ""} e lo fermerò allo spegnimento`);
     } else {
-      console.log(`[ascend] :${OLLAMA_PORT} occupato da altro servizio — Coach AI non disponibile (porta lasciata intatta)`);
+      log(`[ascend] :${OLLAMA_PORT} occupato da altro servizio — Coach AI non disponibile (porta lasciata intatta)`);
     }
     return;
   }
   const exe = findOllama();
-  console.log(`[ascend] avvio Ollama serve (${exe})...`);
+  log(`[ascend] avvio Ollama serve (${exe})...`);
   const child = spawn(exe, ["serve"], { stdio: "ignore", windowsHide: true });
   child.on("error", (e) => {
-    if (e.code === "ENOENT") console.log("[ascend] Ollama non trovato — Coach AI non disponibile");
-    else console.log("[ascend] avvio Ollama fallito:", e.message);
+    if (e.code === "ENOENT") log("[ascend] Ollama non trovato — Coach AI non disponibile");
+    else log("[ascend] avvio Ollama fallito:", e.message);
   });
   ollamaPid = child.pid ?? 0;
   for (let i = 0; i < 12 && !(await portInUse(OLLAMA_PORT)); i++) await new Promise((r) => setTimeout(r, 500));
-  console.log((await portInUse(OLLAMA_PORT)) ? `[ascend] Ollama su :${OLLAMA_PORT} (pid ${ollamaPid})` : `[ascend] Ollama avviato ma non ancora su :${OLLAMA_PORT}`);
+  log((await portInUse(OLLAMA_PORT)) ? `[ascend] Ollama su :${OLLAMA_PORT} (pid ${ollamaPid})` : `[ascend] Ollama avviato ma non ancora su :${OLLAMA_PORT}`);
 }
 
 /** Ferma tracker e Ollama (figli o adottati). */
@@ -522,7 +535,7 @@ function stopCompanions(reason) {
     if (!pid) continue;
     try {
       execFileSync("taskkill", ["/pid", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
-      console.log(`[ascend] ${label} fermato (pid ${pid}, ${reason})`);
+      log(`[ascend] ${label} fermato (pid ${pid}, ${reason})`);
     } catch { /* già chiuso */ }
   }
   trackerPid = 0;
