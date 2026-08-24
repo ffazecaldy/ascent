@@ -15,6 +15,7 @@ import net from "node:net";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TRACKER_PORT = Number(process.env.ASCEND_TRACKER_PORT ?? 4877);
+const SYNC_PORT = Number(process.env.ASCEND_SYNC_PORT ?? 4878);
 const OLLAMA_PORT = Number(process.env.ASCEND_OLLAMA_PORT ?? 11434);
 const OLLAMA_EXE_DEFAULT = path.join(
   os.homedir(), "AppData", "Local", "Programs", "Ollama", "ollama.exe"
@@ -46,6 +47,27 @@ if (isTrackerUp) {
   tracker.on("error", (err) => {
     console.error(`[run-dev] errore avvio tracker: ${err.message}`);
     shutdown("errore spawn tracker");
+  });
+}
+// --- Sync server 2 PC (DB condiviso in LAN) ---
+// Porta libera → lo avviamo; già attivo (es. run-dev precedente) → riuso, non duplico.
+const isSyncUp = await portInUse(SYNC_PORT);
+let sync = null;
+
+if (isSyncUp) {
+  console.log(`[run-dev] sync server già attivo su :${SYNC_PORT} — riuso`);
+} else {
+  console.log("[run-dev] avvio sync server (DB condiviso 2 PC)...");
+  sync = spawn(process.execPath, [path.join(ROOT, "scripts", "sync-server.mjs")], {
+    cwd: ROOT,
+    stdio: "inherit",
+    windowsHide: true,
+  });
+  sync.on("exit", (code) => {
+    console.log(`[run-dev] sync server terminato (exit ${code})`);
+  });
+  sync.on("error", (err) => {
+    console.error(`[run-dev] errore avvio sync server: ${err.message}`);
   });
 }
 
@@ -191,6 +213,7 @@ function shutdown(why) {
   console.log(`\n[run-dev] chiusura (${why}) — fermo tutto`);
   killTree(next);
   if (tracker) killTree(tracker);
+  if (sync) killTree(sync);
   // Ollama avviato da noi…
   if (ollama) killTree(ollama);
   // …o adottato se era già attivo: l'app vive e muore con Ollama

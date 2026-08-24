@@ -23,6 +23,7 @@ import { moneyMasked, maskMoney } from "@/lib/privacy";
 import type { PrivacyMode } from "@/lib/types";
 import { PRIVACY_ORDER } from "@/lib/privacy";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { syncNow, readSyncConfig } from "@/lib/sync";
 
 interface NavItem {
   href: string;
@@ -82,6 +83,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
     group: "Sistema",
     items: [
       { href: "/export", label: "Backup / Export", icon: "download" },
+      { href: "/sync", label: "Sync 2 PC", icon: "refresh" },
       { href: "/impostazioni", label: "Impostazioni", icon: "settings" },
     ],
   },
@@ -278,6 +280,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }, 0);
     return () => clearTimeout(t);
   }, [db.settings.locale, db.settings.timezone]);
+
+  // Auto-sync (opzionale): ogni 5 minuti, se configurato e abilitato,
+  // sincronizza in silenzio col server (mai in parallelo con un'altra sync).
+  const syncingRef = useRef(false);
+  useEffect(() => {
+    const tick = async () => {
+      const cfg = readSyncConfig();
+      if (!cfg.auto || syncingRef.current) return;
+      syncingRef.current = true;
+      try {
+        await syncNow();
+      } catch {
+        /* silenzioso: la pagina Sync mostra lo stato dettagliato */
+      } finally {
+        syncingRef.current = false;
+      }
+    };
+    const iv = setInterval(() => void tick(), 5 * 60 * 1000);
+    return () => clearInterval(iv);
+  }, []);
 
   return (
     <div className="relative flex min-h-screen">
