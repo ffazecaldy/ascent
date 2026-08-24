@@ -129,7 +129,7 @@ function isValidDBShape(x: unknown): x is DB {
  * finale è identico al comportamento storico (v3 → privacy "off", v4 → 
  * sportProfile null, v5 → recurringRules []), version finale = DB_VERSION.
  */
-function migrate(db: DB): DB {
+export function migrate(db: DB): DB {
   let out = db;
   while (out.version < DB_VERSION) {
     if (out.version < 4) {

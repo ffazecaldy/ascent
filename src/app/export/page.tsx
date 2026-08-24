@@ -12,6 +12,7 @@ import { seedDB, getAccount, getCategory, setupName } from "@/lib/db";
 import { todayKey } from "@/lib/dates";
 import type { DB, Transaction, Trade, TradingAccount, Book, Workout, PCUsageLog } from "@/lib/types";
 import { exportCollectionCsv, exportDbBackup, downloadBlob, csvNumber } from "@/lib/export";
+import { mergeDB, normalizeIncoming, describeReport } from "@/lib/merge";
 import { cn } from "@/lib/cn";
 import { SectionHeader } from "@/components/ui/Misc";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
@@ -90,6 +91,7 @@ export default function ExportPage() {
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [pending, setPending] = useState<DB | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -208,7 +210,7 @@ export default function ExportPage() {
         return;
       }
       setPending(parsed as DB);
-      setConfirmOpen(true);
+      // Niente apertura automatica: l'utente sceglie tra Sostituisci e Unisci.
     } catch {
       setMsg({ type: "error", text: "File non valido: JSON malformato o non leggibile." });
     }
@@ -234,6 +236,32 @@ export default function ExportPage() {
     });
     setPending(null);
     setConfirmOpen(false);
+    setSelectedName(null);
+  };
+
+  /** Unisci: fonde il backup con i dati attuali (vince la voce più recente). */
+  const doMerge = () => {
+    if (!pending) return;
+    const incoming = normalizeIncoming(pending);
+    if (!incoming) {
+      setMsg({ type: "error", text: "Il file non è un backup Ascend valido." });
+      setMergeOpen(false);
+      setPending(null);
+      setSelectedName(null);
+      return;
+    }
+    const { db: merged, report } = mergeDB(db, incoming);
+    updateDB(() => merged);
+    const { totalAdded, totalUpdated, text } = describeReport(report);
+    setMsg({
+      type: "ok",
+      text:
+        totalAdded + totalUpdated === 0
+          ? "Merge completato: nessun dato nuovo (il backup era già allineato)."
+          : `Merge completato: ${totalAdded} nuovi, ${totalUpdated} aggiornate/i. ${text}.`,
+    });
+    setPending(null);
+    setMergeOpen(false);
     setSelectedName(null);
   };
 
@@ -345,12 +373,12 @@ export default function ExportPage() {
         <Card hairline="danger">
           <CardHeader>
             <div>
-              <CardTitle>Restore backup</CardTitle>
+              <CardTitle>Restore / Merge backup</CardTitle>
               <CardSubtitle>
-                Ripristina un file .json esportato da Ascend. L&apos;operazione sovrascrive tutti i dati attuali.
+                Carica un backup .json e scegli: sostituisce tutti i dati oppure li fonde con quelli attuali (vince la modifica più recente).
               </CardSubtitle>
             </div>
-            <Badge tone="danger">sovrascrive</Badge>
+            <Badge tone="warning">merge · sostituisci</Badge>
           </CardHeader>
 
           <div
@@ -406,20 +434,28 @@ export default function ExportPage() {
           </div>
 
           {selectedName && (
-            <div className="mt-3 flex items-center gap-2 animate-pop">
+            <div className="mt-3 flex flex-wrap items-center gap-2 animate-pop">
               <Badge tone="info" pulse>
                 <Icon name="clipboard" size={11} /> {selectedName}
               </Badge>
-              <span className="text-xs text-muted-foreground">
-                in attesa di conferma…
-              </span>
+              <span className="text-xs text-muted-foreground">caricato — scegli come procedere:</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="danger" size="sm" onClick={() => setConfirmOpen(true)}>
+                  <Icon name="trash" size={13} />
+                  Sostituisci tutto
+                </Button>
+                <Button variant="primary" size="sm" glow onClick={() => setMergeOpen(true)}>
+                  <Icon name="plus" size={13} />
+                  Unisci con i dati attuali
+                </Button>
+              </div>
             </div>
           )}
 
           {db.transactions.length + db.trades.length > 0 && (
             <p className="mt-3 flex items-center gap-1.5 text-xs text-danger/90">
               <Icon name="alert" size={12} className="shrink-0" />
-              Attenzione: hai dati già salvati. Il restore li sostituirà completamente.
+              Attenzione: hai dati già salvati. &quot;Sostituisci tutto&quot; li cancellerà — &quot;Unisci&quot; li conserva e fonde il backup.
             </p>
           )}
         </Card>
@@ -432,9 +468,21 @@ export default function ExportPage() {
           setPending(null);
         }}
         onConfirm={doRestore}
-        title="Sovrascrivere tutti i dati?"
+        title="Sostituire tutti i dati?"
         message="Il backup selezionato sostituirà tutti i dati attuali di Ascend. Questa azione non può essere annullata."
-        confirmLabel="Ripristina"
+        confirmLabel="Sostituisci"
+      />
+
+      <ConfirmDialog
+        open={mergeOpen}
+        onClose={() => {
+          setMergeOpen(false);
+          setPending(null);
+        }}
+        onConfirm={doMerge}
+        title="Unire i dati?"
+        message="Il backup verrà fuso con i dati attuali: per ogni voce vince la modifica più recente, le voci nuove vengono aggiunte, nulla viene cancellato. Gli allegati (PDF) restano sul dispositivo che li ha caricati."
+        confirmLabel="Unisci"
       />
     </div>
   );
