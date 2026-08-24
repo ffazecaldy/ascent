@@ -103,6 +103,21 @@ function errorOf(e: unknown, status?: number): SyncOutcome {
   return { ok: false, code: "unknown", error: e instanceof Error ? e.message : String(e) };
 }
 
+/** Rileva se l'app gira sotto l'exe/daemon (nessuna config richiesta:
+ *  il daemon risponde all'identità anche senza token). */
+export async function detectDaemon(): Promise<boolean> {
+  try {
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    if (!base) return false;
+    const res = await fetch(`${base}/api/ping`, { method: "GET", cache: "no-store" });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { ok?: boolean; service?: string };
+    return data.ok === true && data.service === "ascend-daemon";
+  } catch {
+    return false;
+  }
+}
+
 /** Verifica la connessione (ping) senza modificare nulla. */
 export async function testSyncConnection(url: string, token: string): Promise<SyncOutcome & { dbVersion?: number; service?: string }> {
   const base = url.replace(/\/+$/, "");
@@ -122,19 +137,20 @@ export async function testSyncConnection(url: string, token: string): Promise<Sy
   }
 }
 
-/** Spegne Ascend (solo quando gira sotto l'exe/daemon: chiude browser + server). */
+/** Spegne Ascend (solo quando gira sotto l'exe/daemon: chiude browser + server).
+ *  Senza config usa l'origin corrente e il token di default del daemon. */
 export async function shutdownAscend(): Promise<SyncOutcome> {
   const cfg = readSyncConfig();
-  if (!cfg.url || !cfg.token) {
-    return { ok: false, code: "config", error: "Configura URL e token per poter spegnere Ascend." };
-  }
-  const base = cfg.url.replace(/\/+$/, "");
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const base = (cfg.url || origin).replace(/\/+$/, "");
+  const token = cfg.token || "ascend-sync";
+  if (!base) return { ok: false, code: "config", error: "Server non impostato." };
   try {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), 6000);
     const res = await fetch(`${base}/api/shutdown`, {
       method: "POST",
-      headers: { "x-sync-token": cfg.token },
+      headers: { "x-sync-token": token },
       signal: ctl.signal,
     });
     clearTimeout(timer);

@@ -282,6 +282,22 @@ function openAppWindow() {
     browserPid = 0;
   });
   log(`[ascend] finestra dedicata aperta (pid ${browserPid})`);
+  startWindowWatchdog();
+}
+// Watchdog finestra: chiudere la finestra Ascend spegne tutto (app+sync+tracker+ollama)
+let windowWatchdog = null;
+function startWindowWatchdog() {
+  if (windowWatchdog || !browserPid) return;
+  windowWatchdog = setInterval(() => {
+    if (!browserPid) return;
+    try { process.kill(browserPid, 0); }
+    catch {
+      log("[ascend] finestra chiusa — spegnimento completo");
+      clearInterval(windowWatchdog); windowWatchdog = null;
+      stopCompanions("finestra chiusa");
+      setTimeout(() => process.exit(0), 1200);
+    }
+  }, 2000);
 }
 function closeAppWindow() {
   if (!browserPid) return;
@@ -312,13 +328,13 @@ const server = http.createServer(async (req, res) => {
     // ——— API del sync server ———
     if (url.pathname.startsWith("/api/")) {
       const cors = corsHeaders(req);
-      if (!authOk(req, url)) {
-        json(res, 401, { ok: false, error: "token non valido" }, cors);
+      // ping d'identità SENZA token (detect UI + launcher): solo service e stato finestra
+      if (req.method === "GET" && url.pathname === "/api/ping") {
+        json(res, 200, { ok: true, service: "ascend-daemon", window: browserPid > 0 }, cors);
         return;
       }
-      if (req.method === "GET" && url.pathname === "/api/ping") {
-        const up = syncCache?.version ? { dbVersion: syncCache.version, mergedAt } : { dbVersion: 0, mergedAt: null };
-        json(res, 200, { ok: true, service: "ascend-daemon", ...up, requireToken: true }, cors);
+      if (!authOk(req, url)) {
+        json(res, 401, { ok: false, error: "token non valido" }, cors);
         return;
       }
       if (req.method === "GET" && url.pathname === "/api/db") {
@@ -387,12 +403,12 @@ http
       return;
     }
     const cors = corsHeaders(req);
-    if (!authOk(req, url)) { json(res, 401, { ok: false, error: "token non valido" }, cors); return; }
+    // ping d'identità SENZA token (detect UI + launcher): solo service e stato finestra
     if (req.method === "GET" && url.pathname === "/api/ping") {
-      const up = syncCache?.version ? { dbVersion: syncCache.version, mergedAt } : { dbVersion: 0, mergedAt: null };
-      json(res, 200, { ok: true, service: "ascend-daemon", ...up, requireToken: true }, cors);
+      json(res, 200, { ok: true, service: "ascend-daemon", window: browserPid > 0 }, cors);
       return;
     }
+    if (!authOk(req, url)) { json(res, 401, { ok: false, error: "token non valido" }, cors); return; }
     if (req.method === "GET" && url.pathname === "/api/db") {
       json(res, 200, { ok: true, db: loadSync(), mergedAt }, cors);
       return;

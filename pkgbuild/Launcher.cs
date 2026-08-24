@@ -9,6 +9,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using System.Windows.Forms;
 
 static class AscendLauncher
@@ -46,6 +47,42 @@ static class AscendLauncher
         catch (Exception ex) { return "(log non leggibile: " + ex.Message + ")"; }
     }
 
+    static bool CoreHasWindow()
+    {
+        // Il daemon risponde SENZA token su :4878 (stato finestra incluso).
+        try
+        {
+            var req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create("http://localhost:4878/api/ping");
+            req.Method = "GET";
+            req.Timeout = 1500;
+            using (var resp = (System.Net.HttpWebResponse)req.GetResponse())
+            {
+                if (resp.StatusCode != System.Net.HttpStatusCode.OK) return true; // non identificato → supponi attivo
+                using (var sr = new StreamReader(resp.GetResponseStream()))
+                {
+                    string body = sr.ReadToEnd();
+                    if (body.Contains("\"service\":\"ascend-daemon\""))
+                        return body.Contains("\"window\":true");
+                    return true;
+                }
+            }
+        }
+        catch { return false; } // nessun core attivo
+    }
+
+    static void KillOrphanCores()
+    {
+        try
+        {
+            foreach (var pr in Process.GetProcessesByName("ascend-core"))
+            {
+                Log("core orfano terminato (pid " + pr.Id + ")");
+                try { pr.Kill(); } catch { }
+            }
+        }
+        catch (Exception ex) { Log("kill orfani: " + ex.Message); }
+    }
+
     [STAThread]
     static int Main(string[] args)
     {
@@ -60,6 +97,16 @@ static class AscendLauncher
             MessageBox.Show(msg, "Ascend", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return 1;
         }
+
+        // Anti-orfano: se un core è già attivo CON finestra, l'app è aperta (nessun secondo avvio).
+        // Se è attivo SENZA finestra (o non risponde), era rimasto appeso: lo chiudiamo e ripartiamo pulito.
+        if (CoreHasWindow())
+        {
+            Log("Ascend già in esecuzione con finestra aperta — nessun secondo avvio");
+            return 0;
+        }
+        KillOrphanCores();
+        Thread.Sleep(700); // lascia il tempo alle porte di liberarsi
 
         var psi = new ProcessStartInfo
         {

@@ -23,7 +23,7 @@ import { moneyMasked, maskMoney } from "@/lib/privacy";
 import type { PrivacyMode } from "@/lib/types";
 import { PRIVACY_ORDER } from "@/lib/privacy";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { syncNow, readSyncConfig, testSyncConnection, shutdownAscend } from "@/lib/sync";
+import { syncNow, readSyncConfig, detectDaemon, shutdownAscend } from "@/lib/sync";
 import { ConfirmDialog } from "@/components/ui/Modal";
 
 interface NavItem {
@@ -303,17 +303,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Tasto Spegni nell'header: visibile quando l'app gira sotto l'exe (daemon).
+  // Il detect non richiede configurazione: il daemon risponde all'identità
+  // anche senza token (ping sull'origin corrente).
   const [isDaemon, setIsDaemon] = useState(false);
   const [shutdownConfirm, setShutdownConfirm] = useState(false);
   useEffect(() => {
-    const cfg = readSyncConfig();
-    if (!cfg.url.startsWith("http") || !cfg.token) return;
     queueMicrotask(() => {
-      void testSyncConnection(cfg.url, cfg.token).then((r) => {
-        if (r.ok && r.service === "ascend-daemon") setIsDaemon(true);
-      });
+      void detectDaemon().then(setIsDaemon);
     });
-     
   }, []);
 
   return (
