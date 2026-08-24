@@ -244,6 +244,9 @@ function serveStatic(req, res, url) {
   const isHtml = ext === ".html";
   res.writeHead(200, {
     "Content-Type": MIME[ext] ?? "application/octet-stream",
+    // inline: il browser non può mai trattare le pagine come download
+    // (finestra app-mode / click strani su link = file misteriosi in Download)
+    "Content-Disposition": isHtml ? "inline" : undefined,
     "Cache-Control": isHtml ? "no-store" : "public, max-age=31536000, immutable",
     "X-Frame-Options": "DENY",
   });
