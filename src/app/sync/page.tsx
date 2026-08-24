@@ -12,6 +12,7 @@ import { useEffect, useSyncExternalStore, useState } from "react";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { ConfirmDialog } from "@/components/ui/Modal";
 import { Field, Input } from "@/components/ui/Field";
 import { Icon } from "@/components/ui/Icon";
 import { SectionHeader } from "@/components/ui/Misc";
@@ -24,6 +25,7 @@ import {
   readLastSync,
   testSyncConnection,
   syncNow,
+  shutdownAscend,
   defaultSyncConfig,
   type SyncConfig,
   type SyncOutcome,
@@ -47,8 +49,22 @@ export default function SyncPage() {
   const [url, setUrl] = useState(cfg.url);
   const [token, setToken] = useState(cfg.token);
   const [auto, setAuto] = useState(cfg.auto);
-  const [busy, setBusy] = useState<"test" | "sync" | null>(null);
+  const [busy, setBusy] = useState<"test" | "sync" | "off" | null>(null);
   const [msg, setMsg] = useState<SyncOutcome | null>(null);
+  const [isDaemon, setIsDaemon] = useState(false);
+  const [shutdownOpen, setShutdownOpen] = useState(false);
+
+  // Al mount (se config pronta) scopre se il server è l'exe Ascend: se sì,
+  // mostra il tasto "Spegni" — il daemon chiude browser + server.
+  useEffect(() => {
+    if (!cfg.url.startsWith("http") || !cfg.token) return;
+    queueMicrotask(() => {
+      void testSyncConnection(cfg.url, cfg.token).then((r) => {
+        if (r.ok && r.service === "ascend-daemon") setIsDaemon(true);
+      });
+    });
+     
+  }, [cfg.url, cfg.token]);
 
   // Sincronizza lo stato locale quando la config cambia (es. altro tab)
   useEffect(() => {
@@ -72,6 +88,15 @@ export default function SyncPage() {
     setBusy("test");
     setMsg(null);
     const r = await testSyncConnection(url.trim(), token.trim());
+    setMsg(r);
+    if (r.ok && r.service === "ascend-daemon") setIsDaemon(true);
+    setBusy(null);
+  }
+
+  async function doShutdown() {
+    setBusy("off");
+    setMsg(null);
+    const r = await shutdownAscend();
     setMsg(r);
     setBusy(null);
   }
@@ -210,6 +235,39 @@ export default function SyncPage() {
           </p>
         </Card>
       </Reveal>
+
+      {isDaemon && (
+        <Reveal delay={100}>
+          <Card hairline="danger">
+            <CardHeader>
+              <div>
+                <CardTitle>Spegni Ascend</CardTitle>
+                <CardSubtitle>
+                  Chiude l&apos;app, il sync server e la finestra dedicata — tutto ciò che l&apos;exe ha acceso.
+                </CardSubtitle>
+              </div>
+              <Badge tone="danger" pulse>
+                <Icon name="monitor" size={11} /> exe attivo
+              </Badge>
+            </CardHeader>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="danger" onClick={() => setShutdownOpen(true)} disabled={busy !== null}>
+                <Icon name="power" size={14} />
+                {busy === "off" ? "Spegnimento…" : "Spegni Ascend"}
+              </Button>
+            </div>
+          </Card>
+        </Reveal>
+      )}
+
+      <ConfirmDialog
+        open={shutdownOpen}
+        onClose={() => setShutdownOpen(false)}
+        onConfirm={doShutdown}
+        title="Spegnere Ascend?"
+        message="Verranno chiusi l'app, il sync server e la finestra di Ascend. I dati sono già salvati in locale — nessuna perdita."
+        confirmLabel="Spegni"
+      />
     </div>
   );
 }

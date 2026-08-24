@@ -24,5 +24,10 @@
     "eslint-config-next": "16.3.1",
     "tailwindcss": "^4",
     "typescript": "^5"
-  }
+  },
+  "pkg": {
+    "assets": ["out/**"],
+    "scripts": ["scripts/ascend-daemon.cjs"]
+  },
+  "bin": "scripts/ascend-daemon.cjs"
 }

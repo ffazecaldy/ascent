@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Daemon dell'EXE: CJS volutamente (runtime pkg, require() necessario).
+    "scripts/ascend-daemon.cjs",
+    // Artefatti di build EXE (app statica copiata + binario).
+    "dist/**",
+    "pkgbuild/**",
   ]),
 ]);
 

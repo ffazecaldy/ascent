@@ -42,3 +42,8 @@ next-env.d.ts
 
 # cartelle temporanee di lavoro/esperimenti
 .tmp-*
+
+# Build EXE (artefatti: si rigenerano con pkgbuild; l'exe gira via OneDrive)
+/dist/
+pkgbuild/out/
+pkgbuild/ascend-daemon.cjs

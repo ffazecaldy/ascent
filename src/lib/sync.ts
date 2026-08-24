@@ -104,7 +104,7 @@ function errorOf(e: unknown, status?: number): SyncOutcome {
 }
 
 /** Verifica la connessione (ping) senza modificare nulla. */
-export async function testSyncConnection(url: string, token: string): Promise<SyncOutcome & { dbVersion?: number }> {
+export async function testSyncConnection(url: string, token: string): Promise<SyncOutcome & { dbVersion?: number; service?: string }> {
   const base = url.replace(/\/+$/, "");
   try {
     const ctl = new AbortController();
@@ -115,14 +115,38 @@ export async function testSyncConnection(url: string, token: string): Promise<Sy
     });
     clearTimeout(timer);
     if (!res.ok) return errorOf(null, res.status);
-    const data = (await res.json()) as { ok: boolean; dbVersion?: number; mergedAt?: string | null };
-    return { ok: true, added: 0, updated: 0, mergedAt: data.mergedAt ?? null, dbVersion: data.dbVersion };
+    const data = (await res.json()) as { ok: boolean; dbVersion?: number; mergedAt?: string | null; service?: string };
+    return { ok: true, added: 0, updated: 0, mergedAt: data.mergedAt ?? null, dbVersion: data.dbVersion, service: data.service };
   } catch (e) {
     return errorOf(e);
   }
 }
 
-/** Sincronizza ora: push del DB locale → merge sul server → salvataggio unificato. */
+/** Spegne Ascend (solo quando gira sotto l'exe/daemon: chiude browser + server). */
+export async function shutdownAscend(): Promise<SyncOutcome> {
+  const cfg = readSyncConfig();
+  if (!cfg.url || !cfg.token) {
+    return { ok: false, code: "config", error: "Configura URL e token per poter spegnere Ascend." };
+  }
+  const base = cfg.url.replace(/\/+$/, "");
+  try {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 6000);
+    const res = await fetch(`${base}/api/shutdown`, {
+      method: "POST",
+      headers: { "x-sync-token": cfg.token },
+      signal: ctl.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) return errorOf(null, res.status);
+    const data = (await res.json()) as { ok?: boolean; message?: string };
+    return data.ok
+      ? { ok: true, added: 0, updated: 0, mergedAt: data.message ?? null }
+      : { ok: false, code: "server", error: data.message ?? "Spegnimento non riuscito." };
+  } catch (e) {
+    return errorOf(e);
+  }
+}
 export async function syncNow(): Promise<SyncOutcome> {
   const cfg = readSyncConfig();
   if (!cfg.url || !cfg.token) {

@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
+  // Export statico: l'app gira dentro l'EXE (nessun server Next in produzione).
+  output: "export",
+  trailingSlash: true,
   async headers() {
     return [
       {
