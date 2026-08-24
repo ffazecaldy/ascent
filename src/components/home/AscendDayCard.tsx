@@ -239,24 +239,28 @@ export function AscendDayCard({ db }: { db: DB }) {
                     </span>
                   ))}
                 </div>
-                {/* colonne settimane — celle quadrate: 1fr distribuisce tutta la
-                    larghezza disponibile, aspect-ratio rende la cella quadrata */}
+                {/* colonne settimane — UNA COLONNA VERTICALE PER SETTIMANA (lun→dom in
+                    verticale, come GitHub): la griglia esterna distribuisce le
+                    colonne su tutta la larghezza (1fr), ogni cella è quadrata.
+                    NB: NON appiattire le celle nella griglia esterna — il
+                    auto-placement row-major mescolerebbe i giorni di settimane
+                    diverse tra loro. */}
                 <div
                   className="grid min-w-0 flex-1"
                   style={{ gridTemplateColumns: `repeat(${N}, minmax(${CELL_SIZE}px, 1fr))`, gap: FLUID_GAP }}
                 >
-                  {calendar.weeks.map((col) =>
-                    col.map((cell) => (
-                      <div
-                        key={cell.dk}
-                        title={`${cell.dk.split("-").reverse().join("/")} · ${cell.count} ${cell.count === 1 ? "azione" : "azioni"}`}
-                        style={{ aspectRatio: "1 / 1" }}
-                        className={
-                          "rounded-[4px] transition-colors duration-300 " + LEVEL_BG[cell.level]
-                        }
-                      />
-                    ))
-                  )}
+                  {calendar.weeks.map((col) => (
+                    <div key={col[0].dk} className="flex flex-col" style={{ gap: FLUID_GAP }}>
+                      {col.map((cell) => (
+                        <div
+                          key={cell.dk}
+                          title={`${cell.dk.split("-").reverse().join("/")} · ${cell.count} ${cell.count === 1 ? "azione" : "azioni"}`}
+                          style={{ aspectRatio: "1 / 1" }}
+                          className={"rounded-[4px] transition-colors duration-300 " + LEVEL_BG[cell.level]}
+                        />
+                      ))}
+                    </div>
+                  ))}
                 </div>
               </div>
               {/* legenda — riga propria sotto le celle, mai a contatto con esse */}
