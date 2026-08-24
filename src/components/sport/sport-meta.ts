@@ -60,14 +60,19 @@ export const WEEKDAY_LONG = [
 ] as const;
 
 /**
- * Giorni in ordine calendario Lun→Dom (utile per la UI).
+ * Giorni in ordine calendario (per la UI), allineati a `weekStart`
+ * (0=Dom,1=Lun... come settings.weekStart): la settimana mostrata inizia
+ * dal giorno configurato. Default 1 = Lun→Dom, come prima.
  * Ritorna le coppie [getDay index, label breve].
  */
-export function weekdayOrder(): { dow: number; label: string; long: string }[] {
+export function weekdayOrder(weekStart: number = 1): { dow: number; label: string; long: string }[] {
   // lunedì=1..sabato=6, domenica=0
-  return [1, 2, 3, 4, 5, 6, 0].map((dow) => ({
+  const base = [1, 2, 3, 4, 5, 6, 0].map((dow) => ({
     dow,
     label: WEEKDAY_LABELS[dow],
     long: WEEKDAY_LONG[dow],
   }));
+  const idx = base.findIndex((x) => x.dow === weekStart);
+  if (idx <= 0) return base;
+  return [...base.slice(idx), ...base.slice(0, idx)];
 }

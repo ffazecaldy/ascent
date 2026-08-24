@@ -229,7 +229,10 @@ function RuleRow({
   onMove: (dir: -1 | 1) => void;
 }) {
   const [draft, setDraft] = useState(rule.text);
-  useEffect(() => setDraft(rule.text), [rule.text]);
+  // Sync da prop in microtask quando la regola cambia dall'esterno (one-shot).
+  useEffect(() => {
+    queueMicrotask(() => setDraft(rule.text));
+  }, [rule.text]);
   const commit = () => {
     if (draft.trim() !== "" && draft !== rule.text) onText(draft);
     else setDraft(rule.text);

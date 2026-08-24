@@ -28,8 +28,11 @@ export function AnimatedNumber({
     cancelAnimationFrame(frameRef.current);
 
     if (typeof IntersectionObserver === "undefined" || typeof window === "undefined") {
-      setDisplay(value);
-      prevRef.current = value;
+      // Fallback SSR/legacy in microtask: nessun setState sincrono nell'effect.
+      queueMicrotask(() => {
+        setDisplay(value);
+        prevRef.current = value;
+      });
       return;
     }
 

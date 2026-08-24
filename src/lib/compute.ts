@@ -10,6 +10,7 @@ import type {
   TradingAccount,
   Trade,
   DailyGoal,
+  WeeklyGoal,
   GoalType,
   SetupRule,
   RecurringRule,
@@ -19,8 +20,11 @@ import type {
 } from "./types";
 import {
   addDaysKey,
+  dateKey,
+  daysInMonth,
   isoToDayKey,
   monthKeyOf,
+  monthRange,
   todayKey,
   tradingDayKey,
   weekStartKey,
@@ -50,13 +54,8 @@ export function actionsOnDay(db: DB, dayKey: string): string[] {
   if (db.workouts.some((w) => w.date === dayKey)) actions.push("allenamento");
   if (db.pcUsageLogs.some((p) => p.date === dayKey)) actions.push("pc");
   if (db.studySessions.some((s) => s.date === dayKey)) actions.push("studio");
-  const bookToday = new Date(dayKey + "T12:00:00");
-  const bStart = new Date(bookToday); bStart.setHours(0,0,0,0);
-  const bEnd = new Date(bookToday); bEnd.setHours(23,59,59,999);
-  if (db.books.some((b) => {
-    const u = new Date(b.updatedAt);
-    return u >= bStart && u <= bEnd;
-  })) actions.push("lettura");
+  // lettura: confronto nella timezone utente (mai quella del browser)
+  if (db.books.some((b) => isoToDayKey(b.updatedAt, tz) === dayKey)) actions.push("lettura");
   return actions;
 }
 
@@ -86,8 +85,8 @@ export function activityStreak(db: DB): StreakInfo {
   db.workouts.forEach((w) => active.add(w.date));
   db.pcUsageLogs.forEach((p) => active.add(p.date));
   db.studySessions.forEach((s) => active.add(s.date));
-  const bStart = new Date(); bStart.setHours(0,0,0,0);
-  db.books.forEach((b) => { const u = new Date(b.updatedAt); if (u >= bStart) active.add(today); });
+  // lettura: confronto nella timezone utente (mai quella del browser)
+  db.books.forEach((b) => { if (isoToDayKey(b.updatedAt, tz) === today) active.add(today); });
   // includi anni precedenti fino a 370 giorni fa
   const bound = addDaysKey(today, -400);
   for (const k of Array.from(active)) {
@@ -192,7 +191,7 @@ export function ascordDay(db: DB, dayKey: string): AscordDayResult {
 
   for (const g of goals) {
     let value = 0;
-    let target = g.targetValue;
+    const target = g.targetValue;
     let met = false;
     switch (g.type) {
       case "finanze_check":
@@ -417,13 +416,36 @@ export interface RiskStats {
   dailyDrawdown: number; // peggior giorno (somma negativa del giorno) in valuta nativa
   maxDrawdown: number; // max drawdown della curva equity cumulativa
   avgRiskPerTrade: number; // media |perdite| (rischio realizzato)
-  cumulativeRiskToday: number; // somma |perdite| del trading day corrente
-  distanceDailyLimit: number | null;
-  distanceMaxLimit: number | null;
+  cumulativeRiskToday: number; // perdita NETTA del trading day corrente (>=0: i profitti del giorno compensano)
+  distanceDailyLimit: number | null; // limite daily - consumo reale del trading day corrente
+  distanceMaxLimit: number | null; // limite max - consumo reale (capital - equity live)
   bestDay: { dayKey: string; pnl: number } | null;
   worstDay: { dayKey: string; pnl: number } | null;
   consecutive: { wins: number; losses: number; current: "win" | "loss" | null };
   todayKey: string;
+}
+
+export interface LimitUsage {
+  /** Perdita netta del trading day corrente (>= 0). */
+  daily: number;
+  /** Perdita cumulativa da equity live (>= 0). */
+  max: number;
+}
+
+/**
+ * Consumo REALE dei limiti di un account — stessa semantica di riskLimitAlerts
+ * e delle LimitChip della pagina Account:
+ *  - daily = max(0, -pnl netto del trading day corrente) (confine tradingDayKey/rollover);
+ *  - max   = max(0, capital - equity live), con equity live = capital + Σ resultNative.
+ * `now` è l'istante di valutazione. PURE.
+ */
+export function limitUsage(account: TradingAccount, trades: Trade[], now: Date): LimitUsage {
+  const tdk = tradingDayKey(now.toISOString(), account);
+  const dayPnl = trades
+    .filter((t) => tradingDayKey(t.closeDate, account) === tdk)
+    .reduce((s, t) => s + t.resultNative, 0);
+  const live = account.capital + trades.reduce((s, t) => s + t.resultNative, 0);
+  return { daily: Math.max(0, -dayPnl), max: Math.max(0, account.capital - live) };
 }
 
 export function riskStats(db: DB, account: TradingAccount): RiskStats {
@@ -458,14 +480,13 @@ export function riskStats(db: DB, account: TradingAccount): RiskStats {
     : 0;
 
   const todayLocal = todayKey(account.tradingDayTimezone || db.settings.timezone);
-  const todayKeyLocal = tradingDayKey(new Date().toISOString(), account);
-  const cumulativeRiskToday = losses
-    .filter((t) => tradingDayKey(t.closeDate, account) === todayKeyLocal)
-    .reduce((s, t) => s + Math.abs(t.resultNative), 0);
+  // consumo reale dei limiti (stessa semantica di riskLimitAlerts): daily =
+  // netto negativo del trading day corrente; max = capital - equity live
+  const usage = limitUsage(account, trades, new Date());
 
-  const dist = (limit: number | null | undefined) => {
+  const dist = (limit: number | null | undefined, used: number) => {
     if (limit == null) return null;
-    return limit - Math.abs(dailyDrawdown);
+    return limit - used;
   };
   return {
     accountId: account.id,
@@ -473,9 +494,9 @@ export function riskStats(db: DB, account: TradingAccount): RiskStats {
     dailyDrawdown,
     maxDrawdown: maxDD,
     avgRiskPerTrade,
-    cumulativeRiskToday,
-    distanceDailyLimit: dist(account.dailyLossLimit),
-    distanceMaxLimit: dist(account.maxLossLimit),
+    cumulativeRiskToday: usage.daily,
+    distanceDailyLimit: dist(account.dailyLossLimit, usage.daily),
+    distanceMaxLimit: dist(account.maxLossLimit, usage.max),
     bestDay,
     worstDay,
     consecutive: consecutiveWinsLosses(trades),
@@ -542,16 +563,12 @@ export function riskLimitAlerts(db: DB): RiskLimitAlert[] {
   );
   for (const acc of actives) {
     const accTrades = db.trades.filter((t) => t.accountId === acc.id);
+    const usage = limitUsage(acc, accTrades, new Date());
     if (acc.dailyLossLimit != null && acc.dailyLossLimit > 0) {
-      const tdk = tradingDayKey(new Date().toISOString(), acc);
-      const dayPnl = accTrades
-        .filter((t) => tradingDayKey(t.closeDate, acc) === tdk)
-        .reduce((s, t) => s + t.resultNative, 0);
-      pushRiskAlert(out, acc, "daily", Math.max(0, -dayPnl), acc.dailyLossLimit);
+      pushRiskAlert(out, acc, "daily", usage.daily, acc.dailyLossLimit);
     }
     if (acc.maxLossLimit != null && acc.maxLossLimit > 0) {
-      const live = acc.capital + accTrades.reduce((s, t) => s + t.resultNative, 0);
-      pushRiskAlert(out, acc, "max", Math.max(0, acc.capital - live), acc.maxLossLimit);
+      pushRiskAlert(out, acc, "max", usage.max, acc.maxLossLimit);
     }
   }
   return out.sort((a, b) =>
@@ -862,6 +879,10 @@ export interface DeadlineItem {
   targetValue: number;
   deadline: string; // yyyy-MM-dd
   daysLeft: number;
+  /** true solo negli "arretrati": deadline passata e obiettivo non soddisfatto. */
+  overdue?: boolean;
+  /** giorni di ritardo oltre la deadline (solo arretrati). */
+  overdueDays?: number;
 }
 
 /** Obiettivi con scadenza (non passata) — usati in Home. */
@@ -902,6 +923,131 @@ export function upcomingDeadlines(db: DB): DeadlineItem[] {
   return out.sort((a, b) => a.deadline.localeCompare(b.deadline));
 }
 
+/** Trade chiusi nel periodo (settimana/mese) di un WeeklyGoal che contiene `dayKey`. */
+function tradesInPeriod(db: DB, g: WeeklyGoal, dayKey: string): Trade[] {
+  const tz = db.settings.timezone;
+  let start: string;
+  let end: string;
+  if (g.period === "week") {
+    start = weekStartKey(dayKey, db.settings.weekStart);
+    end = addDaysKey(start, 6);
+  } else {
+    const r = monthRange(dayKey.slice(0, 7));
+    start = r.start;
+    end = r.end;
+  }
+  return db.trades.filter((t) => {
+    const dk = isoToDayKey(t.closeDate, tz);
+    return dk >= start && dk <= end;
+  });
+}
+
+/** Progresso di un WeeklyGoal nel periodo che contiene `dayKey` (stessa metrica
+ *  della pagina Obiettivi, ma valutata sul periodo della scadenza, non su oggi). */
+function weeklyGoalValue(db: DB, g: WeeklyGoal, dayKey: string): number {
+  const tz = db.settings.timezone;
+  let start: string;
+  let end: string;
+  if (g.period === "week") {
+    start = weekStartKey(dayKey, db.settings.weekStart);
+    end = addDaysKey(start, 6);
+  } else {
+    const r = monthRange(dayKey.slice(0, 7));
+    start = r.start;
+    end = r.end;
+  }
+  const inRange = (dk: string) => dk >= start && dk <= end;
+  const pcMin =
+    g.period === "week"
+      ? pcMinutesInWeek(db, start)
+      : db.pcUsageLogs.filter((p) => inRange(p.date)).reduce((s, p) => s + p.minutes, 0);
+  const workouts =
+    g.period === "week"
+      ? workoutsInWeek(db, start)
+      : db.workouts.filter((w) => inRange(w.date)).length;
+  let pages = 0;
+  db.books.forEach((b) => {
+    const u = isoToDayKey(b.updatedAt, tz);
+    if (inRange(u)) pages += b.pagesRead || 0;
+  });
+
+  switch (g.type) {
+    case "pc_hours":
+      return Math.round((pcMin / 60) * 10) / 10;
+    case "workout_count":
+    case "allenamento":
+      return workouts;
+    case "book_pages":
+      return pages;
+    case "ore_produttive":
+      return pcMin;
+    case "lettura_minuti":
+      return pages * 3;
+    case "finanze_check":
+      return db.transactions.filter((t) => inRange(t.date)).length;
+    case "trade_log":
+      return tradesInPeriod(db, g, dayKey).length;
+    default:
+      return 0;
+  }
+}
+
+/** Un WeeklyGoal è soddisfatto se il target è raggiunto nel periodo della deadline. */
+function weeklyGoalSatisfied(db: DB, g: WeeklyGoal): boolean {
+  if (!g.deadline) return true; // senza deadline non è mai "arretrato"
+  if (g.type === "disciplina_ok") {
+    const ids = tradesInPeriod(db, g, g.deadline).map((t) => t.id);
+    // come ascordDay: nessun trade nel periodo conta come rispettato
+    return ids.length === 0 || ids.every((id) => tradeRespected(db, id) === true);
+  }
+  return weeklyGoalValue(db, g, g.deadline) >= g.targetValue;
+}
+
+/** Obiettivi ARRETRATI: deadline già passata e obiettivo NON soddisfatto.
+ *  Complementare di upcomingDeadlines (che esclude le scadenze passate);
+ *  consumatori esistenti invariati. */
+export function overdueDeadlines(db: DB): DeadlineItem[] {
+  const tz = db.settings.timezone;
+  const today = todayKey(tz);
+  const todayMs = new Date(today + "T00:00:00").getTime();
+  const overdueDaysOf = (deadline: string) =>
+    Math.max(1, Math.round((todayMs - new Date(deadline + "T00:00:00").getTime()) / 86400000));
+
+  const out: DeadlineItem[] = [];
+  for (const g of db.dailyGoals) {
+    if (!(g.active && g.deadline && g.deadline < today)) continue;
+    if (ascordDay(db, g.deadline).met) continue; // soddisfatto entro il giorno di scadenza
+    out.push({
+      id: g.id,
+      kind: "daily",
+      type: g.type,
+      label: GOAL_LABELS[g.type] ?? g.type,
+      targetValue: g.targetValue,
+      deadline: g.deadline,
+      daysLeft: 0,
+      overdue: true,
+      overdueDays: overdueDaysOf(g.deadline),
+    });
+  }
+  for (const g of db.weeklyGoals) {
+    if (!(g.active && g.deadline && g.deadline < today)) continue;
+    if (weeklyGoalSatisfied(db, g)) continue;
+    out.push({
+      id: g.id,
+      kind: "weekly",
+      type: g.type,
+      label: WEEKLY_GOAL_LABELS[g.type] ?? g.type,
+      targetValue: g.targetValue,
+      deadline: g.deadline,
+      daysLeft: 0,
+      overdue: true,
+      overdueDays: overdueDaysOf(g.deadline),
+    });
+  }
+  // prima i più in ritardo
+  return out.sort((a, b) => (b.overdueDays ?? 0) - (a.overdueDays ?? 0));
+}
+
 export const WEEKLY_GOAL_LABELS: Record<string, string> = {
   workout_count: "Allenamenti",
   book_pages: "Pagine lette",
@@ -931,12 +1077,9 @@ export interface SavingsTotals {
 export function savingsTotals(db: DB): SavingsTotals {
   const activeGoals = db.savingsGoals.filter((g) => g.active);
   const byGoal = new Map<string, number>();
-  let unallocated = 0;
   for (const d of db.savingsDeposits) {
     if (d.goalId && activeGoals.some((g) => g.id === d.goalId)) {
       byGoal.set(d.goalId, (byGoal.get(d.goalId) ?? 0) + d.amount);
-    } else {
-      unallocated += d.amount;
     }
   }
   const deposited = db.savingsDeposits.reduce((s, d) => s + d.amount, 0);
@@ -1083,12 +1226,30 @@ function monthKeyOfDate(dk: string): string {
   return dk.slice(0, 7);
 }
 
+/** Chiave del mese successivo a "yyyy-MM" (es. "2026-12" → "2027-01"). */
+function nextMonthKey(mk: string): string {
+  const [y, m] = mk.split("-").map(Number);
+  const ny = m === 12 ? y + 1 : y;
+  const nm = m === 12 ? 1 : m + 1;
+  return `${ny}-${String(nm).padStart(2, "0")}`;
+}
+
+/** Giorno effettivo di addebito nel mese `mk`: dayOfMonth clampato ai giorni del mese (31 → 28 a febbraio). */
+function dayOfMonthInMonth(rule: RecurringRule, mk: string): number {
+  const [y, m] = mk.split("-").map(Number);
+  return Math.min(rule.dayOfMonth, daysInMonth(y, m));
+}
+
 /**
- * Genera le transazioni per le regole ricorrenti attive scadute.
- * Una regola genera per il mese corrente se: dayOfMonth <= giorno di oggi
- * E lastAppliedMonth != mese corrente (nessun doppione).
- * Ritorna { transactions, rules }: le nuove transazioni da aggiungere e le
- * regole aggiornate (lastAppliedMonth). PURE: non tocca il DB.
+ * Genera le transazioni per le regole ricorrenti attive scadute, con BACKFILL:
+ * loop da lastAppliedMonth+1 al mese corrente — vengono generati anche i mesi
+ * saltati (app non aperta). Data transazione = min(dayOfMonth, giorni del mese
+ * TARGET) del mese generato (mai "oggi"). Regole nuove (lastAppliedMonth null):
+ * se la scadenza del mese corrente è già passata generano subito, altrimenti
+ * partono dal mese prossimo (niente retroattivo per regole appena create).
+ * Anti-doppione: id deterministico `rec-<ruleId>-<yyyy-MM>`; lastAppliedMonth
+ * avanza a ogni mese effettivamente generato.
+ * Ritorna { transactions, rules }: nuove transazioni + regole aggiornate. PURE.
  */
 export function applyRecurringRules(
   db: DB,
@@ -1102,24 +1263,41 @@ export function applyRecurringRules(
   for (const rule of db.recurringRules ?? []) {
     if (!rule.active) continue;
     if (rule.lastAppliedMonth === thisMonth) continue; // già generata questo mese
-    if (rule.dayOfMonth > day) continue; // non ancora scaduta
 
-    const tx: TransactionType2 = {
-      id: `rec-${rule.id}-${thisMonth}`,
-      amount: rule.amount,
-      currency: rule.currency,
-      exchangeRate: rule.exchangeRate,
-      type: rule.type,
-      categoryId: rule.categoryId,
-      date: today, // registrata oggi (il giorno teorico è rule.dayOfMonth)
-      note: `${rule.name} (ricorrente)`,
-      recurring: true,
-      autoGenerated: true,
-      sourceRecurringId: rule.id,
-      createdAt: new Date().toISOString(),
-    };
-    newTx.push(tx);
-    updatedRules.push({ ...rule, lastAppliedMonth: thisMonth });
+    // mese di partenza: il successivo all'ultimo applicato; per una regola
+    // nuova, il mese corrente solo se la scadenza clampata è già passata,
+    // altrimenti il mese prossimo (mai generazione retroattiva).
+    const fromMonth = rule.lastAppliedMonth
+      ? nextMonthKey(rule.lastAppliedMonth)
+      : dayOfMonthInMonth(rule, thisMonth) <= day
+        ? thisMonth
+        : nextMonthKey(thisMonth);
+
+    let lastApplied: string | null = null;
+    for (let mk = fromMonth; mk <= thisMonth; mk = nextMonthKey(mk)) {
+      const dueDay = dayOfMonthInMonth(rule, mk);
+      if (mk === thisMonth && dueDay > day) break; // scadenza di questo mese non ancora raggiunta
+      const [y, m] = mk.split("-").map(Number);
+      const tx: TransactionType2 = {
+        id: `rec-${rule.id}-${mk}`,
+        amount: rule.amount,
+        currency: rule.currency,
+        exchangeRate: rule.exchangeRate,
+        type: rule.type,
+        categoryId: rule.categoryId,
+        date: dateKey(y, m, dueDay), // giorno del MESE TARGET (mai "oggi")
+        note: `${rule.name} (ricorrente)`,
+        recurring: true,
+        autoGenerated: true,
+        sourceRecurringId: rule.id,
+        createdAt: new Date().toISOString(),
+      };
+      newTx.push(tx);
+      lastApplied = mk;
+    }
+    if (lastApplied != null) {
+      updatedRules.push({ ...rule, lastAppliedMonth: lastApplied });
+    }
   }
 
   return { transactions: newTx, rules: updatedRules };

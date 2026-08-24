@@ -407,6 +407,11 @@ export default function LibriPage() {
 
   const current = currentBook(db);
   const totalPagesRead = books.reduce((s, b) => s + (b.pagesRead || 0), 0);
+  // altri libri in corso oltre al primo: il quick "+X pagine" deve agire su tutti
+  const otherInCorso = useMemo(
+    () => books.filter((b) => b.status === "in_corso" && b.id !== current?.id),
+    [books, current]
+  );
 
   // ---- form nuova/modifica ----
   const [formModal, setFormModal] = useState<{ mode: "new" } | { mode: "edit"; book: Book } | null>(null);
@@ -507,8 +512,9 @@ export default function LibriPage() {
   };
 
   const currentPct = current && current.totalPages > 0 ? Math.round((current.pagesRead / current.totalPages) * 100) : 0;
-  const remaining =
-    current && current.totalPages > 0 ? Math.max(0, current.totalPages - current.pagesRead) : 0;
+    // null = nessun tetto noto (totalPages assente): niente barra né "ultimo miglio"
+    const remaining =
+      current && current.totalPages > 0 ? Math.max(0, current.totalPages - current.pagesRead) : null;
 
   return (
     <div className="space-y-6">
@@ -558,7 +564,11 @@ export default function LibriPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone="info" pulse>● In corso adesso</Badge>
                 <span className="text-[11px] text-muted-foreground">
-                  {remaining > 0 ? (
+                  {remaining === null ? (
+                    <span className="inline-flex items-center gap-1">
+                      senza tetto <Icon name="book-open" size={11} />
+                    </span>
+                  ) : remaining > 0 ? (
                     <>
                       ancora <span className="tnum text-secondary-text">{remaining}</span> pagine
                     </>
@@ -587,16 +597,55 @@ export default function LibriPage() {
               <div className="mt-3 max-w-md">
                 <div className="mb-1 flex items-baseline justify-between text-xs">
                   <span className="text-muted-foreground">Progresso</span>
-                  <span className="tnum font-medium text-foreground">
-                    {current.pagesRead} / {current.totalPages || "—"} · {currentPct}%
-                  </span>
+                  {current.totalPages > 0 ? (
+                    <span className="tnum font-medium text-foreground">
+                      {current.pagesRead} / {current.totalPages} · {currentPct}%
+                    </span>
+                  ) : (
+                    <span className="tnum font-medium text-foreground">{current.pagesRead} pagine</span>
+                  )}
                 </div>
-                <ProgressBar value={current.pagesRead} max={current.totalPages || 1} className="h-1.5" />
+                {current.totalPages > 0 ? (
+                  <ProgressBar value={current.pagesRead} max={current.totalPages} className="h-1.5" />
+                ) : (
+                  <span className="mt-0.5 block text-[10px] text-muted-foreground">senza tetto — inserisci le pagine totali quando le conosci</span>
+                )}
               </div>
             </div>
             <div className="w-full sm:w-auto sm:shrink-0">
               <CommitPages book={current} onCommit={addPages} />
             </div>
+            {otherInCorso.length > 0 && (
+              <div className="border-t border-border pt-3">
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Anche in corso
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  {otherInCorso.map((b) => (
+                    <div
+                      key={b.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-elevated/40 px-2.5 py-1.5"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          className="flex h-6 w-5 shrink-0 items-center justify-center rounded-[4px] text-[9px] font-bold text-white"
+                          style={coverGradient(b.title)}
+                        >
+                          {titleInitial(b.title)}
+                        </span>
+                        <span className="truncate text-xs font-medium text-secondary-text">{b.title}</span>
+                        {b.totalPages > 0 && (
+                          <span className="tnum shrink-0 text-[10px] text-muted-foreground">
+                            {b.pagesRead}/{b.totalPages}
+                          </span>
+                        )}
+                      </div>
+                      <CommitPages book={b} onCommit={addPages} compact />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </Card>
         </Reveal>
       )}

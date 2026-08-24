@@ -97,7 +97,7 @@ export default function StudioPage() {
             </div>
             <p className="text-sm font-medium text-secondary-text">Prima sessione di studio</p>
             <p className="max-w-xs text-xs text-muted-foreground">
-              Registra la prima sessione per vedere minuti, materie e il contributo all'Activity Streak.
+              Registra la prima sessione per vedere minuti, materie e il contributo all&apos;Activity Streak.
             </p>
             <div className="mt-2">
               <Button onClick={openNew}>Aggiungi sessione</Button>

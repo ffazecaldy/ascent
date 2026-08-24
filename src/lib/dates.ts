@@ -100,7 +100,7 @@ export function monthKeyOf(key: string): string {
 export function weekStartKey(key: string, weekStart: number): string {
   const { y, m, d } = parseDateKey(key);
   const dow = new Date(y, m - 1, d).getDay(); // 0=dom
-  let diff = (dow - weekStart + 7) % 7;
+  const diff = (dow - weekStart + 7) % 7;
   return addDaysKey(key, -diff);
 }
 
@@ -118,9 +118,16 @@ export function timeToMinutes(t: string): number {
  *  Trading day: inizia a `rollover HH:MM` nel fuso dell'account, finisce al rollover successivo.
  *  Es. rollover 17:00 America/Chicago → il trading day che contiene le 12:00 di mar 5 è quello
  *  di mar 5 (dalle 17:00 di lun 4); le 18:00 di mar 5 appartengono al trading day di mer 6.
+ *  Se l'account non dichiara una timezone di trading, si usa il fallback della timezone
+ *  impostata nelle settings (parametro opzionale; default "UTC" per compatibilità coi
+ *  chiamanti storici).
  */
-export function tradingDayKey(iso: string, account: TradingAccount): string {
-  const tz = account.tradingDayTimezone || "UTC";
+export function tradingDayKey(
+  iso: string,
+  account: TradingAccount,
+  settingsTimezone: string = "UTC"
+): string {
+  const tz = account.tradingDayTimezone || settingsTimezone || "UTC";
   const { y, m, d } = partsInTZ(iso, tz);
   const { h, min } = timePartsInTZ(iso, tz);
   const roll = timeToMinutes(account.tradingDayRolloverTime || "00:00");

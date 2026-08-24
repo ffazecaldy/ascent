@@ -35,7 +35,7 @@ export function StreakHero() {
     updateDB((d) =>
       d.settings.lastFreezeMonth === updated.lastFreezeMonth ? d : { ...d, settings: updated }
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [db, streak.freezeUsed]);
 
   const locale = db.settings.locale;

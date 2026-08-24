@@ -25,7 +25,6 @@ import { cn } from "@/lib/cn";
 import {
   accountBaseRate,
   consecutiveWinsLosses,
-  drawdownSeries,
   equityCurve,
   monthlyWinRate,
   rByMonth,
@@ -185,6 +184,27 @@ function basePnl(db: DB, t: Trade): number {
   return t.resultNative * baseRateOf(db, t);
 }
 
+/**
+ * Drawdown (valori ≤ 0) della curva equity cumulativa nella STESSA valuta
+ * dell'equity: valuta nativa per account singolo, base per "tutti gli account".
+ * Locale a questa pagina (non compute.drawdownSeries) perché l'aggregato
+ * multi-account deve sommare P&L convertiti in base, mai valute miste.
+ */
+function drawdownSeriesIn(
+  db: DB,
+  trades: Trade[],
+  allAccounts: boolean
+): { date: string; value: number }[] {
+  const sorted = [...trades].sort((a, b) => a.closeDate.localeCompare(b.closeDate));
+  let cum = 0;
+  let peak = 0;
+  return sorted.map((t) => {
+    cum += allAccounts ? basePnl(db, t) : t.resultNative;
+    if (cum > peak) peak = cum;
+    return { date: t.closeDate, value: Math.min(0, cum - peak) };
+  });
+}
+
 /** Nome troncato per le etichette dei grafici. */
 function shortName(name: string, max = 11): string {
   return name.length > max ? name.slice(0, max) + "…" : name;
@@ -277,6 +297,7 @@ export default function TradingStatsPage() {
   const {
     trades,
     st,
+    totalPnl,
     streak,
     equityData,
     setupRows,
@@ -302,6 +323,14 @@ export default function TradingStatsPage() {
     // (2)+(7) KPI + streak corrente.
     const st = tradingStats(trades);
     const streak = consecutiveWinsLosses(trades);
+
+    // (2b) P&L totale in una valuta UNICA, coerente con la curva equity:
+    // valuta nativa per account singolo, convertita in base per "tutti gli
+    // account" (st.totalNative sommerebbe resultNative di valute diverse).
+    const totalPnl =
+      selectedId === "all"
+        ? trades.reduce((s, t) => s + basePnl(db, t), 0)
+        : st.totalNative;
 
     // (3) Curva equity: account singolo → valuta nativa; "tutti" → valuta base.
     const tz = db.settings.timezone;
@@ -368,7 +397,7 @@ export default function TradingStatsPage() {
           ...v,
           x: `${String(i * 2).padStart(2, "0")}–${String(i * 2 + 2).padStart(2, "0")}`,
         }))
-        .filter((r) => r.y !== 0); // solo fasce con attività
+        .filter((r) => r.count > 0); // solo fasce con trade chiusi (visibili anche a P&L 0)
     })();
 
     // (8) R per mese — ultimi 12 mesi. Dati reali dagli helper: si mostrano
@@ -377,8 +406,9 @@ export default function TradingStatsPage() {
     const rBarData = rMonths.map((m) => ({ x: monthLabel(m.x), y: m.r }));
     const rTotal = rMonths.reduce((s, m) => s + m.r, 0); // segno per hairline
 
-    // (9) Drawdown — dall'equity cumulativa dei trade FILTRATI (valori ≤ 0).
-    const ddDates = drawdownSeries(trades).map((p) => ({
+    // (9) Drawdown — dall'equity cumulativa dei trade FILTRATI (valori ≤ 0),
+    // nella stessa valuta dell'equity (base se multi-account, mai valute miste).
+    const ddDates = drawdownSeriesIn(db, trades, selectedId === "all").map((p) => ({
       x: shortDay(isoToDayKey(p.date, tz)),
       y: p.value,
     }));
@@ -428,6 +458,7 @@ export default function TradingStatsPage() {
     return {
       trades,
       st,
+      totalPnl,
       streak,
       equityData,
       setupRows,
@@ -446,9 +477,10 @@ export default function TradingStatsPage() {
     };
   }, [db, selectedId, period]);
 
-  const totalNative = st.totalNative;
-  const pnlTone = totalNative > 0 ? "text-success" : totalNative < 0 ? "text-danger" : "text-foreground";
-  const pnlHairline = totalNative > 0 ? "success" : totalNative < 0 ? "danger" : "accent";
+  // P&L totale in valuta unica (base se multi-account): determina tono/hairline/spark
+  // della card. La somma arriva dal memo (totalPnl), mai st.totalNative qui sotto.
+  const pnlTone = totalPnl > 0 ? "text-success" : totalPnl < 0 ? "text-danger" : "text-foreground";
+  const pnlHairline = totalPnl > 0 ? "success" : totalPnl < 0 ? "danger" : "accent";
   const lastEquity = equityData.length ? equityData[equityData.length - 1].y : 0;
   const filterKey = `${selectedId}-${period}`;
 
@@ -633,16 +665,16 @@ export default function TradingStatsPage() {
                   ) : (
                     <AnimatedNumber
                       key={`pnl-${filterKey}`}
-                      value={totalNative}
+                      value={totalPnl}
                       fmt={(n) => formatSignedMoney(n, moneyCurrency)}
                     />
                   )
                 }
                 valueClassName={moneyHidden ? "text-secondary-text" : pnlTone}
                 delta="curva equity sotto"
-                deltaTone={tone(totalNative)}
+                deltaTone={tone(totalPnl)}
                 spark={equityRow.slice(-14)}
-                sparkColor={totalNative >= 0 ? SUCCESS_HEX : DANGER_HEX}
+                sparkColor={totalPnl >= 0 ? SUCCESS_HEX : DANGER_HEX}
               />
               <StatCard
                 label="Streak corrente"
@@ -678,7 +710,11 @@ export default function TradingStatsPage() {
 
           {/* Correlazione Disciplina → P&L (subito dopo le KPI) */}
           <Reveal delay={30}>
-            <DisciplineCorrelationCard db={db} trades={trades} />
+            <DisciplineCorrelationCard
+              db={db}
+              trades={trades}
+              periodLabel={PERIODS.find((p) => p.id === period)?.label ?? "Questo mese"}
+            />
           </Reveal>
 
           {/* Curva equity */}

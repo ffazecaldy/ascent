@@ -51,19 +51,22 @@ export function StudyForm({
   // Sincronizza i campi a ogni apertura/switch crea↔modifica
   useEffect(() => {
     if (!open) return;
-    if (editing) {
-      setFDate(editing.date);
-      setFSubject(editing.subject);
-      setFMin(String(editing.minutes));
-      setFNote(editing.note ?? "");
-    } else {
-      setFDate(today);
-      setFSubject(SUBJECT_PRESETS[0]);
-      setFMin("");
-      setFNote("");
-    }
-    setAddingCustom(false);
-    setCustomDraft("");
+    // Reset/init in microtask: nessun setState sincrono nel corpo dell'effect.
+    queueMicrotask(() => {
+      if (editing) {
+        setFDate(editing.date);
+        setFSubject(editing.subject);
+        setFMin(String(editing.minutes));
+        setFNote(editing.note ?? "");
+      } else {
+        setFDate(today);
+        setFSubject(SUBJECT_PRESETS[0]);
+        setFMin("");
+        setFNote("");
+      }
+      setAddingCustom(false);
+      setCustomDraft("");
+    });
   }, [open, editing, today]);
 
   const subjectOptions = useMemo(() => {

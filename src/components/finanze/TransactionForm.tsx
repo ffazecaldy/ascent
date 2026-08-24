@@ -41,6 +41,7 @@ export function TransactionForm() {
   const [fx, setFx] = useState<{ state: FxState; text?: string }>({ state: "idle" });
   const [retryFx, setRetryFx] = useState(0); // bump per riquotare a mano
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const currencyOptions = useMemo(() => {
     const list = [...COMMON_CURRENCIES];
@@ -56,21 +57,24 @@ export function TransactionForm() {
     [db.categories, type, locale]
   );
 
-  // Se la categoria selezionata non è valida per il tipo corrente, ricadiamo sulla prima.
+  // Se la categoria selezionata non è valida per il tipo corrente, ricadiamo
+  // sulla prima (setState in microtask: niente render a cascata dall'effect).
   useEffect(() => {
     if (catsForType.some((c) => c.id === categoryId)) return;
-    setCategoryId(catsForType[0]?.id ?? "");
+    queueMicrotask(() => setCategoryId(catsForType[0]?.id ?? ""));
   }, [catsForType, categoryId]);
 
   // Pipeline FX: quotazione al cambio valuta (non a ogni tasto, per non martellare l'API).
   useEffect(() => {
     let cancelled = false;
     if (currency.toUpperCase() === base) {
-      setRate("1");
-      setFx({ state: "ok", text: "Stessa valuta: tasso 1." });
+      queueMicrotask(() => {
+        setRate("1");
+        setFx({ state: "ok", text: "Stessa valuta: tasso 1." });
+      });
       return;
     }
-    setFx({ state: "loading", text: "Quotazione tasso di cambio…" });
+    queueMicrotask(() => setFx({ state: "loading", text: "Quotazione tasso di cambio…" }));
     const amt = parseFloat(amount);
     const p =
       Number.isFinite(amt) && amt > 0
@@ -106,11 +110,18 @@ export function TransactionForm() {
       : null;
 
   const seedCategories = () => {
-    updateDB((d) => ({ ...d, categories: [...d.categories, ...defaultCategories()] }));
+    updateDB((d) => {
+      // Dedupe per nome (case-insensitive): un doppio click non deve duplicare le categorie.
+      const existing = new Set(d.categories.map((c) => c.name.toLocaleLowerCase(locale)));
+      const fresh = defaultCategories().filter((c) => !existing.has(c.name.toLocaleLowerCase(locale)));
+      if (fresh.length === 0) return d;
+      return { ...d, categories: [...d.categories, ...fresh] };
+    });
   };
 
   const submit = () => {
     setError(null);
+    if (saving) return; // anti doppio click: un salvataggio alla volta
     if (!Number.isFinite(amt) || amt <= 0) {
       setError("Inserisci un importo valido.");
       return;
@@ -127,6 +138,7 @@ export function TransactionForm() {
       }
       r = parsedRate;
     }
+    setSaving(true);
     updateDB((d) => ({
       ...d,
       transactions: upsert(d.transactions, {
@@ -147,6 +159,8 @@ export function TransactionForm() {
     setRecurring(false);
     setError(null);
     setDate(todayKey(db.settings.timezone));
+    // Cooldown breve: il pulsante resta disabilitato per evitare doppioni da doppio click.
+    setTimeout(() => setSaving(false), 400);
   };
 
   const scrollToCategories = () => {
@@ -271,6 +285,7 @@ export function TransactionForm() {
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
+            max={todayKey(db.settings.timezone)}
             className="[color-scheme:dark]"
           />
         </Field>
@@ -331,7 +346,7 @@ export function TransactionForm() {
 
         <div className="flex items-center justify-between gap-3">
           <Toggle checked={recurring} onChange={setRecurring} label="Ricorrente" />
-          <Button onClick={submit} glow>
+          <Button onClick={submit} glow disabled={saving}>
             Salva transazione
           </Button>
         </div>

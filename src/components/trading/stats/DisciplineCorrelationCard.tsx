@@ -5,8 +5,10 @@
 // Tre colonne (Rispettato / Violato / Senza setup) con le stesse
 // metriche delle KPI (count, win rate, R medio, P&L base, profit
 // factor) + insight automatico sul costo dei trade senza setup.
-// Tutta la derivazione passa da disciplinePnlSplit() (compute.ts):
-// qui solo presentazione. Privacy: cifre monetarie mascherate con
+// Count/WR/R/PF derivano da disciplinePnlSplit() (compute.ts); il P&L
+// per bucket è ricalcolato qui in valuta BASE con accountBaseRate
+// (compute somma resultNative grezzi, non confrontabili tra valute).
+// Privacy: cifre monetarie mascherate con
 // moneyMasked, percentuali/R con kpiMasked come nelle altre card.
 // ============================================================
 
@@ -16,7 +18,12 @@ import type { DB, Trade } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { disciplinePnlSplit, type DisciplinePnlBucket } from "@/lib/compute";
+import {
+  accountBaseRate,
+  disciplinePnlSplit,
+  tradeRespected,
+  type DisciplinePnlBucket,
+} from "@/lib/compute";
 import { formatNumber, formatPercent, formatR, formatSignedMoney } from "@/lib/format";
 import { moneyMasked, kpiMasked, maskMoney, maskKpi } from "@/lib/privacy";
 
@@ -52,6 +59,25 @@ const COLUMNS: ColumnSpec[] = [
   },
 ];
 
+/** Chiavi dei tre bucket di disciplina. */
+type BucketKey = "respected" | "violated" | "none";
+
+/**
+ * Frasario temporale dell'insight, derivato dall'etichetta del filtro
+ * periodo attivo nella pagina (mai un "questo mese" fisso: i trade
+ * mostrati possono coprire 3 mesi, 12 mesi o tutto lo storico).
+ */
+function periodPhrase(label: string): string {
+  switch (label) {
+    case "Questo mese":
+      return "questo mese";
+    case "Tutto":
+      return "in tutto";
+    default:
+      return `negli ${label.toLowerCase()}`; // "Ultimi 3 mesi" → "negli ultimi 3 mesi"
+  }
+}
+
 /** Riga etichetta/valore dentro una colonna. */
 function MetricRow({
   label,
@@ -71,9 +97,11 @@ function MetricRow({
 export function DisciplineCorrelationCard({
   db,
   trades,
+  periodLabel = "Questo mese",
 }: {
   db: DB;
   trades: Trade[];
+  periodLabel?: string;
 }) {
   const mode = db.settings.privacyMode;
   const moneyHide = moneyMasked(mode); // cifre monetarie (standard o completa)
@@ -81,6 +109,22 @@ export function DisciplineCorrelationCard({
 
   // Raggruppamento per esito disciplina + metriche per gruppo (puro, memoizzato).
   const split = useMemo(() => disciplinePnlSplit(db, trades), [db, trades]);
+
+  // P&L per bucket in valuta BASE: lo split somma resultNative grezzi (valute
+  // miste su più account); qui si converte con accountBaseRate come fa la
+  // curva equity aggregata della pagina. Bucketing identico a compute
+  // (tradeRespected). Count/WR/R/PF sono valuta-indipendenti, restano dallo split.
+  const pnlBase = useMemo(() => {
+    const m = new Map<BucketKey, number>();
+    for (const t of trades) {
+      const acc = db.accounts.find((a) => a.id === t.accountId);
+      const rate = acc ? accountBaseRate(acc, db.settings.baseCurrency) : 1;
+      const r = tradeRespected(db, t.id);
+      const key: BucketKey = r === true ? "respected" : r === false ? "violated" : "none";
+      m.set(key, (m.get(key) ?? 0) + t.resultNative * rate);
+    }
+    return m;
+  }, [db, trades]);
 
   const hasData = trades.length > 0;
 
@@ -92,20 +136,20 @@ export function DisciplineCorrelationCard({
       return {
         tone: "danger" as const,
         icon: "alert" as IconName,
-        text: `I trade senza setup ti costano ${formatR(Math.abs(noneTotalR))} questo mese.`,
+        text: `I trade senza setup ti costano ${formatR(Math.abs(noneTotalR))} ${periodPhrase(periodLabel)}.`,
       };
     }
     if (noneTotalR > 0) {
       return {
         tone: "warning" as const,
         icon: "zap" as IconName,
-        text: `I trade senza setup portano ${formatR(noneTotalR)}: profitto non replicabile senza playbook.`,
+        text: `I trade senza setup portano ${formatR(noneTotalR)} ${periodPhrase(periodLabel)}: profitto non replicabile senza playbook.`,
       };
     }
     return {
       tone: "default" as const,
       icon: "list" as IconName,
-      text: `${split.none.count} ${split.none.count === 1 ? "trade" : "trade"} senza setup: risultato neutro questo mese.`,
+      text: `${split.none.count} ${split.none.count === 1 ? "trade" : "trade"} senza setup: risultato neutro ${periodPhrase(periodLabel)}.`,
     };
   })();
 
@@ -130,6 +174,7 @@ export function DisciplineCorrelationCard({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {COLUMNS.map((col) => {
               const b = bucketOf(col.key);
+              const pnl = pnlBase.get(col.key as BucketKey) ?? 0;
               return (
                 <div key={col.key} className="rounded-lg bg-elevated/40 p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
@@ -156,14 +201,14 @@ export function DisciplineCorrelationCard({
                         <span
                           className={cn(
                             "tnum font-semibold",
-                            b.totalNative > 0
+                            pnl > 0
                               ? "text-success"
-                              : b.totalNative < 0
+                              : pnl < 0
                                 ? "text-danger"
                                 : "text-secondary-text"
                           )}
                         >
-                          {formatSignedMoney(b.totalNative, db.settings.baseCurrency)}
+                          {formatSignedMoney(pnl, db.settings.baseCurrency)}
                         </span>
                       )}
                     </MetricRow>

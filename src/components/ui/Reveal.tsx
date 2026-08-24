@@ -20,7 +20,8 @@ export function Reveal({
     const el = ref.current;
     if (!el) return;
     if (typeof IntersectionObserver === "undefined") {
-      setShown(true);
+      // Fallback senza IntersectionObserver in microtask (one-shot al mount).
+      queueMicrotask(() => setShown(true));
       return;
     }
     const obs = new IntersectionObserver(

@@ -1,10 +1,12 @@
 # PHASE_1.md — Contratto per i subagent (leggere PRIMA di scrivere codice)
 
+> **⚠️ CONTRATTO STORICO (fase 1)** — documento dell'integrazione originaria, conservato come riferimento. **Non riflette più lo stato attuale del codice**: lo storage è evoluto fino a **DB v6** (v4 `privacyMode`, v5 `sportProfile`, v6 `recurringRules`), sono state aggiunte rotte non coperte dalla matrice (`/risparmi`, `/studio`, `/coach`), moduli `src/lib/*` nuovi (`ai.ts`, `coach-context.ts`, `market-days.ts`, `pc-tracker.ts`, `quotes.ts`, `theme.ts`, `sport-meta.ts`, `export.ts`, `import-csv.ts`, `risk-limits.ts`) e componenti rimossi (QuickLog). Per lo stato attuale fare riferimento a `README.md`, `docs/ARCHITECTURE.md` e `docs/DECISIONS.md`; prima di modificare codice condiviso verificare sempre i file realmente presenti in `src/lib/` e `src/components/`.
+
 Stai contribuendo ad **Ascend**: PWA Next.js 16 (App Router, `src/`) + TypeScript + Tailwind v4, single-user, **persistenza locale (localStorage)** con data layer a repository (adapter Supabase sostituibile in seguito). Il modello dati della specifica v3 è rispettato integralmente.
 
 ## 1. COSE DA NON FARE (assolute)
 
-1. **NON modificare** i file condivisi: `src/lib/*` (types, storage, compute, format, dates, fx, privacy, db, cn), `src/components/ui/*`, `src/components/charts/*`, `src/components/AppShell.tsx`, `src/app/layout.tsx`, `src/app/globals.css`, `next.config.ts`, `tsconfig.json`, `package.json`, `package-lock.json`, `public/manifest.json`, `public/sw.js`.
+1. **NON modificare** i file condivisi: `src/lib/*` (types, storage, compute, format, dates, fx, privacy, db, cn, ai, coach-context, market-days, pc-tracker, quotes, theme, sport-meta, export, import-csv, risk-limits), `src/components/ui/*`, `src/components/charts/*`, `src/components/AppShell.tsx`, `src/app/layout.tsx`, `src/app/globals.css`, `next.config.ts`, `tsconfig.json`, `package.json`, `package-lock.json`, `public/manifest.json`, `public/sw.js`, `scripts/*`.
 2. **NON usare localStorage direttamente** — usa `useDB()` / `updateDB()` da `@/lib/storage`.
 3. **NON aggiungere dipendenze npm** (niente recharts, date-fns, etc). Se ti serve qualcosa, costruiscilo con React/SVG base.
 4. **NON inserire dati demo/finti** nel DB. La app parte vuota. Puoi mostrare empty state.
@@ -85,7 +87,8 @@ Privacy: leggi `db.settings.privacyMode`; dove mostri soldi fare già tutto in `
 | 17 | Obiettivi | `src/app/obiettivi/page.tsx` |
 | 18 | Impostazioni | `src/app/impostazioni/page.tsx`, `src/components/impostazioni/*` |
 | 19 | Export/Backup | `src/app/export/page.tsx`, `src/lib/export.ts` |
-| 20 | QuickLog | `src/components/QuickLog.tsx` (esporta `QuickLogButton` e `QuickLogModal`) |
+
+> Nota: la matrice riflette solo la fase 1. Le rotte successive (`/risparmi`, `/studio`, `/coach` e i loro componenti) e i moduli `src/lib/*` aggiunti dopo non sono elencati: vedi lo stato attuale in `docs/ARCHITECTURE.md`.
 
 ## 6. Criteri di completamento
 

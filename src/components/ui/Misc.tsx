@@ -2,6 +2,7 @@
 
 import React from "react";
 import { cn } from "@/lib/cn";
+import { Icon } from "./Icon";
 
 export function Tabs({
   tabs,
@@ -102,11 +103,12 @@ export function Toggle({
 }
 
 export function EmptyState({
-  icon = "🌱",
+  icon = <Icon name="sprout" size={36} />,
   title,
   description,
   action,
 }: {
+  /** icona: ReactNode libero (SVG di ui/Icon consigliato) — default: sprout (germoglio/leaf) */
   icon?: React.ReactNode;
   title: string;
   description?: string;
@@ -114,7 +116,9 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
-      <div className="animate-rise text-4xl drop-shadow-[0_0_16px_rgba(76,126,255,0.35)]">{icon}</div>
+      <div className="animate-rise text-accent">
+        {icon}
+      </div>
       <p className="text-sm font-medium text-secondary-text">{title}</p>
       {description && <p className="max-w-xs text-xs text-muted-foreground">{description}</p>}
       {action && <div className="mt-2">{action}</div>}

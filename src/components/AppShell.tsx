@@ -18,8 +18,8 @@ import {
 } from "@/lib/compute";
 import { cn } from "@/lib/cn";
 import { todayKey } from "@/lib/dates";
-import { formatMoney, formatPercent } from "@/lib/format";
-import { moneyMasked, maskMoney, maskKpi } from "@/lib/privacy";
+import { formatMoney } from "@/lib/format";
+import { moneyMasked, maskMoney } from "@/lib/privacy";
 import type { PrivacyMode } from "@/lib/types";
 import { PRIVACY_ORDER } from "@/lib/privacy";
 import { Icon, type IconName } from "@/components/ui/Icon";
@@ -102,7 +102,7 @@ function StreakPill() {
     >
       <Icon name="flame" size={14} className={cn(streak.days > 0 ? "text-accent animate-pulse-dot" : "text-muted-foreground")} />
       <span className="tnum">{streak.days}</span>
-      <span className="text-[11px] font-medium opacity-70">
+      <span className="text-[11px] font-medium text-secondary-text">
         {streak.days === 1 ? "giorno" : "giorni"}
         {streak.freezeUsed ? " · freeze" : ""}
       </span>
@@ -177,7 +177,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           }));
           // deps sui dati reali: al primo render (pre-hydration) il DB è vuoto e l'effect
           // esce prima del ref-guard; il cambio di riferimento post-hydration lo fa ripartire.
-        }, [db.recurringRules, db.settings.timezone]);
+        }, [db, db.recurringRules, db.settings.timezone]);
 
   // PROMOZIONE EVAL → FINANZIATO (globale: scatta da qualunque pagina)
   const [evalToast, setEvalToast] = useState<string | null>(null);
@@ -198,7 +198,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             a.id === acc.id ? { ...a, status: "finanziato" as const, evalTarget: null } : a
           ),
         }));
-        setEvalToast(`🎉 ${acc.name} ha raggiunto l'obiettivo: promosso a Finanziato`);
+        setTimeout(() => {
+          setEvalToast(`${acc.name} ha raggiunto l'obiettivo: promosso a Finanziato`);
+        }, 0);
       }
     }
   }, [db]);
@@ -258,9 +260,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Data nell'header: calcolata post-mount (hydration-safe) nel timezone dell'utente
+  const [headerDate, setHeaderDate] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setHeaderDate(
+        new Date().toLocaleDateString(db.settings.locale || "it-IT", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          timeZone: db.settings.timezone,
+        })
+      );
+    }, 0);
+    return () => clearTimeout(t);
+  }, [db.settings.locale, db.settings.timezone]);
+
   return (
     <div className="relative flex min-h-screen">
-      {/* Semi-sfondo: wallpaper che svanisce gradualmente verso l'alto (a malapena visibile) */}
+      {/* Semi-sfondo: wallpaper che svanisce gradualmente verso il basso (a malapena visibile) */}
       <div aria-hidden className="wallpaper-fade pointer-events-none fixed inset-0 z-0" />
 
       {/* Sidebar desktop */}
@@ -299,9 +317,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold tracking-tight">
               Ascend
-              <span className="ml-2 hidden text-xs font-normal text-muted-foreground sm:inline">
-                · {new Date().toLocaleDateString(db.settings.locale || "it-IT", { weekday: "long", day: "numeric", month: "long" })}
-              </span>
+              {headerDate && (
+                <span className="ml-2 hidden text-xs font-normal text-muted-foreground sm:inline">
+                  · {headerDate}
+                </span>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -354,7 +374,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {evalToast && (
         <div className="animate-pop fixed left-1/2 top-4 z-[60] w-[min(92vw,420px)] -translate-x-1/2 rounded-xl border border-success/30 bg-[--bg-elev-1] px-4 py-3 shadow-[--shadow-pop]">
           <div className="flex items-center gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-success/15 text-lg">🎉</span>
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-success/15 text-success">
+              <Icon name="trophy" size={20} />
+            </span>
             <p className="text-sm font-medium text-foreground">{evalToast}</p>
             <button
               onClick={() => setEvalToast(null)}
@@ -379,6 +401,7 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
       <div className="mb-5 flex items-center gap-2.5 px-2 pt-1">
         <div className="relative flex h-9 w-9 items-center justify-center">
           <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-accent via-accent-2 to-accent-3 opacity-90 blur-[6px]" />
+          {/* eslint-disable-next-line @next/next/no-img-element -- icona statica locale: next/image richiederebbe width/height espliciti e cambierebbe il layout della sidebar */}
           <img
             src="/icons/studio.png"
             alt="Ascend"
@@ -436,11 +459,14 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
                         )}
                       />
                     ) : (
-                      <img
-                        src={item.icon.img}
-                        alt={item.icon.alt}
-                        className="h-4 w-4 rounded object-cover transition-transform duration-150 group-hover:scale-110"
-                      />
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element -- icone statiche della nav: next/image romperebbe il layout (h-4 w-4 fisse) */}
+                        <img
+                          src={item.icon.img}
+                          alt={item.icon.alt}
+                          className="h-4 w-4 rounded object-cover transition-transform duration-150 group-hover:scale-110"
+                        />
+                      </>
                     )}
                     {item.label}
                   </Link>
@@ -452,7 +478,7 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
       </div>
 
       <div className="mt-4 rounded-xl border border-border bg-elevated/60 p-3">
-        <p className="text-[10px] leading-relaxed text-muted-foreground">
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
           Un sistema, un solo dato di verità: <span className="text-secondary-text">sto diventando una versione migliore, giorno dopo giorno.</span>
         </p>
       </div>

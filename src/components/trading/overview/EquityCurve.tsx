@@ -91,13 +91,13 @@ export function EquityCurve({ db }: { db: DB }) {
           .slice(0, 20);
 
     // Curva equity cumulata in VALUTA BASE, ordinata per chiusura.
-    let cum = 0;
+    // reduce immutabile: nessuna riassegnazione di variabili nel render.
     const data = [...curveTrades]
       .sort((a, b) => a.closeDate.localeCompare(b.closeDate))
-      .map((t) => {
-        cum += t.resultNative * baseRateOf(db, t);
-        return { x: shortDay(isoToDayKey(t.closeDate, tz)), y: cum };
-      });
+      .reduce<{ x: string; y: number }[]>((acc, t) => {
+        const y = (acc[acc.length - 1]?.y ?? 0) + t.resultNative * baseRateOf(db, t);
+        return [...acc, { x: shortDay(isoToDayKey(t.closeDate, tz)), y }];
+      }, []);
 
     // Totale del mese (base) + delta vs mese precedente — coerenti coi KPI.
     const total = monthPnlTrades(db, monthKey).base;

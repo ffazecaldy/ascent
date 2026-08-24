@@ -93,7 +93,8 @@ export function TrackerLive() {
   // --- cronometro live HH:MM:SS (1 tick/s mentre registra) ---
   useEffect(() => {
     if (sessionStart === null) return;
-    setNowTs(Date.now());
+    // Primo tick in microtask: il setState non è sincrono nel corpo dell'effect.
+    queueMicrotask(() => setNowTs(Date.now()));
     const id = window.setInterval(() => setNowTs(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [sessionStart]);
@@ -125,7 +126,7 @@ export function TrackerLive() {
       return next;
     });
     return inserted;
-  }, []);
+  }, [userMap]);
 
   // --- un ciclo di polling /api/since ---
   const poll = useCallback(async () => {
@@ -247,7 +248,7 @@ export function TrackerLive() {
       categories: categories.slice(0, 3),
       topApp: topAppEntry ? { exe: topAppEntry[0], samples: topAppEntry[1] } : null,
     });
-  }, []);
+  }, [userMap]);
 
   // --- stato tracker + ultima app attiva (sempre attivi) ---
   useEffect(() => {

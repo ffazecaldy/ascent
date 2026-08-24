@@ -137,7 +137,7 @@ export function SportReminderCard({ db }: { db: DB }) {
               </span>
             </CardTitle>
             <CardSubtitle>
-              Ti restan{remaining === 1 ? "o" : "o"} {remaining} sessione{remaining === 1 ? "" : "i"} ·{" "}
+              Ti resta{remaining === 1 ? "" : "no"} {remaining} sessione{remaining === 1 ? "" : "i"} ·{" "}
               {fmtDur(Math.max(0, profile.weeklyMinutesTarget - weekStats.minutes))} da recuperare
             </CardSubtitle>
           </div>

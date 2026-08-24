@@ -55,6 +55,14 @@ const listeners = new Set<() => void>();
 const SNAP_PREFIX = "ascend:db:snap-";
 const SNAP_COUNT = 3;
 const SNAP_INTERVAL_MS = 60 * 60 * 1000; // max 1 snapshot/ora
+// MOTIVAZIONE soglia slim: 3 snapshot integrali di un DB >1.5MB (data-URL
+// degli screenshot) triplicherebbero il consumo di quota localStorage fino a
+// far scattare il fallback slim di saveDB() su ogni scrittura. Oltre la soglia
+// salviamo una copia SENZA screenshot: il recovery resta completo per tutti i
+// dati (transazioni, trade, impostazioni); gli screenshot sono cosmetici e in
+// caso di recovery dal backup andrebbero comunque persi col reset. Sicuro:
+// è la stessa riduzione già usata dal fallback quota di saveDB().
+const SNAPSHOT_SLIM_THRESHOLD = 1.5 * 1024 * 1024;
 
 /** Scrive uno snapshot se è passata almeno un'ora dall'ultimo. */
 function maybeSnapshot(): void {
@@ -68,14 +76,78 @@ function maybeSnapshot(): void {
       else window.localStorage.removeItem(`${SNAP_PREFIX}${i}`);
     }
     const cur = window.localStorage.getItem(STORAGE_KEY);
-    if (cur !== null) window.localStorage.setItem(`${SNAP_PREFIX}1`, cur);
+    if (cur !== null) {
+      if (cur.length > SNAPSHOT_SLIM_THRESHOLD) {
+        // DB grosso → copia 'slim' senza screenshot (vedi MOTIVAZIONE sopra).
+        try {
+          const parsed = JSON.parse(cur) as DB;
+          const slim = { ...parsed, trades: parsed.trades.map((t) => ({ ...t, screenshots: [] })) };
+          window.localStorage.setItem(`${SNAP_PREFIX}1`, JSON.stringify(slim));
+        } catch {
+          window.localStorage.setItem(`${SNAP_PREFIX}1`, cur); // fallback: copia integrale
+        }
+      } else {
+        window.localStorage.setItem(`${SNAP_PREFIX}1`, cur);
+      }
+    }
     window.localStorage.setItem("ascend:snap-at", String(Date.now()));
   } catch {
     // best-effort: mai bloccare un save per lo snapshot
   }
 }
 
-/** Recupera il DB dallo snapshot più recente valido, o null. */
+/**
+ * Valida la shape MINIMA di un DB: version intero + collezioni chiave presenti
+ * fin dalla v1 (settings, categories, transactions, accounts, trades).
+ * Le collezioni aggiunte dalle migrazioni (es. recurringRules v6) NON sono
+ * richieste qui: vengono riempite dal merge con emptyDB + cascata migrate().
+ * Serve sia per il main key sia per gli snapshot, così un DB "torchiato" non
+ * viene mai recuperato/accettato.
+ */
+function isValidDBShape(x: unknown): x is DB {
+  if (!x || typeof x !== "object") return false;
+  const db = x as Partial<DB>;
+  return (
+    Number.isInteger(db.version) &&
+    (db.version as number) >= 1 &&
+    !!db.settings &&
+    typeof db.settings === "object" &&
+    !Array.isArray(db.settings) &&
+    Array.isArray(db.categories) &&
+    Array.isArray(db.transactions) &&
+    Array.isArray(db.accounts) &&
+    Array.isArray(db.trades)
+  );
+}
+
+/**
+ * Cascata di migrazioni versione per versione fino a DB_VERSION.
+ * Equivalente ai vecchi `if` in loadDB, ma senza early-return: un DB molto
+ * vecchio (es. v3) percorre TUTTA la catena in un solo load. Il risultato
+ * finale è identico al comportamento storico (v3 → privacy "off", v4 → 
+ * sportProfile null, v5 → recurringRules []), version finale = DB_VERSION.
+ */
+function migrate(db: DB): DB {
+  let out = db;
+  while (out.version < DB_VERSION) {
+    if (out.version < 4) {
+      // v3 e precedenti: la privacy non aveva lo stato "off" (i soldi erano
+      // sempre mascherati). Riportiamo a "off": i dati tornano visibili.
+      out = { ...out, version: 4, settings: { ...out.settings, privacyMode: "off" } };
+    } else if (out.version < 5) {
+      // v4 → v5: Sport Zone — sportProfile assente → null (wizard alla prima visita).
+      out = { ...out, version: 5, sportProfile: out.sportProfile ?? null };
+    } else if (out.version < 6) {
+      // v5 → v6: Ricorrenti — nuova collezione `recurringRules` vuota.
+      out = { ...out, version: 6, recurringRules: out.recurringRules ?? [] };
+    } else {
+      break;
+    }
+  }
+  return out;
+}
+
+/** Recupera il DB dallo snapshot più recente valido (shape minima), o null. */
 function recoverFromSnapshot(): DB | null {
   if (typeof window === "undefined") return null;
   for (let i = 1; i <= SNAP_COUNT; i++) {
@@ -83,8 +155,8 @@ function recoverFromSnapshot(): DB | null {
     if (!raw) continue;
     try {
       const parsed = JSON.parse(raw) as DB;
-      if (parsed && typeof parsed === "object" && Array.isArray(parsed.transactions)) {
-        // eslint-disable-next-line no-console
+      if (isValidDBShape(parsed)) {
+         
         console.warn("[ascend] DB principale corrotto — recuperato snapshot di backup #" + i);
         return parsed;
       }
@@ -104,57 +176,59 @@ export function loadDB(): DB {
     if (!raw) {
       cache = emptyDB();
     } else {
-      const parsed = JSON.parse(raw) as DB;
-      cache = { ...emptyDB(), ...parsed, settings: { ...emptyDB().settings, ...parsed.settings } };
-      // Migrazione: da v3 in giù la privacy non aveva lo stato "off" (i soldi erano
-      // sempre mascherati). Con l'introduzione di "off", qui riportiamo a "off"
-      // così i dati tornano visibili (l'utente può riattivare standard/completa dal toggle).
-      if ((parsed.version ?? 0) < 4) {
-        cache = { ...cache, version: DB_VERSION, settings: { ...cache.settings, privacyMode: "off" } };
-        saveDB(cache);
-        return cache;
+          const parsed = JSON.parse(raw) as DB;
+          if (!isValidDBShape(parsed)) throw new Error("ascend: shape DB non valida");
+          cache = { ...emptyDB(), ...parsed, settings: { ...emptyDB().settings, ...parsed.settings } };
+          // Cascata migrazioni (v3→…→DB_VERSION). Se qualcosa è cambiato,
+          // persistiamo subito il DB migrato (comportamento storico).
+          const versionBefore = cache.version;
+          cache = migrate(cache);
+          if (cache.version !== versionBefore) saveDB(cache);
+        }
+      } catch {
+        // DB principale corrotto/illeggibile: prova gli snapshot prima di azzerare.
+        const recovered = recoverFromSnapshot();
+        if (recovered) {
+          cache = migrate({
+            ...emptyDB(),
+            ...recovered,
+            settings: { ...emptyDB().settings, ...recovered.settings },
+          });
+          // SELF-HEAL: riscrive il main key col DB riparato (version bump a
+          // DB_VERSION + migrazioni applicate) così il prossimo load non ripete
+          // recovery+migrazione e gli altri tab vedono subito il DB sano.
+          try {
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
+          } catch {
+            // quota piena: il recovery resta comunque attivo in cache;
+            // il prossimo saveDB() riscriverà il main key.
+          }
+        } else {
+          cache = emptyDB();
+        }
       }
-      // Migrazione v4→v5: Sport Zone. Le DB esistenti non hanno `sportProfile`:
-      // lo inizializziamo a null (il wizard di prima configurazione si attiverà
-      // alla prima visita di /sport). Nessun dato utente viene toccato.
-      if ((parsed.version ?? 0) < 5) {
-        cache = { ...cache, version: DB_VERSION, sportProfile: cache.sportProfile ?? null };
-        saveDB(cache);
-        return cache;
-      }
-      // Migrazione v5→v6: Ricorrenti. Nuova collezione `recurringRules` vuota.
-      if ((parsed.version ?? 0) < 6) {
-        cache = { ...cache, version: DB_VERSION, recurringRules: cache.recurringRules ?? [] };
-        saveDB(cache);
-        return cache;
-      }
+      return cache;
     }
-  } catch {
-    // DB principale corrotto/illeggibile: prova gli snapshot prima di azzerare.
-    const recovered = recoverFromSnapshot();
-    cache = recovered ? { ...emptyDB(), ...recovered, settings: { ...emptyDB().settings, ...recovered.settings } } : emptyDB();
-  }
-  return cache;
-}
 
 export function saveDB(db: DB): void {
-  cache = db;
+  const deduped = dedupeCollections(db);
+  cache = deduped;
   if (typeof window === "undefined") return;
   try {
     // Snapshot rotante di sicurezza: massimo una copia/ora, 3 copie totali.
     // Protegge da corruption/quota: se il JSON principale si corrompe,
     // loadDB() può recuperare lo snapshot più recente invece di azzerare.
     maybeSnapshot();
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(deduped));
   } catch {
     // Quota superata (screenshot pesanti/legacy): salva le parti essenziali
     // MA avvisa l'utente: gli screenshot NON sono persistiti.
     try {
-      const slim = { ...db, trades: db.trades.map((t) => ({ ...t, screenshots: [] })) };
-      const hadShots = db.trades.some((t) => (t.screenshots?.length ?? 0) > 0);
+      const slim = { ...deduped, trades: deduped.trades.map((t) => ({ ...t, screenshots: [] })) };
+      const hadShots = deduped.trades.some((t) => (t.screenshots?.length ?? 0) > 0);
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(slim));
       if (hadShots) {
-        // eslint-disable-next-line no-console
+         
         console.warn(
           "[ascend] Quota localStorage superata: gli screenshot dei trade non sono stati salvati. Riduci le dimensioni o esporta un backup."
         );
@@ -232,12 +306,65 @@ export function useDB(): DB {
 }
 
 export function updateDB(mutator: (db: DB) => DB): DB {
-  const next = mutator(loadDB());
+  const next = dedupeCollections(mutator(loadDB()));
   saveDB(next);
   return next;
 }
 
 // --- helpers -------------------------------------------------
+
+/**
+ * Deduplica una collezione per `id` tenendo la PRIMA occorrenza (l'ordine
+ * esistente è preservato). MOTIVAZIONE multi-tab: due tab che calcolano la
+ * stessa riga (es. la transazione ricorrente del mese) nella finestra tra la
+ * lettura della cache e lo storage event scriverebbero due copie identiche;
+ * deduplicando all'atto del salvataggio collassano in una. Gli elementi senza
+ * `id` stringa (es. Badge, che ha `key`) non vengono toccati.
+ */
+function dedupeById<T>(list: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const item of list) {
+    const id = (item as { id?: unknown } | null)?.id;
+    const key = typeof id === "string" ? id : `__noid__${out.length}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+/**
+ * Applica dedupeById a tutte le collezioni del DB. Idempotente: su DB senza
+ * doppioni restituisce i riferimenti invariati a livello di riga, quindi non
+ * invalida re-render né reference memoizzate per i singoli array.
+ */
+function dedupeCollections(db: DB): DB {
+  return {
+    ...db,
+    categories: dedupeById(db.categories),
+    transactions: dedupeById(db.transactions),
+    accounts: dedupeById(db.accounts),
+    trades: dedupeById(db.trades),
+    setups: dedupeById(db.setups),
+    setupRules: dedupeById(db.setupRules),
+    tradeSetupRules: dedupeById(db.tradeSetupRules),
+    firmExpenses: dedupeById(db.firmExpenses),
+    payouts: dedupeById(db.payouts),
+    weeklyReviews: dedupeById(db.weeklyReviews),
+    dailyGoals: dedupeById(db.dailyGoals),
+    weeklyGoals: dedupeById(db.weeklyGoals),
+    pcUsageLogs: dedupeById(db.pcUsageLogs),
+    pcAppCategoryMap: dedupeById(db.pcAppCategoryMap),
+    books: dedupeById(db.books),
+    workouts: dedupeById(db.workouts),
+    studySessions: dedupeById(db.studySessions),
+    savingsGoals: dedupeById(db.savingsGoals),
+    savingsDeposits: dedupeById(db.savingsDeposits),
+    recurringRules: dedupeById(db.recurringRules),
+    badges: dedupeById(db.badges),
+  };
+}
 
 export function uid(): string {
   return (

@@ -164,7 +164,7 @@ export function TradingCalendarCard({ db }: { db: DB }) {
                 <div className="flex flex-1 flex-col items-center justify-center gap-1 px-0.5">
                   <span
                     className={cn(
-                      "tnum text-[15px] font-semibold leading-none",
+                      "tnum max-w-full truncate text-[15px] font-semibold leading-none",
                       masked ? "text-secondary-text" : positive ? "text-success" : "text-danger"
                     )}
                   >

@@ -54,7 +54,7 @@ export function SavingsSummaryCard({ db }: { db: DB }) {
 
       {/* totale versato */}
       <div className="rounded-xl border border-border bg-elevated/40 p-3.5">
-        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
           <Icon name="coins" size={13} />
           Totale versato
         </span>

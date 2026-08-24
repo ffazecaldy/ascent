@@ -14,7 +14,7 @@ import { financesMonth, financesByCategory } from "@/lib/compute";
 import { getCategory } from "@/lib/db";
 import { todayKey, monthKeyOf } from "@/lib/dates";
 import { formatMoney, formatSignedMoney } from "@/lib/format";
-import { moneyMasked, maskMoney } from "@/lib/privacy";
+import { moneyMasked, kpiMasked, maskMoney, maskKpi } from "@/lib/privacy";
 import type { TransactionType } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
@@ -51,7 +51,10 @@ function MoMDelta({
   if (previous == null || !Number.isFinite(previous)) return null;
   if (previous === 0) {
     if (current === 0) return null;
-    return <span className="tnum text-xs font-medium text-success">nuovo</span>;
+    // "nuovo" rispetta invert come gli altri delta: un'uscita nuova è negativa.
+    return (
+      <span className={cn("tnum text-xs font-medium", invert ? "text-danger" : "text-success")}>nuovo</span>
+    );
   }
   const pct = ((current - previous) / Math.abs(previous)) * 100;
   const flat = Math.abs(pct) < 0.05;
@@ -88,6 +91,7 @@ export function MonthOverview({
   const base = db.settings.baseCurrency.toUpperCase();
   const locale = db.settings.locale;
   const masked = moneyMasked(db.settings.privacyMode);
+  const kpiHidden = kpiMasked(db.settings.privacyMode);
   const currentMonth = todayKey(db.settings.timezone).slice(0, 7);
 
   const fm = financesMonth(db, month);
@@ -298,7 +302,7 @@ export function MonthOverview({
                       {d.label}
                     </span>
                     <span className="tnum text-muted-foreground">
-                      {Math.round((d.value / donutTotal) * 100)}%
+                      {kpiHidden ? maskKpi() : `${Math.round((d.value / donutTotal) * 100)}%`}
                     </span>
                   </div>
                 ))}

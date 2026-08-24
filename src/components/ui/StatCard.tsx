@@ -35,7 +35,7 @@ export function StatCard({
   return (
     <Card hairline={hairline} className={cn("flex flex-col gap-1.5", className)}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
         {icon}
       </div>
       <div className={cn("text-[26px] font-semibold leading-none tracking-tight tnum", valueClassName)}>{value}</div>

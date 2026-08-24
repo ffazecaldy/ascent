@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# cartelle temporanee di lavoro/esperimenti
+.tmp-*

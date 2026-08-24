@@ -274,33 +274,36 @@ function ItemModal({
   const rateValid = isFinite(rateNum) && rateNum > 0;
   const canSave = !!selAccount && amountValid && rateValid && date !== "" && account !== "";
 
-  // Reset / init del form all'apertura
+  // Reset / init del form all'apertura — setState in microtask (nessun
+  // setState sincrono nel corpo dell'effect).
   useEffect(() => {
     if (!open) return;
-    if (editing && editItem) {
-      setAccount(editItem.accountId);
-      if (mode === "expense") setType((editItem as FirmExpense).type);
-      setAmount(String(editItem.amount));
-      setCurrency(editItem.currency);
-      setRate(String(editItem.exchangeRate ?? 1));
-      setRateAuto(false); // non sovrascrivere il tasso già salvato
-      setQuoteSrc("manual");
-      setQuoting(false);
-      setDate(editItem.date);
-      setNote(editItem.note ?? "");
-    } else {
-      const first = accounts.find((a) => a.id === defaultAccountId) ?? accounts[0];
-      setAccount(first?.id ?? "");
-      setType("eval");
-      setAmount("");
-      setCurrency(first?.nativeCurrency ?? baseCurrency);
-      setRate("1");
-      setRateAuto(true); // valuta nativa → quota il tasso se ≠ base (effect sotto)
-      setQuoteSrc(null);
-      setQuoting(false);
-      setDate(todayKey(timezone));
-      setNote("");
-    }
+    queueMicrotask(() => {
+      if (editing && editItem) {
+        setAccount(editItem.accountId);
+        if (mode === "expense") setType((editItem as FirmExpense).type);
+        setAmount(String(editItem.amount));
+        setCurrency(editItem.currency);
+        setRate(String(editItem.exchangeRate ?? 1));
+        setRateAuto(false); // non sovrascrivere il tasso già salvato
+        setQuoteSrc("manual");
+        setQuoting(false);
+        setDate(editItem.date);
+        setNote(editItem.note ?? "");
+      } else {
+        const first = accounts.find((a) => a.id === defaultAccountId) ?? accounts[0];
+        setAccount(first?.id ?? "");
+        setType("eval");
+        setAmount("");
+        setCurrency(first?.nativeCurrency ?? baseCurrency);
+        setRate("1");
+        setRateAuto(true); // valuta nativa → quota il tasso se ≠ base (effect sotto)
+        setQuoteSrc(null);
+        setQuoting(false);
+        setDate(todayKey(timezone));
+        setNote("");
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editItem, mode, defaultAccountId]);
 
@@ -308,13 +311,15 @@ function ItemModal({
   useEffect(() => {
     if (!open || !rateAuto) return;
     if (sameBase) {
-      setRate("1");
-      setQuoting(false);
-      setQuoteSrc(null);
+      queueMicrotask(() => {
+        setRate("1");
+        setQuoting(false);
+        setQuoteSrc(null);
+      });
       return;
     }
     let alive = true;
-    setQuoting(true);
+    queueMicrotask(() => setQuoting(true));
     quoteFx(currency, baseCurrency).then((q) => {
       if (!alive) return;
       setQuoting(false);

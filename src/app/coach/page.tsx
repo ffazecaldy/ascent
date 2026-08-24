@@ -3,8 +3,9 @@
 // ASCEND — Coach (/coach): chat focalizzata col coach AI locale.
 // - Benvenuto generato LOCALMENTE dai dati (nessun LLM): 2-3
 //   osservazioni reali + suggerimento su cosa chiedere.
-// - Al primo invio si antepone [system, context] al messaggio;
-//   la cronologia inviata è limitata agli ultimi 10 messaggi.
+// - Il system prompt ("usa SOLO i dati reali") è anteposto a OGNI payload;
+//   il contesto dati (buildCoachContext) solo al primo invio.
+//   La cronologia inviata è limitata agli ultimi 10 messaggi.
 // - Modello selezionabile fra quelli LOCALI di Ollama (senza
 //   ':cloud'); badge di stato + banner se Ollama è offline.
 // - Sessione volatile: nessuna persistenza della chat.
@@ -51,7 +52,8 @@ function buildWelcome(db: DB): string {
   if (trades.length > 0) {
     const st = tradingStats(trades);
     const wr = st.winRate != null ? formatPercent(st.winRate, 0) : "n/d";
-    obs.push(`Hai fatto ${st.count} ${st.count === 1 ? "trade" : "trade"} questa settimana con WR ${wr}.`);
+    // "trade" è invariabile nel codebase ("1 trade chiuso" / "N trade chiusi", v. trading/accounts)
+    obs.push(`Hai fatto ${st.count} trade questa settimana con WR ${wr}.`);
   } else {
     obs.push("Nessun trade chiuso questa settimana.");
   }
@@ -96,7 +98,7 @@ export default function CoachPage() {
   const [models, setModels] = useState<string[]>([]); // solo modelli locali (senza :cloud)
   const [model, setModel] = useState("");
 
-  const contextSentRef = useRef(false); // system+context anteposti solo al primo invio
+  const contextSentRef = useRef(false); // il CONTESTO dati è anteposto solo al primo invio; il system prompt va a ogni payload
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
@@ -141,14 +143,17 @@ export default function CoachPage() {
     const outgoing: UiMsg = { role: "user", content: text };
     const history = toHistory([...msgs, outgoing]).slice(-10);
 
-    // Primo invio: antepone [system prompt, contesto dati] alla cronologia
-    const payload: ChatMsg[] = contextSentRef.current
-      ? history
-      : [
-          { role: "system", content: coachSystemPrompt() },
-          { role: "user", content: buildCoachContext(db) },
-          ...history,
-        ];
+    // Il system prompt (vincoli "usa SOLO i dati reali") va in cima a OGNI
+    // payload: senza, dai turni successivi il modello perde i vincoli.
+    // Il contesto dati aggiornato è anteposto solo al primo invio.
+    const contextTurn: ChatMsg[] = contextSentRef.current
+      ? []
+      : [{ role: "user", content: buildCoachContext(db) }];
+    const payload: ChatMsg[] = [
+      { role: "system", content: coachSystemPrompt() },
+      ...contextTurn,
+      ...history,
+    ];
     contextSentRef.current = true;
 
     setMsgs((m) => [...m, outgoing]);

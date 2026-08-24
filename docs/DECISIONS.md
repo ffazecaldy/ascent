@@ -6,17 +6,17 @@ Raccolta delle decisioni di progetto (specifica v3, sezione 10) e di **come** so
 
 ### 1. Backend **local-first** (localStorage) — divergenza deliberata ⚠️
 
-**Decisione:** per questa fase il backend è il browser, non un cloud. Tutti i dati vivono in `localStorage` sotto `ascend:db`, single-user, zero provisioning.
+**Decisione:** per questa fase il backend è il browser, non un cloud. Tutti i dati vivono in `localStorage` sotto `ascend:db`, single-user, zero provisioning cloud. I servizi locali (window tracker, Ollama) sono **opzionali** e non toccano il data layer.
 
 **Come è implementata:** `storage.ts` è l'**unico** file che conosce `localStorage` ed espone un'interfaccia a repository: `loadDB()`, `saveDB()`, `subscribe()`, `useDB()`, `updateDB(mutator)`, `upsert`, `removeById`, `uid()`. Le pagine usano esclusivamente `useDB()`/`updateDB()` — mai `localStorage` diretto. `saveDB` gestisce pure la quota: se lo storage è pieno (es. screenshot pesanti) persiste una copia "slim" senza `screenshots` invece di fallire.
 
 **Divergenza dalla spec:** la specifica v3 prevede un backend cloud Supabase. **Scelta deliberata** di partire local-first, con motivazioni:
 - **Single-user**: nessun dato condiviso, nessuna autenticazione, nessuna sync multi-device richiesta → il provisioning di un database cloud è puro overhead (nessun setup, nessuna key, nessun servizio da mantenere).
-- **Zero provisioning**: l'app parte con `npm install && npm run dev` e basta. Nessun account, nessuna ENV, nessuna migrazione.
+- **Zero provisioning**: l'app parte con `npm install && npm run dev` e basta — nessun account, nessuna ENV, nessuna migrazione. `npm run dev` orchestra anche i servizi locali opzionali (window tracker `:4877` e Ollama `:11434`, vedi decisione 15 e 12), riusando quelli già attivi.
 - **La stessa interfaccia repository permette l'adapter**: poiché tutto passa da `loadDB`/`saveDB`/`subscribe`, aggiungere Supabase in futuro è un nuovo file `supabase.ts` con la stessa firma (vedi [ARCHITECTURE.md → "Sostituire localStorage con Supabase"](ARCHITECTURE.md)) — nessuna pagina va toccata.
 - **Privacy di default**: "i tuoi dati stanno sul tuo dispositivo" è anche un plus per un'app personale di finanze e trading.
 
-Rischio noto accettato: perdita di dati se il browser viene pulito → attenuato da backup/export (`/export`, `db.ts`) e dalla futura migrazione cloud.
+Rischio noto accettato: perdita di dati se il browser viene pulito → attenuato da backup/export (`/export`, `db.ts`), dagli **snapshot rotanti con self-heal** (decisione 14) e dalla futura migrazione cloud.
 
 ---
 
@@ -24,7 +24,7 @@ Rischio noto accettato: perdita di dati se il browser viene pulito → attenuato
 
 **Decisione:** l'activity streak non si rompe per un giorno inattivo, **una volta al mese**, senza nessuna UI di gestione.
 
-**Implementazione:** `compute.ts → activityStreak(db)`: se oggi è inattivo ma ieri era attivo, lo streak sopravvive e `freezeUsed` diventa `true` — ma il consumo del freeze è tracciato e limitato a una volta per mese solare (`settings.lastFreezeMonth`, formato `"yyyy-MM"`, consumato da `claimFreeze`). La pill di streak nell'header (`AppShell.tsx`) mostra `🔥 N giorni (freeze)` quando è in uso.
+**Implementazione:** `compute.ts → activityStreak(db)`: se oggi è inattivo ma ieri era attivo, lo streak sopravvive e `freezeUsed` diventa `true` — ma il consumo del freeze è tracciato e limitato a una volta per mese solare (`settings.lastFreezeMonth`, formato `"yyyy-MM"`, consumato da `claimFreeze`). La pill di streak nell'header (`AppShell.tsx`) mostra l'icona SVG `flame` + `N giorni` (+ `· freeze` quando in uso).
 
 ---
 
@@ -52,11 +52,11 @@ Rischio noto accettato: perdita di dati se il browser viene pulito → attenuato
 
 ---
 
-### 6. Privacy a **due livelli** (standard / completa)
+### 6. Privacy a **tre livelli** (off / standard / completa, default off)
 
-**Decisione:** una modalità privacy con due gradi: *standard* maschera le **cifre monetarie**; *completa* maschera anche **KPI e percentuali** (win rate, Disciplina, +R) e neutralizza il **calendario P&L**. In entrambe le modalità i soldi sono mascherati.
+**Decisione:** una modalità privacy con tre gradi: `off` (default — tutto visibile, uso quotidiano), *standard* (maschera le **cifre monetarie**), *completa* (maschera anche **KPI e percentuali** — win rate, Disciplina, +R — e neutralizza il **calendario P&L**). Il default è `off`: la maschera si attiva solo se l'utente la chiede.
 
-**Implementazione:** `types.ts → PrivacyMode = "standard" | "complete"` in `settings.privacyMode`; helper in `privacy.ts`: `moneyMasked(mode)` (sempre true), `kpiMasked(mode)` (solo "complete"), `calendarNeutral(mode)` (solo "complete"), `maskMoney()` → `"•••"`, `maskKpi()` → `"••%"`. Il toggle vive nell'header (`AppShell.tsx`, `👁/🕶`); il calendario P&L espone il prop `neutral`.
+**Implementazione:** `types.ts → PrivacyMode = "off" | "standard" | "complete"` in `settings.privacyMode` (default `"off"` in `db.ts`/`emptyDB`, introdotto dalla migrazione v4 in `storage.ts`); helper in `privacy.ts`: `moneyMasked(mode)` (`!== "off"`), `kpiMasked(mode)` (solo `"complete"`), `calendarNeutral(mode)` (solo `"complete"`), `maskMoney()` → `"•••"`, `maskKpi()` → `"••%"`, `maskCompact()`, più `PRIVACY_LABELS` e `PRIVACY_ORDER` per il selettore. Il toggle vive nell'header (`AppShell.tsx`): cicla off → standard → complete, con icone SVG distinte (`eye` / `lock` / `shield`); il calendario P&L espone il prop `neutral`.
 
 ---
 
@@ -92,6 +92,54 @@ Rischio noto accettato: perdita di dati se il browser viene pulito → attenuato
 
 ---
 
+### 11. Transazioni **ricorrenti mensili** (regole; DB v6)
+
+**Decisione:** le spese/entrate fisse (affitto, abbonamenti) si configurano **una volta** come regola ricorrente: all'avvio dell'app, ogni regola attiva con `dayOfMonth` già raggiunto e senza transazione generata per il mese corrente produce la transazione in automatico — niente doppia immissione, niente duplicati.
+
+**Implementazione:** `types.ts → RecurringRule { id, name, amount, currency, exchangeRate, type, categoryId, dayOfMonth (1–28, clamp sui mesi corti), active, lastAppliedMonth?, createdAt }`; la collezione `recurringRules` è stata aggiunta con la **migrazione v5→v6** (`storage.ts → migrate()`: `recurringRules: []`). Le transazioni generate hanno `autoGenerated: true` e `sourceRecurringId` che punta alla regola; `lastAppliedMonth` (formato `"yyyy-MM"`) impedisce rigenerazioni nello stesso mese. Il `version` del DB oggi è `DB_VERSION = 6` (`types.ts`).
+
+---
+
+### 12. **Coach AI locale** via Ollama (nessun dato esce dalla macchina)
+
+**Decisione:** `/coach` dialoga con un **modello locale** servito da Ollama su `localhost:11434`. Il contesto è costruito dai **dati reali della settimana** (trade, discipline, finanze, streak) con gli stessi helper dell'app. Senza Ollama installato/attivo l'app funziona normalmente e il coach mostra lo stato offline.
+
+**Implementazione:** `src/lib/ai.ts` è il client (chiamate dirette dal browser): `coachChat` (POST `/api/chat`, `stream:false`, timeout 90s), `listOllamaModels` (GET `/api/tags`, modelli locali, niente `:cloud`), `CoachError`/`isCoachOffline` per distinguere "offline" dagli errori applicativi. `src/lib/coach-context.ts → buildCoachContext(db)` compatta la settimana reale in un blocco italiano (~30 righe) + `coachSystemPrompt()`. Il modello è selezionabile dall'utente tra quelli installati. Nota CORS: essendo chiamate dal browser a `localhost:11434`, se l'origin dell'app non rientra negli origin consentiti da Ollama serve l'**env var `OLLAMA_ORIGINS` del server Ollama** (requisito esterno, non gestita dal repo). `scripts/run-dev.mjs` avvia `ollama serve` se installato (riusandolo se già attivo sulla porta 11434).
+
+---
+
+### 13. **Temi** (client-only, fuori dal DB)
+
+**Decisione:** il tema dell'app vive **fuori dal DB**: nessuna entità in `types.ts`/`storage.ts`, niente migrazioni. Persistito separatamente e applicato via attributo sull'elemento `<html>`.
+
+**Implementazione:** `src/lib/theme.ts`: `readTheme`/`writeTheme` su `localStorage` chiave `ascend:theme` (SSR-safe: lato server ritorna sempre il default), `ThemeName = "default" | "black"`, attributo `data-theme` su `<html>`. I token CSS sono definiti in `globals.css` sotto `:root` (palette `myfundedbook`) e duplicati sotto `[data-theme='black']`. Selettore in Impostazioni (`src/components/impostazioni/ThemePicker.tsx`).
+
+---
+
+### 14. **Snapshot di backup rotante + self-heal**
+
+**Decisione:** il DB in `localStorage` è protetto da **snapshot automatici a rotazione**: fino a 3 copie (`ascend:db:snap-1..3`), al massimo una all'ora, scritte best-effort (mai un blocco per il save). Se il DB principale risulta corrotto o illeggibile al caricamento, l'app **recupera da sola** lo snapshot più recente valido invece di azzerare i dati.
+
+**Implementazione:** `storage.ts`: costanti `SNAP_PREFIX`/`SNAP_COUNT`/`SNAP_INTERVAL_MS`, scrittura snapshot in `saveDB` (con soglia "slim" oltre 1.5MB per non triplicare la quota a causa degli screenshot), e in `loadDB` la cascata di recupero (DB corrotto → prova gli snapshot dal più recente). Non esistono invece alert o backup su bucket cloud: la copia resta tutta locale.
+
+---
+
+### 15. **Window tracker nativo** (auto-tracking Uso PC, tutto locale)
+
+**Decisione:** l'uso del PC si traccia con un **mini-server di sistema dedicato** (`scripts/tracker-server.mjs`, Node stdlib, zero dipendenze) che campiona la finestra attiva e mappa exe/titolo → categoria con la stessa mappa dell'app. I dati restano sul dispositivo (JSONL giornalieri in `%APPDATA%\Ascend\pc-usage`); nessuna telemetria esterna.
+
+**Implementazione:** tracker campiona la finestra attiva ogni 30s (PowerShell `user32.dll`, solo Windows; versione alternativa a hook event-driven in `tracker-hook.ps1`) ed espone micro-API su `127.0.0.1:4877` (`/api/health`, `/api/active`, `/api/since`) con CORS aperto per l'app. `src/lib/pc-tracker.ts` è il connettore condiviso (mapping + `fetchTrackerHealth` ecc.); in /usopc l'**AutoTrackerImport** importa i campioni registrati e il **TrackerLive** mostra il campionamento in tempo reale (polling 20s). `PCUsageSource` include `"auto"`. L'orchestrazione è di `scripts/run-dev.mjs` (vedi decisione 1); esistono anche `track-window.ps1` + `install.bat`/`uninstall.bat` (auto-tracker PowerShell nativo come Scheduled Task, alternativo al tracker-server).
+
+---
+
+### 16. **Icone SVG nel chrome** (niente emoji nell'header)
+
+**Decisione:** header, sidebar e shell usano **icone SVG** da un unico set (`src/components/ui/Icon.tsx`, `PATH` per nome — `flame`, `eye`, `lock`, `shield`, `alert`, …), non emoji: resa uniforme, colorabili via Tailwind, nessuna differenza per piattaforma.
+
+**Implementazione:** `AppShell.tsx` usa solo `<Icon name=…>` (streak pill con `flame`, privacy toggle con `eye`/`lock`/`shield`, voci sidebar con la mappa `{icon: IconName | {img, alt}}`). Le emoji restano confinate ai contenuti dell'utente (es. icone categoria), non al chrome dell'app.
+
+---
+
 ## Nota sulle divergenze deliberate
 
 L'unica divergenza sostanziale dalla specifica v3 è la **decisione 1**: backend **local-first (localStorage)** al posto di **Supabase cloud**, per ora.
@@ -100,7 +148,7 @@ L'unica divergenza sostanziale dalla specifica v3 è la **decisione 1**: backend
 |---|---|---|
 | Backend | Supabase cloud | `localStorage` nel browser |
 | Autenticazione / multi-device | prevista | non necessaria (single-user) |
-| Provisioning | account + chiavi + migrazioni | zero (`npm run dev`) |
+| Provisioning | account + chiavi + migrazioni | zero (`npm run dev` — orchestrazione di servizi locali opzionali: window tracker, Ollama) |
 | Percorso verso la spec | — | **interfaccia repository identica** → in futuro un `supabase.ts` con la stessa firma `loadDB/saveDB/subscribe/useDB/updateDB` senza toccare le pagine |
 
 La scelta è **reversibile per costruzione**: la data layer a repository è il punto di giunzione progettato apposta per l'adapter. Il costo attuale è zero; il costo futuro del passaggio è un solo file nuovo + le regole di mapping descritte in [ARCHITECTURE.md](ARCHITECTURE.md).

@@ -23,10 +23,10 @@ export function QuoteRotator() {
   const [shown, setShown] = useState(true);
   const timers = useRef<number[]>([]);
 
-  // Dopo il mount: salta a una citazione casuale (una volta sola)
+  // Dopo il mount: salta a una citazione casuale (una volta sola) — setState
+  // in microtask per non avere setState sincroni nel corpo dell'effect.
   useEffect(() => {
-    setIndex(Math.floor(Math.random() * QUOTES.length));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    queueMicrotask(() => setIndex(Math.floor(Math.random() * QUOTES.length)));
   }, []);
 
   // pulizia timeouts pendenti allo smontaggio
@@ -53,7 +53,7 @@ export function QuoteRotator() {
   useEffect(() => {
     const id = window.setInterval(() => flip((i) => (i + 1) % QUOTES.length), ROTATE_MS);
     return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const quote = QUOTES[index];

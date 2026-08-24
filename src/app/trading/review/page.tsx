@@ -587,7 +587,8 @@ function ReflectionForm({
   // cambiata) e scroll alle domande.
   useEffect(() => {
     if (openSignal > 0) {
-      setShowForm(true);
+      // setState in microtask: il rAF sotto gira dopo, quando il form è montato.
+      queueMicrotask(() => setShowForm(true));
       requestAnimationFrame(() =>
         formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
       );

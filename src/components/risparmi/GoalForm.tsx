@@ -30,17 +30,20 @@ export function GoalForm({
 
   useEffect(() => {
     if (!open) return;
-    if (editing) {
-      setName(editing.name);
-      setTarget(String(editing.target));
-      setDeadline(editing.deadline ?? "");
-      setActive(editing.active);
-    } else {
-      setName("");
-      setTarget("");
-      setDeadline("");
-      setActive(true);
-    }
+    // Reset/init in microtask: nessun setState sincrono nel corpo dell'effect.
+    queueMicrotask(() => {
+      if (editing) {
+        setName(editing.name);
+        setTarget(String(editing.target));
+        setDeadline(editing.deadline ?? "");
+        setActive(editing.active);
+      } else {
+        setName("");
+        setTarget("");
+        setDeadline("");
+        setActive(true);
+      }
+    });
   }, [open, editing]);
 
   const targetNum = parseFloat(target);

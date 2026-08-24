@@ -12,18 +12,23 @@ import type { RecurringRule, TransactionType } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { Modal } from "@/components/ui/Modal";
+import { Modal, ConfirmDialog } from "@/components/ui/Modal";
 import { Field, Input, Select } from "@/components/ui/Field";
 import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
+import { formatMoney } from "@/lib/format";
+import { moneyMasked, maskMoney } from "@/lib/privacy";
 
 export function RecurringManager() {
   const db = useDB();
   const base = db.settings.baseCurrency;
+  const locale = db.settings.locale;
   const rules = db.recurringRules ?? [];
+  const hidden = moneyMasked(db.settings.privacyMode);
   const categories = db.categories.filter((c) => c.type === "expense" || c.type === "income");
 
   const [open, setOpen] = useState(false);
+  const [toDelete, setToDelete] = useState<RecurringRule | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
@@ -88,8 +93,10 @@ export function RecurringManager() {
     }));
   }
 
-  function del(r: RecurringRule) {
-    updateDB((d) => ({ ...d, recurringRules: d.recurringRules.filter((x) => x.id !== r.id) }));
+  function confirmDelete() {
+    if (!toDelete) return;
+    updateDB((d) => ({ ...d, recurringRules: d.recurringRules.filter((x) => x.id !== toDelete.id) }));
+    setToDelete(null);
   }
 
   const catName = useMemo(
@@ -110,7 +117,9 @@ export function RecurringManager() {
             <CardSubtitle>
               {rules.length === 0
                 ? "Affitto, abbonamenti... generati automaticamente ogni mese"
-                : `${rules.filter((r) => r.active).length} attive · bilancio mensile ${monthlyTotal >= 0 ? "+" : ""}${monthlyTotal.toFixed(2)} ${base}`}
+                : `${rules.filter((r) => r.active).length} attive · bilancio mensile ${
+                    hidden ? maskMoney() : (monthlyTotal > 0 ? "+" : "") + formatMoney(monthlyTotal, base, locale)
+                  }`}
             </CardSubtitle>
           </div>
           <Button
@@ -150,7 +159,7 @@ export function RecurringManager() {
                 <span className="flex shrink-0 items-center gap-2">
                   <span className={cn("tnum font-medium", r.type === "income" ? "text-success" : "text-danger")}>
                     {r.type === "income" ? "+" : "−"}
-                    {(r.amount * r.exchangeRate).toFixed(2)} {base}
+                    {hidden ? maskMoney() : formatMoney(Math.abs(r.amount * r.exchangeRate), base, locale)}
                   </span>
                   <span className="tnum text-[11px] text-muted-foreground">giorno {r.dayOfMonth}</span>
                   <button
@@ -180,7 +189,7 @@ export function RecurringManager() {
                     <Icon name="pencil" size={13} />
                   </button>
                   <button
-                    onClick={() => del(r)}
+                    onClick={() => setToDelete(r)}
                     aria-label="Elimina"
                     className="text-muted-foreground transition-colors hover:text-danger"
                   >
@@ -243,6 +252,15 @@ export function RecurringManager() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        open={toDelete != null}
+        onClose={() => setToDelete(null)}
+        onConfirm={confirmDelete}
+        title={toDelete ? `Eliminare “${toDelete.name}”?` : "Eliminare?"}
+        message="La regola verrà eliminata e non genererà più transazioni. Quelle già create restano invariate."
+        confirmLabel="Elimina"
+      />
     </>
   );
 }

@@ -13,11 +13,11 @@ import type { Trade, TradingAccount } from "@/lib/types";
 import { useDB, updateDB, uid, nowISO } from "@/lib/storage";
 import { getAccount } from "@/lib/db";
 import { formatSignedMoney, formatR } from "@/lib/format";
-import { parseTradesCsv, type ParseResult } from "@/lib/import-csv";
+import { parseTradesCsv, tradeDedupKey, type ParseResult } from "@/lib/import-csv";
 import { SectionHeader, EmptyState } from "@/components/ui/Misc";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Field, Select, TextArea } from "@/components/ui/Field";
+import { Field, Input, Select, TextArea } from "@/components/ui/Field";
 import { cn } from "@/lib/cn";
 import { Icon } from "@/components/ui/Icon";
 
@@ -61,6 +61,8 @@ export default function ImportPage() {
   const [hasHeader, setHasHeader] = useState(true);
   const [parsed, setParsed] = useState<ParseResult | null>(null);
   const [imported, setImported] = useState<number | null>(null);
+  const [defaultMultiplier, setDefaultMultiplier] = useState("");
+  const [importSkipped, setImportSkipped] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const accounts = db.accounts.filter((a) => !a.archived);
@@ -89,12 +91,15 @@ export default function ImportPage() {
   };
 
   const parse = (text: string) => {
+    const dm = parseFloat(defaultMultiplier);
     const res = parseTradesCsv(text, {
       separator,
       hasHeader,
+      defaultMultiplier: isFinite(dm) && dm > 0 ? dm : undefined,
     });
     setParsed(res);
     setImported(null);
+    setImportSkipped(0);
     setStep("preview");
   };
 
@@ -107,14 +112,46 @@ export default function ImportPage() {
   const previewRows = useMemo(() => parsed?.rows.slice(0, 10) ?? [], [parsed]);
   const skippedRows = useMemo(() => parsed?.errors ?? [], [parsed]);
 
+  // chiavi dei trade già in archivio per l'account → niente doppie scritture su re-import
+  const existingKeys = useMemo(() => {
+    const have = new Set<string>();
+    if (!accountId) return have;
+    for (const t of db.trades) {
+      if (t.accountId === accountId) have.add(tradeDedupKey(accountId, t.closeDate, t.instrument, t.resultNative));
+    }
+    return have;
+  }, [db.trades, accountId]);
+
+  const importableRows = useMemo(() => {
+    if (!parsed) return [];
+    return parsed.rows.filter(
+      (r) => !r.duplicate && !existingKeys.has(tradeDedupKey(accountId, r.closeDate ?? "", r.instrument ?? "", r.resultNative))
+    );
+  }, [parsed, existingKeys, accountId]);
+
+  const alreadyInDb = useMemo(() => {
+    if (!parsed) return 0;
+    return parsed.rows.filter(
+      (r) => !r.duplicate && existingKeys.has(tradeDedupKey(accountId, r.closeDate ?? "", r.instrument ?? "", r.resultNative))
+    ).length;
+  }, [parsed, existingKeys, accountId]);
+
   const doImport = () => {
     if (!parsed || !accountId) return;
     const now = nowISO();
+    // dedup su re-import: salta duplicati interni al file e quelli già presenti in archivio
+    const existing = new Set<string>();
+    for (const t of db.trades) {
+      if (t.accountId === accountId) existing.add(tradeDedupKey(accountId, t.closeDate, t.instrument, t.resultNative));
+    }
+    const toImport = parsed.rows.filter(
+      (r) => !r.duplicate && !existing.has(tradeDedupKey(accountId, r.closeDate ?? "", r.instrument ?? "", r.resultNative))
+    );
     updateDB((d) => ({
       ...d,
       trades: [
         ...d.trades,
-        ...parsed.rows.map(
+        ...toImport.map(
           (r): Trade => ({
             id: uid(),
             accountId,
@@ -140,7 +177,8 @@ export default function ImportPage() {
         ),
       ],
     }));
-    setImported(parsed.valid);
+    setImported(toImport.length);
+    setImportSkipped(parsed.rows.length - toImport.length);
     setStep("done");
   };
 
@@ -149,6 +187,8 @@ export default function ImportPage() {
     setFileName("");
     setParsed(null);
     setImported(null);
+    setImportSkipped(0);
+    setDefaultMultiplier("");
     setSeparator("auto");
     setHasHeader(true);
     setStep("account");
@@ -211,7 +251,7 @@ export default function ImportPage() {
           ) : (
             <Card className="p-5">
               <CardHeader>
-                <CardTitle>Scegli l'account di destinazione</CardTitle>
+                <CardTitle>Scegli l&apos;account di destinazione</CardTitle>
                 <CardSubtitle>
                   Obbligatorio: ogni trade viene registrato su un account (valuta nativa e trading day propri).
                 </CardSubtitle>
@@ -248,7 +288,7 @@ export default function ImportPage() {
           <CardHeader>
             <CardTitle>Dati CSV</CardTitle>
             <CardSubtitle>
-              Incolla il testo o carica un file. Separatore e header regolabili prima dell'analisi.
+              Incolla il testo o carica un file. Separatore e header regolabili prima dell&apos;analisi.
             </CardSubtitle>
           </CardHeader>
 
@@ -261,7 +301,7 @@ export default function ImportPage() {
             </Button>
           </div>
 
-          <div className="mb-4 grid gap-3 sm:grid-cols-2">
+          <div className="mb-4 grid gap-3 sm:grid-cols-3">
             <Field label="Separatore">
               <Select
                 value={separator}
@@ -276,9 +316,20 @@ export default function ImportPage() {
             </Field>
             <Field label="Intestazione">
               <Select value={hasHeader ? "1" : "0"} onChange={(e) => setHasHeader(e.target.value === "1")}>
-                <option value="1">La prima riga è l'intestazione</option>
+                <option value="1">La prima riga è l&apos;intestazione</option>
                 <option value="0">Nessuna intestazione (ordine fisso)</option>
               </Select>
+            </Field>
+            <Field label="Moltiplicatore predefinito (futures)">
+              <Input
+                type="number"
+                min="0"
+                step="any"
+                inputMode="decimal"
+                value={defaultMultiplier}
+                onChange={(e) => setDefaultMultiplier(e.target.value)}
+                placeholder="1 — es. NQ=20, ES=50"
+              />
             </Field>
           </div>
 
@@ -297,10 +348,12 @@ export default function ImportPage() {
             onChange={(e) => setCsvText(e.target.value)}
             rows={12}
             placeholder={
-              "Date,Time,Symbol,Buy/Sell,Entry,Exit,Stop Loss,Take Profit,Lots,P/L$,R,Notes,Setup\n" +
-              "2024-01-02 09:30:00,2024-01-02 11:15:00,EURUSD,Buy,1.1042,1.1080,1.1030,1.1110,1.00,380,2.0,News breakout,RS\n" +
-              "— Colonne riconosciute (incluse): Date/Time, Symbol, Buy/Sell, Entry, Exit, Stop Loss,\n" +
-              "  Take Profit, Lots/Size, P/L$, R, Notes, Setup. Valute e parentesi negative OK."
+              "Date,Time,Symbol,Buy/Sell,Entry,Exit,Stop Loss,Take Profit,Lots,P/L$,R,Notes,Setup,Multiplier\n" +
+              "2024-01-02 09:30:00,2024-01-02 11:15:00,EURUSD,Buy,1.1042,1.1080,1.1030,1.1110,1.00,380,2.0,News breakout,RS,\n" +
+              "2024-01-03 14:00:00,2024-01-03 15:30:00,NQ,Buy,16500,16550,16490,16610,2,2000,5.0,Gap fill,News,20\n" +
+              "— Colonne riconosciute: Date/Time, Symbol, Buy/Sell, Entry, Exit, Stop Loss, Take Profit,\n" +
+              "  Lots/Size, P/L$, R, Notes, Setup, Multiplier (opzionale: futures NQ=20, ES=50 — default 1\n" +
+              "  per azioni/forex). Valute e parentesi negative OK. Note su più righe tra virgolette OK."
             }
             className="font-mono text-xs"
           />
@@ -346,11 +399,27 @@ export default function ImportPage() {
             </p>
           )}
 
+          {parsed.multiLineNoteCount > 0 && (
+            <p className="flex items-center gap-1.5 text-xs text-secondary-text">
+              <Icon name="flag" size={14} /> {parsed.multiLineNoteCount} note su più righe conservate per intero (verifica in anteprima).
+            </p>
+          )}
+          {parsed.duplicateCount > 0 && (
+            <p className="flex items-center gap-1.5 text-xs text-yellow-500">
+              <Icon name="alert" size={14} /> {parsed.duplicateCount} righe duplicate nel file (stessa data uscita, strumento e P/L): verranno importate una sola volta.
+            </p>
+          )}
+          {alreadyInDb > 0 && (
+            <p className="flex items-center gap-1.5 text-xs text-yellow-500">
+              <Icon name="alert" size={14} /> {alreadyInDb} trade già presenti nel journal: non verranno re-importati.
+            </p>
+          )}
+
           {/* anteprima 10 righe */}
           <Card>
             <CardHeader>
               <CardTitle>Anteprima (prime {previewRows.length} righe)</CardTitle>
-              <CardSubtitle>Righe valide pronte per l'import. I warning evidenziati non bloccano.</CardSubtitle>
+              <CardSubtitle>Righe valide pronte per l&apos;import. I warning evidenziati non bloccano.</CardSubtitle>
             </CardHeader>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -363,6 +432,7 @@ export default function ImportPage() {
                     <th className="px-3 py-2 text-right font-medium">Entry</th>
                     <th className="px-3 py-2 text-right font-medium">Exit</th>
                     <th className="px-3 py-2 text-right font-medium">P/L</th>
+                    <th className="px-3 py-2 text-right font-medium">Mult</th>
                     <th className="px-3 py-2 text-right font-medium">R</th>
                     <th className="px-3 py-2 font-medium">Note</th>
                   </tr>
@@ -390,6 +460,7 @@ export default function ImportPage() {
                         >
                           {r.resultNative != null ? formatSignedMoney(r.resultNative, currency) : "—"}
                         </td>
+                        <td className="px-3 py-2 text-right tnum text-secondary-text">{r.multiplier ?? "—"}</td>
                         <td className={cn("px-3 py-2 text-right tnum", (r.resultR ?? 0) > 0 ? "text-success" : (r.resultR ?? 0) < 0 ? "text-danger" : "")}>
                           {r.resultR != null ? formatR(r.resultR) : "—"}
                         </td>
@@ -407,7 +478,7 @@ export default function ImportPage() {
                   })}
                   {previewRows.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="px-3 py-8 text-center text-xs text-muted-foreground">
+                      <td colSpan={10} className="px-3 py-8 text-center text-xs text-muted-foreground">
                         Nessuna riga valida da importare.
                       </td>
                     </tr>
@@ -421,7 +492,7 @@ export default function ImportPage() {
           {skippedRows.length > 0 && (
             <Card className="border-yellow-500/30">
               <CardHeader>
-                <CardTitle>Righe scartate ({skippedRows.length}) — non bloccano l'import</CardTitle>
+                <CardTitle>Righe scartate ({skippedRows.length}) — non bloccano l&apos;import</CardTitle>
                 <CardSubtitle>
                   Queste righe non verranno importate ma le righe valide sì. Corrigile nel file e ri-analizza se vuoi recuperarle.
                 </CardSubtitle>
@@ -443,8 +514,8 @@ export default function ImportPage() {
             <Button variant="ghost" onClick={() => setStep("csv")}>
               ← Modifica CSV
             </Button>
-            <Button size="lg" onClick={doImport} disabled={parsed.valid === 0}>
-              Importa {parsed.valid} trade
+            <Button size="lg" onClick={doImport} disabled={importableRows.length === 0}>
+              Importa {importableRows.length} trade
             </Button>
           </div>
         </div>
@@ -463,6 +534,11 @@ export default function ImportPage() {
           {parsed && parsed.skipped > 0 && (
             <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-yellow-500">
               <Icon name="alert" size={14} /> {parsed.skipped} righe scartate: non sono state importate.
+            </p>
+          )}
+          {importSkipped > 0 && (
+            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-yellow-500">
+              <Icon name="alert" size={14} /> {importSkipped} non importati: duplicati nel file o già presenti nel journal.
             </p>
           )}
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2">

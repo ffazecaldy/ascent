@@ -116,7 +116,7 @@ export function LineChart({
         {/* etichette x */}
         {data.map((d, i) =>
           i % step === 0 || i === data.length - 1 ? (
-            <text key={i} x={pts[i].x} y={H - 6} textAnchor="middle" fill="var(--text-muted)" fontSize="10">
+            <text key={i} x={pts[i].x} y={H - 6} textAnchor="middle" fill="var(--text-muted)" fontSize="11">
               {d.x}
             </text>
           ) : null
@@ -174,11 +174,11 @@ export function BarsChart({
           <g key={i}>
             <rect x={x} y={y} width={bw} height={Math.max(1, total)} rx="2.5" fill={barColor} opacity="0.95" />
             {showValue && (
-              <text x={x + bw / 2} y={y - 4} textAnchor="middle" fill="var(--text-muted)" fontSize="9" className="tnum">
+              <text x={x + bw / 2} y={y - 4} textAnchor="middle" fill="var(--text-muted)" fontSize="11" className="tnum">
                 {fmtY(d.y)}
               </text>
             )}
-            <text x={x + bw / 2} y={H - 6} textAnchor="middle" fill="var(--text-muted)" fontSize="10">
+            <text x={x + bw / 2} y={H - 6} textAnchor="middle" fill="var(--text-muted)" fontSize="11">
               {d.x}
             </text>
           </g>
@@ -222,7 +222,7 @@ export function GroupedBars({
           <g key={i}>
             <rect x={cx - bw - 1} y={padT + ih - hInc} width={bw} height={Math.max(1, hInc)} rx="2.5" fill="var(--success)" opacity="0.95" />
             <rect x={cx + 1} y={padT + ih - hExp} width={bw} height={Math.max(1, hExp)} rx="2.5" fill="var(--danger)" opacity="0.88" />
-            <text x={cx} y={H - 6} textAnchor="middle" fill="var(--text-muted)" fontSize="10">
+            <text x={cx} y={H - 6} textAnchor="middle" fill="var(--text-muted)" fontSize="11">
               {d.x}
             </text>
           </g>
@@ -323,7 +323,7 @@ export function ActivityHeatmap({
 }) {
   return (
     <div className="flex gap-1 overflow-x-auto">
-      <div className="flex flex-col justify-between py-0.5 pr-1 text-[10px] text-muted-foreground">
+      <div className="flex flex-col justify-between py-0.5 pr-1 text-[11px] text-muted-foreground">
         {weekLabels.map((l, i) => (
           <span key={i} className="h-3 leading-3" style={{ height: 14 }}>
             {l}
@@ -407,7 +407,7 @@ export function PnlCalendar({
   const marketDays = marketDaysInMonth(month);
   return (
     <div>
-      <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-muted-foreground">
+      <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-muted-foreground">
         {["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"].map((d, i) => (
           <span key={i}>{d}</span>
         ))}
@@ -432,21 +432,21 @@ export function PnlCalendar({
                 backgroundColor: pnl != null ? colorFor(pnl) : weekendClosed ? "#101012" : "var(--bg-elev-1)",
                 opacity: weekendClosed ? 0.55 : 1,
               }}
-              className={`flex aspect-square flex-col items-center justify-center rounded-md text-[10px] tnum ${
+              className={`flex aspect-square flex-col items-center justify-center rounded-md text-[11px] tnum ${
                 isToday ? "outline outline-1 outline-accent" : ""
               }`}
             >
-              <span className="text-[10px] text-black/70">{key.slice(8)}</span>
+              <span className={`text-[11px] ${pnl != null ? "text-white/90" : "text-muted-foreground"}`}>{key.slice(8)}</span>
               {pnl != null && !neutral && (
-                <span className="text-[10px] font-semibold text-black/85">{fmt(pnl)}</span>
+                <span className="text-[11px] font-semibold text-white/95">{fmt(pnl)}</span>
               )}
-              {pnl != null && neutral && <span className="text-[10px] text-black/40">••</span>}
+              {pnl != null && neutral && <span className="text-[11px] text-white/50">••</span>}
             </div>
           );
         })}
       </div>
       {marketDays > 0 && (
-        <p className="tnum mt-1.5 text-[10px] text-muted-foreground">{marketDays} giorni di mercato</p>
+        <p className="tnum mt-1.5 text-[11px] text-muted-foreground">{marketDays} giorni di mercato</p>
       )}
     </div>
   );

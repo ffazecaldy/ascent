@@ -90,16 +90,16 @@ export default function SportPage() {
 
   // ---------- metriche derivate ----------
   const streak = useMemo(() => sportStreak(db), [db]);
-  const monthWorkouts = useMemo(
-    () => db.workouts.filter((w) => monthKeyOf(w.date) === monthKey),
-    [db.workouts, monthKey]
-  );
+  // Filtro puro e leggero: calcolo diretto (niente memoization manuale da preservare).
+  const monthWorkouts = db.workouts.filter((w) => monthKeyOf(w.date) === monthKey);
   const monthCount = monthWorkouts.length;
   const monthMin = monthWorkouts.reduce((s, w) => s + (w.durationMin || 0), 0);
   const avgDur = monthCount > 0 ? Math.round(monthMin / monthCount) : 0;
 
   const weekStart = weekStartKey(today, db.settings.weekStart);
-  const weekCount = useMemo(() => workoutsInWeek(db, weekStart), [db, weekStart]);
+  // Calcolo diretto: funzioni pure su db (niente useMemo su weekStart, che il
+  // React Compiler non riesce a provare immutabile).
+  const weekCount = workoutsInWeek(db, weekStart);
 
   // ---------- Sport Zone: profilo discipline ----------
   const profile = db.sportProfile ?? null;
@@ -116,18 +116,30 @@ export default function SportPage() {
   const [dayEdit, setDayEdit] = useState<number | null>(null); // dow aperto nel popover
   function toggleDisciplineOnDay(dow: number, name: string) {
     if (!profile) return;
-    const disciplines = profile.disciplines.map((d) => {
-      if (d.name !== name) return d;
-      return d.weekDays.includes(dow)
-        ? { ...d, weekDays: d.weekDays.filter((x) => x !== dow) }
-        : { ...d, weekDays: [...d.weekDays, dow] };
+    // Toggle DENTRO updateDB, sul DB fresco: due click ravvicinati non si
+    // calpestano (un update costruito sul vecchio profilo verrebbe annullato
+    // dal secondo).
+    updateDB((d) => {
+      const p = d.sportProfile;
+      if (!p) return d;
+      return {
+        ...d,
+        sportProfile: {
+          ...p,
+          disciplines: p.disciplines.map((disc) => {
+            if (disc.name !== name) return disc;
+            return disc.weekDays.includes(dow)
+              ? { ...disc, weekDays: disc.weekDays.filter((x) => x !== dow) }
+              : { ...disc, weekDays: [...disc.weekDays, dow] };
+          }),
+        },
+      };
     });
-    saveProfile({ ...profile, disciplines });
   }
 
-  const weekStats = useMemo(() => sportWeekStats(db, weekStart), [db, weekStart]);
-  const overload = useMemo(() => sportOverloadHint(db, weekStart), [db, weekStart]);
-  const streakWeeks = useMemo(() => sportConsecutiveWeeksDone(db, weekStart), [db, weekStart]);
+  const weekStats = sportWeekStats(db, weekStart);
+  const overload = sportOverloadHint(db, weekStart);
+  const streakWeeks = sportConsecutiveWeeksDone(db, weekStart);
   // prossime 4 settimane al traguardo del prossimo +10%
   const weeksToOverload = 4 - (streakWeeks % 4);
 
@@ -147,28 +159,34 @@ export default function SportPage() {
     }
     return map;
   }, [profile]);
-  const weekdays = useMemo(() => weekdayOrder(), []);
-
-  const weeklyGoal: WeeklyGoal | undefined = db.weeklyGoals.find(
-    (g) => g.active && g.type === "workout_count"
+  const weekdays = useMemo(
+    () => weekdayOrder(db.settings.weekStart),
+    [db.settings.weekStart]
   );
-  const goalTarget = weeklyGoal?.targetValue ?? 0;
-  const goalMet = goalTarget > 0 && weekCount >= goalTarget;
-  const goalRemaining = Math.max(0, goalTarget - weekCount);
-  const weekPct = goalTarget > 0 ? Math.min(100, Math.round((weekCount / goalTarget) * 100)) : 0;
+
+  // Tutti gli obiettivi settimanali attivi di tipo workout_count (non solo il primo)
+  const weeklyGoals = useMemo(
+    () => db.weeklyGoals.filter((g) => g.active && g.type === "workout_count"),
+    [db.weeklyGoals]
+  );
+  function goalMeta(goal: WeeklyGoal) {
+    const target = goal.targetValue;
+    const met = target > 0 && weekCount >= target;
+    const remaining = Math.max(0, target - weekCount);
+    const pct = target > 0 ? Math.min(100, Math.round((weekCount / target) * 100)) : 0;
+    return { target, met, remaining, pct };
+  }
 
   // Allenamenti per ciascuno degli ultimi 7 giorni (chart)
-  const last7 = useMemo(
-    () =>
-      Array.from({ length: 7 }, (_, i) => {
-        const dk = addDaysKey(today, i - 6);
-        return {
-          x: weekdayShort(dk, locale),
-          y: db.workouts.filter((w) => w.date === dk).length,
-        };
-      }),
-    [db.workouts, today, locale]
-  );
+  // Calcolo diretto: dipende da today/locale, ricalcolo leggero a ogni render
+  // (nessuna memoization manuale da preservare).
+  const last7 = Array.from({ length: 7 }, (_, i) => {
+    const dk = addDaysKey(today, i - 6);
+    return {
+      x: weekdayShort(dk, locale),
+      y: db.workouts.filter((w) => w.date === dk).length,
+    };
+  });
   const weekTotalBars = last7.reduce((s, d) => s + d.y, 0);
 
   // Log ordinati dal più recente
@@ -186,7 +204,9 @@ export default function SportPage() {
     const derived = Array.from(
       new Set(db.workouts.map((w) => w.type).filter((t) => !!t && !PRESET_TYPES.includes(t)))
     );
-    setCustomTypes((prev) => Array.from(new Set([...prev, ...derived])));
+    // Merge one-shot in microtask: i tipi derivati arrivano post-render,
+    // senza causare render a cascata dal corpo dell'effect.
+    queueMicrotask(() => setCustomTypes((prev) => Array.from(new Set([...prev, ...derived]))));
   }, [db.workouts]);
   const typeOptions = useMemo(
     () => [...PRESET_TYPES, ...customTypes.filter((t) => !PRESET_TYPES.includes(t))],
@@ -572,46 +592,66 @@ export default function SportPage() {
             </Reveal>
           )}
 
-          {/* Obiettivo settimanale (WeeklyGoal workout_count) */}
+          {/* Obiettivo settimanale (WeeklyGoal workout_count) — TUTTI gli attivi */}
           <Reveal delay={40}>
-            <Card hairline={goalMet ? "success" : "accent"} texture>
+            <Card hairline={weeklyGoals.some((g) => goalMeta(g).met) ? "success" : "accent"} texture>
               <CardHeader>
                 <div>
                   <CardTitle>Obiettivo settimanale</CardTitle>
                   <CardSubtitle>
-                    {weeklyGoal
-                      ? `${weekCount} allenamenti su ${goalTarget} · settimana dal ${labelDayKey(
+                    {weeklyGoals.length > 0
+                      ? `${weekCount} allenamenti questa settimana · settimana dal ${labelDayKey(
                           weekStart,
                           locale
                         )}`
                       : "Progressione goal configurata dalla sezione Obiettivi"}
                   </CardSubtitle>
                 </div>
-                {weeklyGoal && (
-                  <Badge tone={goalMet ? "success" : "info"}>
-                    <span className="tnum">
-                      {weekCount}/{goalTarget}
-                    </span>
+                {weeklyGoals.length > 0 && (
+                  <Badge
+                    tone={
+                      weeklyGoals.every((g) => goalMeta(g).met) ? "success" : "info"
+                    }
+                  >
+                    <span className="tnum">{weekCount}</span> allenamenti
                   </Badge>
                 )}
               </CardHeader>
-              {weeklyGoal && goalTarget > 0 ? (
-                <>
-                  <ProgressBar value={weekCount} max={goalTarget} tone="success" />
-                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs text-muted-foreground">
-                      {goalMet ? (
-                        <span className="inline-flex items-center gap-1 font-medium text-success">
-                          <Icon name="sparkles" size={13} />
-                          Obiettivo raggiunto
-                        </span>
-                      ) : (
-                        <>Mancano <span className="tnum text-secondary-text">{goalRemaining}</span> allenamento{goalRemaining === 1 ? "" : "i"} alla meta.</>
-                      )}
-                    </p>
-                    <span className="tnum text-[11px] text-muted-foreground">{weekPct}%</span>
-                  </div>
-                </>
+              {weeklyGoals.length > 0 ? (
+                <div className="space-y-3.5">
+                  {weeklyGoals.map((g) => {
+                    const m = goalMeta(g);
+                    return (
+                      <div key={g.id}>
+                        <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                          <span className="text-muted-foreground">
+                            Meta: <span className="tnum">{m.target}</span> allenamento
+                            {m.target === 1 ? "" : "i"} a settimana
+                          </span>
+                          <Badge tone={m.met ? "success" : "info"}>
+                            <span className="tnum">
+                              {weekCount}/{m.target}
+                            </span>
+                          </Badge>
+                        </div>
+                        <ProgressBar value={weekCount} max={Math.max(1, m.target)} tone="success" />
+                        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-xs text-muted-foreground">
+                            {m.met ? (
+                              <span className="inline-flex items-center gap-1 font-medium text-success">
+                                <Icon name="sparkles" size={13} />
+                                Obiettivo raggiunto
+                              </span>
+                            ) : (
+                              <>Mancano <span className="tnum text-secondary-text">{m.remaining}</span> allenamento{m.remaining === 1 ? "" : "i"} alla meta.</>
+                            )}
+                          </p>
+                          <span className="tnum text-[11px] text-muted-foreground">{m.pct}%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               ) : (
                 <p className="text-sm leading-relaxed text-muted-foreground">
                   Nessun obiettivo settimanale attivo di tipo “allenamento”. Impostalo dalla sezione{" "}

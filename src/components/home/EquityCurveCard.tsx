@@ -89,7 +89,7 @@ export function EquityCurveCard({ db }: { db: DB }) {
         </div>
 
         <div className="text-right">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Totale mese
           </span>
           <div className="flex items-baseline justify-end gap-1.5">

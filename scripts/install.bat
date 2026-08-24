@@ -60,7 +60,7 @@ if %errorLevel% neq 0 (
     echo OK: ExecutionPolicy gia' permissiva
 )
 
-echo [4/6] Creazione Scheduled Task (avvio al login, massimi privilegi)...
+echo [4/6] Creazione Scheduled Task (avvio al login, restart on failure)...
 REM Rimuovi task esistente se presente
 schtasks /Query /TN "%TASK_NAME%" >nul 2>&1
 if %errorLevel% equ 0 (
@@ -68,19 +68,38 @@ if %errorLevel% equ 0 (
     schtasks /Delete /TN "%TASK_NAME%" /F >nul 2>&1
 )
 
-schtasks /Create ^
-    /TN "%TASK_NAME%" ^
-    /TR "powershell.exe -Window Hidden -ExecutionPolicy Bypass -File \"%SCRIPT_DST%\"" ^
-    /SC ONLOGON ^
-    /RL HIGHEST ^
-    /F ^
-    /IT ^
-    /V1
+REM NOTA: schtasks /Create con /SC ONLOGON NON accetta /RI (restart on
+REM failure): errore "le opzioni /RI ... non sono applicabili ai tipi
+REM ONSTART, ONLOGON, ONIDLE, ONEVENT". La restart policy viene impostata
+REM via Register-ScheduledTask (RestartCount/RestartInterval): sono le
+REM stesse impostazioni RestartOnFailure del task XML.
+REM INTERVAL_SEC: se definita e numerica, viene iniettata nel comando del
+REM task (track-window.ps1 la legge da $env:INTERVAL_SEC all'avvio).
+set "IVAL_ARG="
+if defined INTERVAL_SEC (
+    echo %INTERVAL_SEC%| findstr /R "^[1-9][0-9]*$" >nul 2>&1
+    if not errorlevel 1 set "IVAL_ARG=%INTERVAL_SEC%"
+)
 
-if %errorLevel% equ 0 (
-    echo OK: Task "%TASK_NAME%" creato
+set "TASK_PS=%TEMP%\ascend-create-task-%TASK_NAME%.ps1"
+>  "%TASK_PS%" echo param([string]$ScriptDst, [string]$IntervalSec)
+>> "%TASK_PS%" echo $ErrorActionPreference = 'Stop'
+>> "%TASK_PS%" echo $cmdBody = "& '$ScriptDst'"
+>> "%TASK_PS%" echo if ($IntervalSec -ne '') { $cmdBody = "`$env:INTERVAL_SEC='$IntervalSec'; " + $cmdBody }
+>> "%TASK_PS%" echo $a = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-Window Hidden -ExecutionPolicy Bypass -Command ^"' + $cmdBody + ^'"')
+>> "%TASK_PS%" echo $t = New-ScheduledTaskTrigger -AtLogOn
+>> "%TASK_PS%" echo $p = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
+>> "%TASK_PS%" echo $s = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
+>> "%TASK_PS%" echo Register-ScheduledTask -TaskName "%TASK_NAME%" -Action $a -Trigger $t -Principal $p -Settings $s -Force ^| Out-Null
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%TASK_PS%" "%SCRIPT_DST%" "%IVAL_ARG%" >nul 2>&1
+set "TASKRC=%errorLevel%"
+del /F /Q "%TASK_PS%" >nul 2>&1
+
+if %TASKRC% equ 0 (
+    echo OK: Task "%TASK_NAME%" creato (restart on failure: 999 tentativi, ogni 1 min)
 ) else (
-    echo ERRORE: Impossibile creare il task. Verifica permessi.
+    echo ERRORE: Impossibile creare il task. Verifica i permessi (serve admin).
     pause
     exit /b 1
 )

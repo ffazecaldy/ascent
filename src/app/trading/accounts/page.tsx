@@ -21,7 +21,7 @@
 // - SectionHeader con kicker "Trading · Account".
 // ============================================================
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { nowISO, uid, updateDB, upsert, useDB } from "@/lib/storage";
 import type { AccountStatus, AccountType, Trade, TradingAccount } from "@/lib/types";
@@ -228,7 +228,7 @@ function EvalProgressRow({ progress, currency, masked }: { progress: EvalProgres
       <div className="mt-3 rounded-xl border border-warning/25 bg-warning/[0.07] px-3 py-2">
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone="warning">Manca obiettivo</Badge>
-          <span className="text-[11px] text-warning/80">Imposta l'obiettivo eval per tracciare la promozione.</span>
+          <span className="text-[11px] text-warning/80">Imposta l&apos;obiettivo eval per tracciare la promozione.</span>
         </div>
       </div>
     );
@@ -244,7 +244,7 @@ function EvalProgressRow({ progress, currency, masked }: { progress: EvalProgres
         <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Obiettivo eval</span>
         <span className={cn("tnum text-xs font-semibold", reached ? "text-success" : "text-accent")}>
           {formatPercent(pct, pctDigits)}
-          {reached ? <Icon name="sparkles" size={11} className="ml-1" /> : null}
+          {reached ? <Icon name="sprout" size={11} className="ml-1" /> : null}
         </span>
       </div>
       <ProgressBar value={progress.saldo} max={progress.target} tone={reached ? "success" : "accent"} className="mt-1.5 h-2" />
@@ -287,6 +287,17 @@ type Promotion = {
   at: string;
 };
 
+// Etichetta di sezione del form account — componente statico, dichiarato
+// FUORI dal render (se definito dentro, React lo ricrea a ogni render).
+function GroupLabel({ children }: { children: ReactNode }) {
+  return (
+    <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-accent sm:col-span-2">
+      <span className="h-1 w-1 rounded-full bg-accent" />
+      {children}
+    </p>
+  );
+}
+
 function AccountFormModal({
   open,
   account,
@@ -318,23 +329,26 @@ function AccountFormModal({
   const [tzTouched, setTzTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset del form ad ogni apertura (nuovo o editing)
+  // Reset del form ad ogni apertura (nuovo o editing) — i setState avvengono
+  // in microtask per evitare setState sincroni nel corpo dell'effect.
   useEffect(() => {
     if (!open) return;
-    setError(null);
-    setTzTouched(false);
-    setForm({
-      name: account?.name ?? "",
-      type: account?.type ?? "prop",
-      nativeCurrency: account?.nativeCurrency ?? base,
-      capital: account != null ? String(account.capital) : "0",
-      status: account?.status ?? "eval",
-      firm: account?.firm ?? "",
-      tradingDayTimezone: account?.tradingDayTimezone ?? defaultTz,
-      tradingDayRolloverTime: account?.tradingDayRolloverTime ?? "17:00",
-      dailyLossLimit: account?.dailyLossLimit != null ? String(account.dailyLossLimit) : "",
-      maxLossLimit: account?.maxLossLimit != null ? String(account.maxLossLimit) : "",
-      evalTarget: account?.evalTarget != null ? String(account.evalTarget) : "",
+    queueMicrotask(() => {
+      setError(null);
+      setTzTouched(false);
+      setForm({
+        name: account?.name ?? "",
+        type: account?.type ?? "prop",
+        nativeCurrency: account?.nativeCurrency ?? base,
+        capital: account != null ? String(account.capital) : "0",
+        status: account?.status ?? "eval",
+        firm: account?.firm ?? "",
+        tradingDayTimezone: account?.tradingDayTimezone ?? defaultTz,
+        tradingDayRolloverTime: account?.tradingDayRolloverTime ?? "17:00",
+        dailyLossLimit: account?.dailyLossLimit != null ? String(account.dailyLossLimit) : "",
+        maxLossLimit: account?.maxLossLimit != null ? String(account.maxLossLimit) : "",
+        evalTarget: account?.evalTarget != null ? String(account.evalTarget) : "",
+      });
     });
   }, [open, account, base, defaultTz]);
 
@@ -386,13 +400,6 @@ function AccountFormModal({
     });
     onClose();
   };
-
-  const GroupLabel = ({ children }: { children: ReactNode }) => (
-    <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-accent sm:col-span-2">
-      <span className="h-1 w-1 rounded-full bg-accent" />
-      {children}
-    </p>
-  );
 
   return (
     <Modal
@@ -541,7 +548,7 @@ function AccountFormModal({
         </Field>
       </div>
       <p className="mt-3 text-[11px] text-muted-foreground">
-        Importi in valuta nativa dell'account ({form.nativeCurrency}).
+        Importi in valuta nativa dell&apos;account ({form.nativeCurrency}).
       </p>
       {error && <p className="mt-3 text-xs font-medium text-danger">{error}</p>}
     </Modal>
@@ -568,8 +575,12 @@ function FxRateRow({
   const [draft, setDraft] = useState<string>(account.baseRate != null ? String(account.baseRate) : "");
   const [editing, setEditing] = useState(false);
 
+  // Sync da prop in microtask quando si esce dalla modifica (one-shot, nessun
+  // setState sincrono nel corpo dell'effect).
   useEffect(() => {
-    if (!editing) setDraft(account.baseRate != null ? String(account.baseRate) : "");
+    if (!editing) {
+      queueMicrotask(() => setDraft(account.baseRate != null ? String(account.baseRate) : ""));
+    }
   }, [account.baseRate, editing]);
 
   const saveManual = () => {
@@ -652,6 +663,7 @@ function AccountCard({
   monthCount,
   masked,
   base,
+  settingsTimezone,
   muted,
   quoting,
   fxError,
@@ -671,6 +683,7 @@ function AccountCard({
   monthCount: number;
   masked: boolean;
   base: string;
+  settingsTimezone: string;
   muted?: boolean;
   quoting: boolean;
   fxError: boolean;
@@ -811,7 +824,7 @@ function AccountCard({
         <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
           <span className="flex items-center gap-1.5 text-xs font-semibold tnum text-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-            {acc.tradingDayTimezone || "UTC"}
+            {acc.tradingDayTimezone || settingsTimezone || "UTC"}
           </span>
           <span className="rounded-md border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-accent tnum">
             rollover {acc.tradingDayRolloverTime}
@@ -819,7 +832,7 @@ function AccountCard({
         </div>
         <p className="mt-1.5 text-[11px] text-secondary-text">
           Trading day corrente ·{" "}
-          <span className="tnum text-secondary-text">{labelDayKey(tradingDayKey(new Date().toISOString(), acc))}</span>
+          <span className="tnum text-secondary-text">{labelDayKey(tradingDayKey(new Date().toISOString(), acc, settingsTimezone))}</span>
         </p>
       </div>
 
@@ -849,59 +862,62 @@ export default function AccountsPage() {
   const active = useMemo(() => db.accounts.filter((a) => !a.archived), [db.accounts]);
   const archived = useMemo(() => db.accounts.filter((a) => a.archived), [db.accounts]);
 
-  const withData = (list: TradingAccount[], trades: Trade[]) =>
-    list.map((a) => {
-      const accTrades = trades.filter((t) => t.accountId === a.id);
-      const pnl = accTrades.reduce((s, t) => s + t.resultNative, 0);
-      const live = a.capital + pnl;
-      const closed = accTrades.length;
-      const rate = accountBaseRate(a, base);
+  const withData = useCallback(
+    (list: TradingAccount[], trades: Trade[]) =>
+      list.map((a) => {
+        const accTrades = trades.filter((t) => t.accountId === a.id);
+        const pnl = accTrades.reduce((s, t) => s + t.resultNative, 0);
+        const live = a.capital + pnl;
+        const closed = accTrades.length;
+        const rate = accountBaseRate(a, base);
 
-      // Variazione mensile (per la freccia "questo mese" — solo se sensata)
-      const tz = db.settings.timezone;
-      const monthKey = monthKeyOf(todayKey(tz));
-      const monthTrades = accTrades.filter((t) => monthKeyOf(isoToDayKey(t.closeDate, tz)) === monthKey);
-      const monthPnl = monthTrades.reduce((s, t) => s + t.resultNative, 0);
+        // Variazione mensile (per la freccia "questo mese" — solo se sensata)
+        const tz = db.settings.timezone;
+        const monthKey = monthKeyOf(todayKey(tz));
+        const monthTrades = accTrades.filter((t) => monthKeyOf(isoToDayKey(t.closeDate, tz)) === monthKey);
+        const monthPnl = monthTrades.reduce((s, t) => s + t.resultNative, 0);
 
-      // Utilizzo limiti. Con trade chiusi: utilizzo reale. Senza trade chiusi ma
-      // con limite impostato: used=0, distance=limit → le chip devono comunque
-      // comparire (0% di utilizzo, distanza = limite). Limite assente → null → "—".
-      let daily: LimitUtil = null;
-      let maxUtil: LimitUtil = null;
-      if (closed > 0) {
-        if (a.dailyLossLimit != null) {
-          const tdk = tradingDayKey(new Date().toISOString(), a);
-          const dayPnl = accTrades
-            .filter((t) => tradingDayKey(t.closeDate, a) === tdk)
-            .reduce((s, t) => s + t.resultNative, 0);
-          const used = Math.max(0, -dayPnl);
-          daily = { used, limit: a.dailyLossLimit, distance: Math.max(0, a.dailyLossLimit - used) };
+        // Utilizzo limiti. Con trade chiusi: utilizzo reale. Senza trade chiusi ma
+        // con limite impostato: used=0, distance=limit → le chip devono comunque
+        // comparire (0% di utilizzo, distanza = limite). Limite assente → null → "—".
+        let daily: LimitUtil = null;
+        let maxUtil: LimitUtil = null;
+        if (closed > 0) {
+          if (a.dailyLossLimit != null) {
+            const tdk = tradingDayKey(new Date().toISOString(), a, db.settings.timezone);
+            const dayPnl = accTrades
+              .filter((t) => tradingDayKey(t.closeDate, a, db.settings.timezone) === tdk)
+              .reduce((s, t) => s + t.resultNative, 0);
+            const used = Math.max(0, -dayPnl);
+            daily = { used, limit: a.dailyLossLimit, distance: Math.max(0, a.dailyLossLimit - used) };
+          }
+          if (a.maxLossLimit != null) {
+            const used = Math.max(0, a.capital - live);
+            maxUtil = { used, limit: a.maxLossLimit, distance: Math.max(0, a.maxLossLimit - used) };
+          }
+        } else {
+          if (a.dailyLossLimit != null) daily = { used: 0, limit: a.dailyLossLimit, distance: a.dailyLossLimit };
+          if (a.maxLossLimit != null) maxUtil = { used: 0, limit: a.maxLossLimit, distance: a.maxLossLimit };
         }
-        if (a.maxLossLimit != null) {
-          const used = Math.max(0, a.capital - live);
-          maxUtil = { used, limit: a.maxLossLimit, distance: Math.max(0, a.maxLossLimit - used) };
-        }
-      } else {
-        if (a.dailyLossLimit != null) daily = { used: 0, limit: a.dailyLossLimit, distance: a.dailyLossLimit };
-        if (a.maxLossLimit != null) maxUtil = { used: 0, limit: a.maxLossLimit, distance: a.maxLossLimit };
-      }
 
-      return {
-        acc: a,
-        pnl,
-        live,
-        rate,
-        closed,
-        daily,
-        maxUtil,
-        eval: evalProgress(db, a),
-        monthPnl,
-        monthCount: monthTrades.length,
-      };
-    });
+        return {
+          acc: a,
+          pnl,
+          live,
+          rate,
+          closed,
+          daily,
+          maxUtil,
+          eval: evalProgress(db, a),
+          monthPnl,
+          monthCount: monthTrades.length,
+        };
+      }),
+    [db, base]
+  );
 
-  const activeRows = useMemo(() => withData(active, db.trades), [active, db.trades, base]);
-  const archivedRows = useMemo(() => withData(archived, db.trades), [archived, db.trades, base]);
+  const activeRows = useMemo(() => withData(active, db.trades), [active, db.trades, withData]);
+  const archivedRows = useMemo(() => withData(archived, db.trades), [archived, db.trades, withData]);
 
   // ------------------------------------------------------
   // PROMOZIONE AUTOMATICA EVAL → FINANZIATO
@@ -1062,6 +1078,7 @@ export default function AccountsPage() {
       monthCount={r.monthCount}
       masked={masked}
       base={base}
+      settingsTimezone={db.settings.timezone}
       muted={muted}
       quoting={quotingId === r.acc.id}
       fxError={fxErrorId === r.acc.id}
@@ -1079,7 +1096,7 @@ export default function AccountsPage() {
         <Reveal>
           <div className="animate-pop relative flex items-start gap-3.5 overflow-hidden rounded-[--radius] border border-success/40 bg-success/[0.08] px-4 py-3.5 shadow-[0_0_45px_-12px_rgba(45,223,158,0.55)]">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-success/15 text-xl shadow-[0_0_18px_-4px_rgba(45,223,158,0.7)]">
-              <Icon name="sparkles" size={22} />
+              <Icon name="sprout" size={22} />
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-success">
@@ -1116,7 +1133,7 @@ export default function AccountsPage() {
       {toast && (
         <div className="pointer-events-none fixed inset-x-0 top-4 z-[60] flex justify-center px-4">
           <div className="animate-pop pointer-events-auto flex items-center gap-3 rounded-2xl border border-success/40 bg-card px-4 py-3 shadow-[0_0_50px_-10px_rgba(45,223,158,0.6)]">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-success/15 text-lg"><Icon name="sparkles" size={20} /></span>
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-success/15 text-lg"><Icon name="sprout" size={20} /></span>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-success">
                 Obiettivo raggiunto: account promosso a Finanziato
@@ -1174,7 +1191,7 @@ export default function AccountsPage() {
       {/* Elenco attivi */}
       {activeRows.length === 0 ? (
         <EmptyState
-          icon={<Icon name="building" size={32} />}
+          icon="building"
           title="Nessun account di trading"
           description="Crea il primo account prop o personale per tracciare capitale, trade e limiti."
           action={

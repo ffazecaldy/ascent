@@ -41,25 +41,31 @@ export function DepositForm({
 
   useEffect(() => {
     if (!open) return;
-    if (editing) {
-      setDate(editing.date);
-      setAmount(String(editing.amount));
-      setGoalId(editing.goalId ?? "");
-      setNote(editing.note ?? "");
-    } else {
-      setDate(todayKey(db.settings.timezone));
-      setAmount("");
-      setGoalId(defaultGoalId ?? "");
-      setNote("");
-    }
+    // Reset/init in microtask: nessun setState sincrono nel corpo dell'effect.
+    queueMicrotask(() => {
+      if (editing) {
+        setDate(editing.date);
+        setAmount(String(editing.amount));
+        setGoalId(editing.goalId ?? "");
+        setNote(editing.note ?? "");
+      } else {
+        setDate(todayKey(db.settings.timezone));
+        setAmount("");
+        setGoalId(defaultGoalId ?? "");
+        setNote("");
+      }
+    });
   }, [open, editing, defaultGoalId, db.settings.timezone]);
 
   const amountNum = parseFloat(amount);
   const canSave = date !== "" && isFinite(amountNum) && amountNum > 0;
 
   const selGoal = goalId ? db.savingsGoals.find((g) => g.id === goalId) : undefined;
+  // In modalità edit escludo il deposito in modifica: il preview (sotto) lo somma a parte.
   const goalDeposited = goalId
-    ? db.savingsDeposits.filter((d) => d.goalId === goalId).reduce((s, d) => s + d.amount, 0)
+    ? db.savingsDeposits
+        .filter((d) => d.goalId === goalId && d.id !== editing?.id)
+        .reduce((s, d) => s + d.amount, 0)
     : 0;
   const goalRemaining = selGoal ? Math.max(0, selGoal.target - goalDeposited - (isFinite(amountNum) ? amountNum : 0)) : null;
 

@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
-import { useDB, updateDB, uid, nowISO } from "@/lib/storage";
+import { updateDB, uid } from "@/lib/storage";
 import { cn } from "@/lib/cn";
 import type { PCUsageLog } from "@/lib/types";
 import { aggregateSamples, type TrackerSample } from "@/lib/pc-tracker";
@@ -16,10 +16,7 @@ interface AutoTrackerImportProps {
 export function AutoTrackerImport({ onClose }: AutoTrackerImportProps) {
   const [status, setStatus] = useState<"idle" | "reading" | "processing" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
-  const [count, setCount] = useState(0);
   const [dirHandle, setDirHandle] = useState<FileSystemDirectoryHandle | null>(null);
-
-  const db = useDB();
 
   async function readJsonlFile(file: File): Promise<TrackerSample[]> {
     const text = await file.text();
@@ -38,10 +35,9 @@ export function AutoTrackerImport({ onClose }: AutoTrackerImportProps) {
   async function handleImport() {
     setStatus("reading");
     setMessage("Lettura file in corso...");
-    setCount(0);
 
     try {
-      let entries: TrackerSample[] = [];
+      const entries: TrackerSample[] = [];
 
       if (dirHandle) {
         // Cartella selezionata via File System Access API
@@ -106,7 +102,6 @@ export function AutoTrackerImport({ onClose }: AutoTrackerImportProps) {
 
       setStatus("done");
       setMessage(`Import completato: ${inserted} nuove voci, ${Object.keys(aggregated).length} aggregazioni giorno+categoria`);
-      setCount(inserted);
     } catch (err) {
       console.error(err);
       setStatus("error");
@@ -120,7 +115,11 @@ export function AutoTrackerImport({ onClose }: AutoTrackerImportProps) {
         alert("File System Access API non supportata in questo browser. Usa Chrome/Edge.");
         return;
       }
-      const handle = await (window as any).showDirectoryPicker({ mode: "read" });
+      const handle = await (
+        window as Window & {
+          showDirectoryPicker: (opts?: { mode: "read" }) => Promise<FileSystemDirectoryHandle>;
+        }
+      ).showDirectoryPicker({ mode: "read" });
       setDirHandle(handle);
       setMessage("Cartella selezionata. Clicca Importa.");
     } catch (err) {

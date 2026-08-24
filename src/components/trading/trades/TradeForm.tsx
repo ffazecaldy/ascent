@@ -95,58 +95,61 @@ export function TradeForm({
 
   const isEdit = !!initial;
 
-  // Reset/populate alla apertura
+  // Reset/populate alla apertura — setState in microtask (nessun setState
+  // sincrono nel corpo dell'effect).
   useEffect(() => {
     if (!open) return;
-    const now = new Date().toISOString();
-    if (initial) {
-      const accAvailable = db.accounts.some((a) => a.id === initial.accountId);
-      setAccountId(accAvailable ? initial.accountId : db.accounts.find((a) => !a.archived)?.id ?? "");
-      setInstrument(initial.instrument);
-      setDirection(initial.direction);
-      setEntry(initial.entry != null ? String(initial.entry) : "");
-      setExit(initial.exit != null ? String(initial.exit) : "");
-      setStop(initial.stop != null ? String(initial.stop) : "");
-      setTarget(initial.target != null ? String(initial.target) : "");
-      setSize(initial.size != null ? String(initial.size) : "");
-      setResultNative(String(initial.resultNative));
-      setResultR(String(initial.resultR));
-      setOpenDate(isoToLocalInput(initial.openDate) || isoToLocalInput(now));
-      setCloseDate(isoToLocalInput(initial.closeDate) || isoToLocalInput(now));
-      setDescription(initial.description ?? "");
-      setEmotion(initial.emotion ?? "");
-      setSetupId(initial.setupId ?? "");
-      setScreenshots(initial.screenshots ?? []);
-      // rispetta da TradeSetupRule esistenti (default true per le attive)
-      const existing = db.tradeSetupRules.filter((r) => r.tradeId === initial.id);
-      const map: Record<string, boolean> = {};
-      rulesOfSetup(db, initial.setupId ?? "")
-        .filter((r) => r.active)
-        .forEach((r) => {
-          const entryRule = existing.find((x) => x.ruleId === r.id);
-          map[r.id] = entryRule ? entryRule.respected : true;
-        });
-      setRespects(map);
-    } else {
-      const first = db.accounts.find((a) => !a.archived) ?? db.accounts[0];
-      setAccountId(first?.id ?? "");
-      setInstrument("");
-      setDirection("long");
-      setEntry("");
-      setExit("");
-      setStop("");
-      setTarget("");
-      setSize("");
-      setResultNative("");
-      setResultR("");
-      setOpenDate(isoToLocalInput(now));
-      setCloseDate(isoToLocalInput(now));
-      setDescription("");
-      setEmotion("");
-      setSetupId("");
-      setRespects({});
-      setScreenshots([]);
-    }
+    queueMicrotask(() => {
+      const now = new Date().toISOString();
+      if (initial) {
+        const accAvailable = db.accounts.some((a) => a.id === initial.accountId);
+        setAccountId(accAvailable ? initial.accountId : db.accounts.find((a) => !a.archived)?.id ?? "");
+        setInstrument(initial.instrument);
+        setDirection(initial.direction);
+        setEntry(initial.entry != null ? String(initial.entry) : "");
+        setExit(initial.exit != null ? String(initial.exit) : "");
+        setStop(initial.stop != null ? String(initial.stop) : "");
+        setTarget(initial.target != null ? String(initial.target) : "");
+        setSize(initial.size != null ? String(initial.size) : "");
+        setResultNative(String(initial.resultNative));
+        setResultR(String(initial.resultR));
+        setOpenDate(isoToLocalInput(initial.openDate) || isoToLocalInput(now));
+        setCloseDate(isoToLocalInput(initial.closeDate) || isoToLocalInput(now));
+        setDescription(initial.description ?? "");
+        setEmotion(initial.emotion ?? "");
+        setSetupId(initial.setupId ?? "");
+        setScreenshots(initial.screenshots ?? []);
+        // rispetta da TradeSetupRule esistenti (default true per le attive)
+        const existing = db.tradeSetupRules.filter((r) => r.tradeId === initial.id);
+        const map: Record<string, boolean> = {};
+        rulesOfSetup(db, initial.setupId ?? "")
+          .filter((r) => r.active)
+          .forEach((r) => {
+            const entryRule = existing.find((x) => x.ruleId === r.id);
+            map[r.id] = entryRule ? entryRule.respected : true;
+          });
+        setRespects(map);
+      } else {
+        const first = db.accounts.find((a) => !a.archived) ?? db.accounts[0];
+        setAccountId(first?.id ?? "");
+        setInstrument("");
+        setDirection("long");
+        setEntry("");
+        setExit("");
+        setStop("");
+        setTarget("");
+        setSize("");
+        setResultNative("");
+        setResultR("");
+        setOpenDate(isoToLocalInput(now));
+        setCloseDate(isoToLocalInput(now));
+        setDescription("");
+        setEmotion("");
+        setSetupId("");
+        setRespects({});
+        setScreenshots([]);
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initial?.id]);
 
@@ -187,12 +190,39 @@ export function TradeForm({
 
   // ---- validazione ----
   const rn = parseFloat(resultNative.replace(",", "."));
-  const rr = parseFloat(resultR.replace(",", "."));
+
+  // R derivato: se entry/stop/size sono compilati, R = P&L / (size × |entry−stop|).
+  // Il segno di R segue PER COSTRUZIONE il segno del P&L: un errore di segno non
+  // può più invertire win/loss nelle statistiche (audit trading #8).
+  // Quando derivabile il campo è bloccato e mostra il valore derivato (nessun
+  // write di stato: display e payload usano direttamente derivedR).
+  const entryNum = numOrNull(entry);
+  const stopNum = numOrNull(stop);
+  const sizeNum = numOrNull(size);
+  const riskPerUnit = entryNum != null && stopNum != null ? Math.abs(entryNum - stopNum) : null;
+  const derivedR =
+    riskPerUnit != null && riskPerUnit > 0 && sizeNum != null && sizeNum > 0 && !isNaN(rn)
+      ? rn / (sizeNum * riskPerUnit)
+      : null;
+  const resultRShown =
+    derivedR != null ? String(Math.round(derivedR * 1000) / 1000) : resultR;
+  const rr = derivedR != null ? derivedR : parseFloat(resultR.replace(",", "."));
+
+  // Incoerenza di segno R vs P&L — solo quando R NON è derivabile (input manuale):
+  // segni opposti, oppure uno zero e l'altro no → blocco salvataggio con errore inline.
+  const signIncoherent =
+    derivedR == null &&
+    !isNaN(rn) &&
+    !isNaN(rr) &&
+    !(rn === 0 && rr === 0) &&
+    (rn === 0 || rr === 0 || Math.sign(rn) !== Math.sign(rr));
+
   const valid =
     !!accountId &&
     instrument.trim().length > 0 &&
     !isNaN(rn) &&
-    !isNaN(rr);
+    !isNaN(rr) &&
+    !signIncoherent;
 
   const handleSubmit = () => {
     if (!valid) return;
@@ -207,7 +237,7 @@ export function TradeForm({
       target: numOrNull(target),
       size: numOrNull(size),
       resultNative: numOrZero(resultNative),
-      resultR: numOrZero(resultR),
+      resultR: derivedR != null ? derivedR : numOrZero(resultR),
       openDate: localInputToISO(openDate),
       closeDate: localInputToISO(closeDate),
       screenshots,
@@ -317,10 +347,23 @@ export function TradeForm({
               <Input
                 type="number"
                 step="any"
-                value={resultR}
+                value={resultRShown}
                 onChange={(e) => setResultR(e.target.value)}
                 placeholder="es. 2.5 oppure -1"
+                disabled={derivedR != null}
+                className={cn(derivedR != null && "opacity-60")}
               />
+              {derivedR != null ? (
+                <p className="mt-1 text-[11px] text-secondary-text">
+                  R derivato da entry, stop e size: segno sempre coerente con il risultato in{" "}
+                  {currencySymbol(currency)}.
+                </p>
+              ) : signIncoherent ? (
+                <p className="mt-1 text-[11px] font-medium text-danger">
+                  Il segno del risultato in R non coincide con quello in {currencySymbol(currency)}: un
+                  errore di segno invertirebbe win/loss nelle statistiche.
+                </p>
+              ) : null}
             </Field>
           </div>
         </FormSection>

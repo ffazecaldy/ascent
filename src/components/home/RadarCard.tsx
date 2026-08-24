@@ -41,25 +41,12 @@ const AXES = [
 
 type AxisKey = (typeof AXES)[number]["key"];
 
-function clamp01(v: number) {
-  return Math.max(0, Math.min(1, v));
-}
-
 /** Valore 0..1 per ogni asso a partire dalle stats settimanali/mensili. */
 function axisValues(db: DB): Record<AxisKey, number> {
   const tz = db.settings.timezone;
   const today = todayKey(tz);
   const weekStart = weekStartKey(today, db.settings.weekStart);
   const st = weeklyReviewStats(db, weekStart);
-
-  const month = today.slice(0, 7);
-  let income = 0, expense = 0;
-  db.transactions.forEach((t) => {
-    if (t.date.startsWith(month)) {
-      const amt = t.amount * (t.exchangeRate || 1);
-      if (t.type === "income") income += amt; else expense += amt;
-    }
-  });
 
   // Risparmi: % completamento dell'obiettivo più vicino al traguardo
   let savingsPct = 0;

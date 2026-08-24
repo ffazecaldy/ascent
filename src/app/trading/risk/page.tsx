@@ -13,6 +13,7 @@ import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { useDB } from "@/lib/storage";
 import { riskStats } from "@/lib/compute";
+import { limitUsage } from "@/lib/risk-limits";
 import { formatMoney, formatSignedMoney, formatR } from "@/lib/format";
 import { labelDayKey, tradingDayKey } from "@/lib/dates";
 import { maskMoney, maskKpi } from "@/lib/privacy";
@@ -82,7 +83,8 @@ function MetaStat({ tag, value }: { tag: string; value: React.ReactNode }) {
 function AccountClock({ tz }: { tz: string }) {
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
-    setNow(new Date());
+    // Primo tick in microtask: il setState non è sincrono nel corpo dell'effect.
+    queueMicrotask(() => setNow(new Date()));
     const id = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(id);
   }, []);
@@ -198,7 +200,7 @@ export default function RiskPage() {
 
       {accounts.length === 0 ? (
         <EmptyState
-          icon={<Icon name="building" size={32} />}
+          icon="building"
           title="Nessun account"
           description="Crea un account di trading per vedere drawdown, rischio e distanza dai limiti."
           action={
@@ -239,20 +241,29 @@ function RiskBody({ accountId }: { accountId: string }) {
   const signedFmt = (n: number) => (masked ? maskMoney() : formatSignedMoney(n, cur));
 
   const losingCount = accountTrades.filter((t) => t.resultNative < 0).length;
-  const tradingDayNow = tradingDayKey(new Date().toISOString(), account);
+  const tradingDayNow = tradingDayKey(new Date().toISOString(), account, db.settings.timezone);
 
   const dl = account.dailyLossLimit ?? null;
   const ml = account.maxLossLimit ?? null;
 
+  // ---- Distanze dai limiti via limitUsage (core in @/lib/compute, re-export in
+  // @/lib/risk-limits): usage.daily = consumo netto del trading day corrente,
+  // usage.max = consumo su equity live (capital - live equity). Stesse soglie di
+  // accounts/page.tsx (distanza = max(0, limite - consumo)). NON usa più il
+  // peggior giorno storico di riskStats.
+  const usage = limitUsage(account, accountTrades, new Date());
+  const ddDist = dl != null ? Math.max(0, dl - usage.daily) : null;
+  const mdDist = ml != null ? Math.max(0, ml - usage.max) : null;
+
   // ---- Allerta in testa: almeno un limite è vicino (< 15% del limite) ----
   const near: { label: string; distance: number; limit: number }[] = [];
-  if (stats.distanceDailyLimit != null && dl != null && Math.abs(dl) > 0) {
-    if (stats.distanceDailyLimit < TOP_WARN_PCT * Math.abs(dl))
-      near.push({ label: "Daily loss limit", distance: stats.distanceDailyLimit, limit: Math.abs(dl) });
+  if (ddDist != null && dl != null && Math.abs(dl) > 0) {
+    if (ddDist < TOP_WARN_PCT * Math.abs(dl))
+      near.push({ label: "Daily loss limit", distance: ddDist, limit: Math.abs(dl) });
   }
-  if (stats.distanceMaxLimit != null && ml != null && Math.abs(ml) > 0) {
-    if (stats.distanceMaxLimit < TOP_WARN_PCT * Math.abs(ml))
-      near.push({ label: "Max loss limit", distance: stats.distanceMaxLimit, limit: Math.abs(ml) });
+  if (mdDist != null && ml != null && Math.abs(ml) > 0) {
+    if (mdDist < TOP_WARN_PCT * Math.abs(ml))
+      near.push({ label: "Max loss limit", distance: mdDist, limit: Math.abs(ml) });
   }
 
   // ---- Streak corrente ----
@@ -263,7 +274,7 @@ function RiskBody({ accountId }: { accountId: string }) {
   if (accountTrades.length === 0 || !stats.bestDay || !stats.worstDay) {
     return (
       <EmptyState
-        icon={<Icon name="list" size={32} />}
+        icon="list"
         title="Nessun trade per questo account"
         description="Registra qualche trade nel Trade log per popolare drawdown, rischio medio e distanza dai limiti."
         action={
@@ -275,8 +286,8 @@ function RiskBody({ accountId }: { accountId: string }) {
     );
   }
 
-  const ddTone = distanceTone(stats.distanceDailyLimit, dl);
-  const mdTone = distanceTone(stats.distanceMaxLimit, ml);
+  const ddTone = distanceTone(ddDist, dl);
+  const mdTone = distanceTone(mdDist, ml);
 
   const limitDelta = (distance: number | null | undefined, limit: number | null | undefined) => {
     if (limit == null || distance == null) return "nessun limite impostato";
@@ -298,12 +309,12 @@ function RiskBody({ accountId }: { accountId: string }) {
 
   // Barre mini-progress delle distanze (margine residuo come % del limite).
   const ddPct =
-    dl != null && Math.abs(dl) > 0 && stats.distanceDailyLimit != null
-      ? (stats.distanceDailyLimit / Math.abs(dl)) * 100
+    dl != null && Math.abs(dl) > 0 && ddDist != null
+      ? (ddDist / Math.abs(dl)) * 100
       : null;
   const mdPct =
-    ml != null && Math.abs(ml) > 0 && stats.distanceMaxLimit != null
-      ? (stats.distanceMaxLimit / Math.abs(ml)) * 100
+    ml != null && Math.abs(ml) > 0 && mdDist != null
+      ? (mdDist / Math.abs(ml)) * 100
       : null;
 
   const tz = account.tradingDayTimezone || db.settings.timezone;
@@ -347,7 +358,7 @@ function RiskBody({ accountId }: { accountId: string }) {
               tag="Ultimo trade"
               value={
                 lastTrade
-                  ? `${formatR(lastTrade.resultR)} · ${labelDayKey(tradingDayKey(lastTrade.closeDate, account))}`
+                  ? `${formatR(lastTrade.resultR)} · ${labelDayKey(tradingDayKey(lastTrade.closeDate, account, db.settings.timezone))}`
                   : "nessun trade chiuso"
               }
             />
@@ -362,7 +373,7 @@ function RiskBody({ accountId }: { accountId: string }) {
           </div>
           <CardSubtitle>
             Il trading day inizia/finisce al rollover ({account.tradingDayRolloverTime || "00:00"}) nel fuso
-            dell'account; ogni trade è assegnato al giorno in base alla propria data di chiusura.
+            dell&apos;account; ogni trade è assegnato al giorno in base alla propria data di chiusura.
           </CardSubtitle>
         </Card>
       </Reveal>
@@ -443,31 +454,31 @@ function RiskBody({ accountId }: { accountId: string }) {
             label="Distanza dal daily loss limit"
             icon={<Icon name="shield" size={16} />}
             value={
-              stats.distanceDailyLimit == null ? (
+              ddDist == null ? (
                 "—"
               ) : (
-                <AnimatedNumber value={stats.distanceDailyLimit} fmt={(n) => fmt(n)} className={distToneCls[ddTone]} />
+                <AnimatedNumber value={ddDist} fmt={(n) => fmt(n)} className={distToneCls[ddTone]} />
               )
             }
             valueClassName={distToneCls[ddTone]}
             pct={ddPct != null ? { value: ddPct, label: `${Math.round(Math.max(0, Math.min(100, ddPct)))}%` } : null}
             tone={distBarTone[ddTone]}
-            delta={limitDelta(stats.distanceDailyLimit, dl)}
+            delta={limitDelta(ddDist, dl)}
           />
           <BarMetricCard
             label="Distanza dal max loss limit"
             icon={<Icon name="lock" size={16} />}
             value={
-              stats.distanceMaxLimit == null ? (
+              mdDist == null ? (
                 "—"
               ) : (
-                <AnimatedNumber value={stats.distanceMaxLimit} fmt={(n) => fmt(n)} className={distToneCls[mdTone]} />
+                <AnimatedNumber value={mdDist} fmt={(n) => fmt(n)} className={distToneCls[mdTone]} />
               )
             }
             valueClassName={distToneCls[mdTone]}
             pct={mdPct != null ? { value: mdPct, label: `${Math.round(Math.max(0, Math.min(100, mdPct)))}%` } : null}
             tone={distBarTone[mdTone]}
-            delta={limitDelta(stats.distanceMaxLimit, ml)}
+            delta={limitDelta(mdDist, ml)}
           />
         </div>
       </Reveal>
@@ -535,7 +546,7 @@ function RiskBody({ accountId }: { accountId: string }) {
             </div>
             <div className="mt-auto text-xs tnum text-secondary-text">
               {lastTrade
-                ? `ultimo trade: ${formatR(lastTrade.resultR)} · ${labelDayKey(tradingDayKey(lastTrade.closeDate, account))}`
+                ? `ultimo trade: ${formatR(lastTrade.resultR)} · ${labelDayKey(tradingDayKey(lastTrade.closeDate, account, db.settings.timezone))}`
                 : "nessun trade chiuso"}
             </div>
           </Card>

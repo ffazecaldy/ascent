@@ -3,7 +3,7 @@
 // ASCEND — Risparmi · KPI header (myfundedbook-style)
 // - Totale versato: AnimatedNumber formatMoney + spark savingsSeries
 // - Obiettivo attivo: somma target dei goal attivi
-// - Completamento %: ProgressBar tone success + cuore verde a 100%
+// - Completamento %: solo versamenti allocati ai goal ATTIVI (totals.committed) su target attivo
 // Privacy-aware (money → •••, percentuali → ••% in mode complete).
 // ============================================================
 
@@ -26,7 +26,9 @@ export function SavingsKpi({ totals, spark }: { totals: SavingsTotals; spark: nu
   const kpiHidden = kpiMasked(db.settings.privacyMode);
 
   const activeCount = totals.goals.length;
-  const pctOverall = totals.target > 0 ? Math.min(100, (totals.deposited / totals.target) * 100) : 0;
+  // Base corretta: solo versamenti allocati ai goal ATTIVI (committed),
+  // non totals.deposited (che include generici e goal in pausa).
+  const pctOverall = totals.target > 0 ? Math.min(100, (totals.committed / totals.target) * 100) : 0;
   const doneAll = totals.target > 0 && pctOverall >= 100;
   const sparkVals = spark.length > 1 ? spark : undefined;
 
@@ -44,7 +46,6 @@ export function SavingsKpi({ totals, spark }: { totals: SavingsTotals; spark: nu
             maskMoney()
           ) : (
             <AnimatedNumber
-              key={`deposited-${Math.round(totals.deposited * 100)}`}
               value={totals.deposited}
               duration={850}
               fmt={(n) => formatMoney(n, base, locale)}
@@ -64,7 +65,6 @@ export function SavingsKpi({ totals, spark }: { totals: SavingsTotals; spark: nu
             maskMoney()
           ) : (
             <AnimatedNumber
-              key={`target-${Math.round(totals.target * 100)}`}
               value={totals.target}
               duration={850}
               fmt={(n) => formatMoney(n, base, locale)}
@@ -98,7 +98,6 @@ export function SavingsKpi({ totals, spark }: { totals: SavingsTotals; spark: nu
             maskKpi()
           ) : (
             <AnimatedNumber
-              key={`pct-${Math.round(pctOverall * 10)}`}
               value={pctOverall}
               duration={850}
               fmt={(n) => formatPercent(n, 0)}
@@ -113,7 +112,7 @@ export function SavingsKpi({ totals, spark }: { totals: SavingsTotals; spark: nu
               Obiettivo complessivo raggiunto
             </span>
           ) : totals.target > 0 ? (
-            `${hidden ? maskMoney() : formatMoney(totals.deposited, base, locale)} versati su ${hidden ? maskMoney() : formatMoney(totals.target, base, locale)}`
+            `${hidden ? maskMoney() : formatMoney(totals.committed, base, locale)} versati su ${hidden ? maskMoney() : formatMoney(totals.target, base, locale)}`
           ) : (
             "Crea il primo obiettivo per iniziare"
           )}

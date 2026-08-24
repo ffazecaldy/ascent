@@ -19,7 +19,6 @@ import { QuoteRotator } from "@/components/home/QuoteRotator";
 import { TradingCalendarCard } from "@/components/home/TradingCalendarCard";
 import { EquityCurveCard } from "@/components/home/EquityCurveCard";
 import { SavingsSummaryCard } from "@/components/home/SavingsSummaryCard";
-import { GoalsOverviewCard } from "@/components/home/GoalsOverviewCard";
 import { SportReminderCard } from "@/components/home/SportReminderCard";
 import { EveningReviewCard } from "@/components/home/EveningReviewCard";
 import { RadarCard } from "@/components/home/RadarCard";
@@ -40,11 +39,7 @@ export default function HomePage() {
       </Reveal>
 
       <Reveal>
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <StreakHero />
-          </div>
-        </div>
+        <StreakHero />
       </Reveal>
 
       {/* ——— Ascend Day · sezione full width ——— */}

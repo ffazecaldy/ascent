@@ -211,7 +211,7 @@ export function AscendDayCard({ db }: { db: DB }) {
               style={{ minWidth: DAY_COL_W + calendar.weeks.length * COL_PITCH }}
             >
               {/* label mesi — ogni slot riserva span*COL_PITCH px, così il testo non
-                  trabocca mai su una label vicina; troncato a 9px se troppo lungo */}
+                  trabocca mai su una label vicina; troncato se troppo lungo */}
               <div className="flex" style={{ marginLeft: DAY_COL_W, height: 12 }}>
                 {calendar.weeks.map((_, ci) => {
                   const lbl = calendar.monthLabels.find((m) => m.col === ci);
@@ -222,7 +222,7 @@ export function AscendDayCard({ db }: { db: DB }) {
                       className="overflow-hidden"
                       style={{ width: lbl.span * COL_PITCH }}
                     >
-                      <span className="block truncate text-[9px] leading-[12px] text-muted-foreground">{lbl.label}</span>
+                      <span className="block truncate text-[11px] leading-[12px] text-muted-foreground">{lbl.label}</span>
                     </div>
                   );
                 })}
@@ -231,7 +231,7 @@ export function AscendDayCard({ db }: { db: DB }) {
                 {/* lettere giorni */}
                 <div className="mr-1 flex w-4 flex-col gap-[3px]">
                   {DAY_LETTERS.map((l, i) => (
-                    <span key={i} className="flex h-[13px] items-center text-[8px] leading-none text-muted-foreground">{l}</span>
+                    <span key={i} className="flex h-[13px] items-center text-[11px] leading-none text-muted-foreground">{l}</span>
                   ))}
                 </div>
                 {/* colonne settimane */}
@@ -256,11 +256,11 @@ export function AscendDayCard({ db }: { db: DB }) {
               </div>
               {/* legenda — riga propria sotto le celle, mai a contatto con esse */}
               <div className="mt-2 flex flex-wrap items-center justify-end gap-x-1.5 gap-y-1">
-                <span className="text-[9px] leading-none text-muted-foreground">meno</span>
+                <span className="text-[11px] leading-none text-muted-foreground">meno</span>
                 {LEVEL_BG.map((bg, i) => (
                   <span key={i} className={`h-[10px] w-[10px] shrink-0 rounded-[3px] ${bg}`} />
                 ))}
-                <span className="text-[9px] leading-none text-muted-foreground">più</span>
+                <span className="text-[11px] leading-none text-muted-foreground">più</span>
               </div>
             </div>
           </div>

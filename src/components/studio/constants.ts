@@ -58,15 +58,9 @@ export function subjectIcon(subject: string): IconName {
   return SUBJECT_ICON[subject] ?? "book";
 }
 
-/** Durata leggibile: 45 → "45m", 60 → "1h", 90 → "1h 30m", 120 → "2h". */
-export function fmtDur(min: number): string {
-  if (!Number.isFinite(min) || min <= 0) return "0m";
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
-}
+/** Durata leggibile: 45 → "45m", 60 → "1h", 90 → "1h 30m", 120 → "2h".
+ *  Unica implementazione in @/lib/sport-meta — qui solo re-export. */
+export { fmtDur } from "@/lib/sport-meta";
 
 /** Etichetta corta del giorno ("Lun") per un day key, nella locale utente. */
 export function weekdayShort(key: string, locale: string): string {

@@ -79,7 +79,7 @@ export function ActivityHeatmapCard({ db }: { db: DB }) {
       </CardHeader>
       <ActivityHeatmap weeks={weeks} />
       <div className="mt-3 flex items-center justify-end gap-1.5">
-        <span className="mr-1 text-[10px] text-muted-foreground">Meno</span>
+        <span className="mr-1 text-[11px] text-muted-foreground">Meno</span>
         {["#1a1a1d", "#27282e", "#3a4c78", "#4C7EFF", "#8aadff"].map((c) => (
           <span
             key={c}
@@ -87,7 +87,7 @@ export function ActivityHeatmapCard({ db }: { db: DB }) {
             style={{ backgroundColor: c }}
           />
         ))}
-        <span className="ml-1 text-[10px] text-muted-foreground">Più</span>
+        <span className="ml-1 text-[11px] text-muted-foreground">Più</span>
       </div>
     </Card>
   );

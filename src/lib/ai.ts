@@ -4,10 +4,13 @@
 // esce dalla macchina. Endpoint usati:
 //   POST /api/chat {model, messages, stream:false} → {message:{content}}
 //   GET  /api/tags → {models:[{name,...}]}
+// REQUISITO CORS: il browser chiama da http://localhost:3000. Se la chat
+// coach fallisce con errori CORS, Ollama va avviato con
+// OLLAMA_ORIGINS=http://localhost:3000 (avviso anche in run-dev.mjs).
 // ============================================================
 
 export const OLLAMA_BASE = "http://localhost:11434";
-const CHAT_TIMEOUT_MS = 90_000; // modelli locali: primi token lenti
+const CHAT_TIMEOUT_MS = 120_000; // modelli locali grandi (es. Qwen3-27B su CPU): primi token molto lenti
 const TAGS_TIMEOUT_MS = 10_000;
 
 export interface ChatMsg {
@@ -48,7 +51,7 @@ export async function coachChat(messages: ChatMsg[], model?: string): Promise<st
     clearTimeout(timer);
     if (err instanceof DOMException && err.name === "AbortError") {
       throw new CoachError(
-        "Il coach non ha risposto entro 90 secondi (modello locale troppo lento o occupato). Riprova.",
+        "Il coach non ha risposto entro 120 secondi (modello locale troppo lento o occupato). Riprova.",
         true
       );
     }

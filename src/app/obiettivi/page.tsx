@@ -174,13 +174,13 @@ function weeklyProgress(db: DB, g: WeeklyGoal): PeriodProgress {
   const txs = db.transactions.filter((t) => inRange(t.date)).length;
   const trades = db.trades.filter((t) => inRange(isoToDayKey(t.closeDate, tz))).length;
 
-  // minuti di lettura nel periodo (stima: 1 pagina ≈ 3 min), coerentemente con ascordDay
-  const ps = new Date(start + "T00:00:00");
-  const pe = new Date(end + "T23:59:59");
+  // minuti di lettura nel periodo (stima: 1 pagina ≈ 3 min), coerentemente con ascordDay.
+  // updatedAt è un ISO: si confronta per day key nella timezone utente
+  // (mai new Date() locale del browser).
   let pagesInPeriod = 0;
   db.books.forEach((b) => {
-    const u = new Date(b.updatedAt);
-    if (u >= ps && u <= pe) pagesInPeriod += b.pagesRead;
+    const day = isoToDayKey(b.updatedAt, tz);
+    if (day >= start && day <= end) pagesInPeriod += b.pagesRead;
   });
   // pagine totali lette nei libri attualmente in corso
   const bookPagesTotal = db.books
@@ -225,7 +225,11 @@ function NumEditor({
   className?: string;
 }) {
   const [draft, setDraft] = useState(String(value));
-  useEffect(() => setDraft(String(value)), [value]);
+  // Sync da prop esterna in microtask: nessun setState sincrono nel corpo
+  // dell'effect (one-shot, nessun ciclo di render).
+  useEffect(() => {
+    queueMicrotask(() => setDraft(String(value)));
+  }, [value]);
   const commit = () => {
     const n = Number(draft);
     const v = Number.isFinite(n) && n >= min ? n : value;
