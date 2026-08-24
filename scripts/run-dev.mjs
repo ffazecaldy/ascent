@@ -3,7 +3,8 @@
 // ASCEND — avvio accoppiato: app + window-tracker + Ollama
 // vivono e muoiono insieme.
 //   node scripts/run-dev.mjs  → tracker-server + ollama serve + next dev
-// Ctrl+C (o chiusura app)     → tutto fermato insieme.
+// Ctrl+C (o chiusura app)     → tutto fermato insieme, OLLAMA INCLUSO:
+//   se era già attivo viene ADOTTATO (pid via netstat) e spento alla fine.
 // Servizi già attivi sulle loro porte vengono riusati, non duplicati.
 // ============================================================
 import { spawn } from "node:child_process";
@@ -48,14 +49,53 @@ if (isTrackerUp) {
   });
 }
 
-// --- Ollama (per il Coach AI): riusa se già attivo, altrimenti serve ---
-// Porta da ASCEND_OLLAMA_PORT (default 11434); eseguibile da
-// ASCEND_OLLAMA_EXE → path di default → "ollama" risolto dal PATH.
+// --- Ollama (per il Coach AI): ACCOPPIAMENTO STRETTTO con l'app ---
+// Se la porta è libera lo avviamo; se è già attivo lo ADOTTIAMO ricordando
+// il suo PID e lo fermiamo alla chiusura (l'app vive e muore con Ollama).
+// Se la porta è occupata da un altro servizio, proseguiamo senza toccarlo.
 const isOllamaUp = await portInUse(OLLAMA_PORT);
 let ollama = null;
+let adoptedOllamaPid = 0;
+
+function pidsListeningOn(port) {
+  try {
+    const out = execFileSync("netstat", ["-ano"], { windowsHide: true, encoding: "utf8", timeout: 5000 });
+    const pids = new Set();
+    for (const line of out.split("\n")) {
+      if (!line.includes(`:${port} `) || !/LISTENING/i.test(line)) continue;
+      const pid = Number(line.trim().split(/\s+/).pop());
+      if (pid > 0) pids.add(pid);
+    }
+    return [...pids];
+  } catch {
+    return [];
+  }
+}
+
+async function looksLikeOllama(port) {
+  try {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 1500);
+    const res = await fetch(`http://127.0.0.1:${port}/api/version`, { signal: ctl.signal });
+    clearTimeout(timer);
+    return res.ok && (await res.text()).includes("version");
+  } catch {
+    return false;
+  }
+}
 
 if (isOllamaUp) {
-  console.log(`[run-dev] ollama già attivo su :${OLLAMA_PORT} — riuso`);
+  if (await looksLikeOllama(OLLAMA_PORT)) {
+    const [pid] = pidsListeningOn(OLLAMA_PORT);
+    adoptedOllamaPid = pid ?? 0;
+    console.log(
+      `[run-dev] ollama già attivo su :${OLLAMA_PORT} — adottato` +
+        (adoptedOllamaPid ? ` (pid ${adoptedOllamaPid})` : "") +
+        "; lo fermerò alla chiusura"
+    );
+  } else {
+    console.warn(`[run-dev] :${OLLAMA_PORT} occupato da un altro servizio — Coach AI non disponibile (processo esterno lasciato intatto)`);
+  }
 } else {
   const { existsSync } = await import("node:fs");
   const envExe = process.env.ASCEND_OLLAMA_EXE;
@@ -151,8 +191,18 @@ function shutdown(why) {
   console.log(`\n[run-dev] chiusura (${why}) — fermo tutto`);
   killTree(next);
   if (tracker) killTree(tracker);
-  // Ollama solo se l'abbiamo avviato noi (se era già attivo, lo lasciamo vivo)
+  // Ollama avviato da noi…
   if (ollama) killTree(ollama);
+  // …o adottato se era già attivo: l'app vive e muore con Ollama
+  if (adoptedOllamaPid > 0 && process.platform === "win32") {
+    try {
+      spawn("taskkill", ["/pid", String(adoptedOllamaPid), "/T", "/F"], {
+        stdio: "ignore",
+        windowsHide: true,
+      });
+      console.log(`[run-dev] ollama adottato (pid ${adoptedOllamaPid}) fermato`);
+    } catch { /* noop */ }
+  }
   // esci dopo un attimo per lasciare il tempo a taskkill di completare
   setTimeout(() => process.exit(0), 1500);
 }
