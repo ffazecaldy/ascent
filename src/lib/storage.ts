@@ -264,6 +264,30 @@ export function forceReload(): DB {
   return loadDB();
 }
 
+/**
+ * Purga TOTALE dello storage Ascend: rimuove il DB principale, gli snapshot
+ * di backup e ogni chiave accessoria (ack banner rischio, timer studio, ecc.)
+ * e invalida la cache interna. Dopo la chiamata l'app è come per un visitatore
+ * al primo avvio: la prossima loadDB() semina lo stato vuoto e riparte
+ * dall'onboarding. Da usare PRIMA di updateDB(() => seedDB()).
+ */
+export function purgeAscendStorage(): void {
+  cache = null;
+  if (typeof window === "undefined") return;
+  try {
+    const doomed: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k && (k === STORAGE_KEY || k.startsWith(SNAP_PREFIX) || k.startsWith("ascend:"))) {
+        doomed.push(k);
+      }
+    }
+    doomed.forEach((k) => window.localStorage.removeItem(k));
+  } catch {
+    /* localStorage indisponibile: la cache invalidata basta per il flusso */
+  }
+}
+
 function subscribe(cb: () => void): () => void {
   listeners.add(cb);
   return () => listeners.delete(cb);

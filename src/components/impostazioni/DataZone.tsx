@@ -6,7 +6,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useDB, updateDB } from "@/lib/storage";
+import { useDB, updateDB, purgeAscendStorage } from "@/lib/storage";
 import { seedDB } from "@/lib/db";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -31,6 +31,10 @@ export function DataZone() {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const doReset = () => {
+    // purga TUTTO lo storage Ascend (DB, snapshot di backup, ack banner,
+    // timer studio…) e poi semina lo stato nuovo-utente: l'app riparte
+    // dall'onboarding come al primo avvio.
+    purgeAscendStorage();
     updateDB(() => seedDB());
     setConfirmOpen(false);
   };
