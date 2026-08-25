@@ -56,23 +56,43 @@ let busy = false;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
 const listeners = new Set<() => void>();
+
+// Snapshot CACHATO e immutabile: getRecordState deve restituire lo stesso
+// riferimento tra un cambio e l'altro, altrimenti useSyncExternalStore
+// vede un "nuovo" oggetto a ogni render e va in loop infinito.
+let snap: RecordState = {
+  recording: false, sessionStart: null, lastSync: null, appCount: 0, lastSessionStats: null,
+};
+
+function refreshSnap() {
+  snap = { recording, sessionStart, lastSync, appCount: appSet.size, lastSessionStats };
+}
+
 function notify() {
+  refreshSnap();
   listeners.forEach((l) => l());
 }
 
 export function subscribeRecord(listener: () => void): () => void {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 export function getRecordState(): RecordState {
-  return { recording, sessionStart, lastSync, appCount: appSet.size, lastSessionStats };
+  return snap;
 }
 
 /** Snapshot lato server/prerender: nessuna registrazione attiva.
- *  Richiesto da useSyncExternalStore durante il prerender Next. */
+ *  Richiesto da useSyncExternalStore durante il prerender Next.
+ *  Anche questo deve essere un riferimento STABILE. */
+const SERVER_SNAP: RecordState = {
+  recording: false, sessionStart: null, lastSync: null, appCount: 0, lastSessionStats: null,
+};
+
 export function getRecordStateServer(): RecordState {
-  return { recording: false, sessionStart: null, lastSync: null, appCount: 0, lastSessionStats: null };
+  return SERVER_SNAP;
 }
 
 function persist() {
