@@ -139,7 +139,11 @@ const EDGE = [
 ].find((p) => p && fs.existsSync(p));
 if (EDGE) {
   log(`apertura finestra app (${EDGE})`);
-  spawn(EDGE, [`--app=${APP_URL}`, "--start-maximized"], {
+  // --disable-background-mode: senza, chiudendo la finestra Edge resta in
+  // background (--no-startup-window) e la riapertura dell'app non crea
+  // più alcuna finestra. Così Edge esce del tutto alla chiusura e il
+  // prossimo lancio apre la finestra come al primo avvio.
+  spawn(EDGE, [`--app=${APP_URL}`, "--start-maximized", "--disable-background-mode"], {
     stdio: "ignore", windowsHide: true, detached: true,
   }).unref();
 } else {
