@@ -37,6 +37,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
+      <head>
+        {/* Ripristina il tema PRIMA del paint: niente flash e il tema
+            sopravvive a refresh/riavvio (localStorage 'ascend:theme'). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{var t=localStorage.getItem("ascend:theme");if(t&&["black","neon","aurora"].indexOf(t)>=0){document.documentElement.dataset.theme=t}}catch(e){}',
+          }}
+        />
+      </head>
       <body className="min-h-screen bg-background text-foreground">
         <AppShell>{children}</AppShell>
       </body>
