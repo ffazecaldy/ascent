@@ -25,14 +25,5 @@
     "sharp": "^0.35.3",
     "tailwindcss": "^4",
     "typescript": "^5"
-  },
-  "pkg": {
-    "assets": [
-      "out/**"
-    ],
-    "scripts": [
-      "scripts/ascend-daemon.cjs"
-    ]
-  },
-  "bin": "scripts/ascend-daemon.cjs"
+  }
 }
