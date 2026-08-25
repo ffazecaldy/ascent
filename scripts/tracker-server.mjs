@@ -342,6 +342,8 @@ function handleHookLine(line) {
   try {
     const obj = JSON.parse(t);
     if (obj && typeof obj.ts === "string" && typeof obj.exe === "string") {
+      // riga di servizio del figlio PS ("hook ready"): mai persistita
+      if (obj.exe === "(hook-ready)") return;
       // privacy: il titolo completo vive solo in memoria (API /api/active),
       // nel JSONL persistito va troncato
       const persisted = { ...obj, title: scrubTitle(obj.title) };
@@ -419,7 +421,7 @@ const server = createServer(async (req, res) => {
         lastSample,
         lastAt: lastSample?.ts ?? null,
         platform: process.platform,
-        mode: hookAlive ? "hook-event" : "polling",
+        mode: hookAlive ? "hybrid" : "polling",
       }, req);
     }
 
@@ -506,12 +508,22 @@ async function readDateLines(date) {
 }
 
 // ------------------------------------------------------------------
-// Loop sampling (fallback polling, o tick manuale)
+// Loop sampling (polling ibrido, sempre attivo).
+// Dedup: se l'hook ha appena catturato la stessa finestra (<70% del
+// tick), il poller salta l'append — niente doppi conteggi sul cambio
+// finestra; con finestra stabile invece appende ogni tick (0.5 min).
 // ------------------------------------------------------------------
+const POLL_DEDUP_MS = Math.round(INTERVAL * 1000 * 0.7);
 async function tick() {
   const sample = await sampleActiveWindow();
   if (sample) {
+    const dup =
+      lastSample &&
+      lastSample.exe === sample.exe &&
+      lastSample.title === sample.title &&
+      Date.now() - Date.parse(lastSample.ts) < POLL_DEDUP_MS;
     lastSample = { ts: new Date().toISOString(), ...sample };
+    if (dup) return; // appena contato dall'hook: salta
     await appendSample(lastSample);
   }
 }
@@ -540,16 +552,20 @@ async function startServer() {
   server.listen(PORT, "127.0.0.1", async () => {
     console.log(`Ascend Window Tracker · http://127.0.0.1:${PORT}`);
     console.log(`Data dir: ${DATA_DIR_USED} · interval ${INTERVAL}s · retention ${retentionDays()}g · platform ${process.platform}`);
-    // Prova hook event-driven; se non parte, polling
+    // MODALITÀ IBRIDA (sempre attiva): il polling 30s garantisce un campione
+    // anche quando la finestra attiva NON cambia (gioco, lettura, chat) —
+    // l'hook event-driven aggiunge i cambi istantanei. L'hook da solo
+    // sottoconta di ore l'uso reale (0 eventi = 0 dati).
     const hooked = await startHook();
-    if (!hooked) {
-      console.log("[tracker] hook non disponibile — polling attivo");
-      tick();
-      checkInterval = setInterval(tick, INTERVAL * 1000);
-      checkInterval.unref?.();
-    } else {
+    if (hooked) {
       console.log("[tracker] hook WinEvent attivo (event-driven, CPU ~0)");
+    } else {
+      console.log("[tracker] hook non disponibile — solo polling");
     }
+    // Polling SEMPRE attivo (hybrid): anche con hook vivo.
+    tick();
+    checkInterval = setInterval(tick, INTERVAL * 1000);
+    checkInterval.unref?.();
   });
 }
 

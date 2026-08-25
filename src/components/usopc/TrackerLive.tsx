@@ -136,17 +136,31 @@ export function TrackerLive() {
       const since = await fetchTrackerSince(lastTsRef.current ?? nowISO());
       if (!since || !Array.isArray(since.samples) || since.samples.length === 0) return;
 
-      // il server filtra già per ts, ma proteggiamo dai doppioni
+      // il server filtra già per ts, ma proteggiamo dai doppioni.
+      // Confronto NUMERICO (Date.parse): i ts possono avere formati misti
+      // ("Z" del client vs "+02:00" del tracker) e il confronto
+      // lessicografico scartava campioni validi.
       const base = lastTsRef.current;
+      const baseMs = base ? Date.parse(base) : NaN;
       const fresh = base
-        ? since.samples.filter((s) => s && typeof s.ts === "string" && s.ts > base)
+        ? since.samples.filter((s) => {
+            if (!s || typeof s.ts !== "string") return false;
+            const t = Date.parse(s.ts);
+            return Number.isFinite(t) && (!Number.isFinite(baseMs) || t > baseMs);
+          })
         : since.samples;
       if (fresh.length === 0) return;
 
       importSamples(fresh);
 
       // avanza il "ultimo import" al campione più recente
-      const maxTs = fresh.reduce((a, b) => (b.ts > a ? b.ts : a), base ?? "");
+      const maxTs = fresh.reduce((a, b) => {
+        const ta = Date.parse(a);
+        const tb = Date.parse(b.ts);
+        if (!Number.isFinite(ta)) return b.ts;
+        if (!Number.isFinite(tb)) return a;
+        return tb > ta ? b.ts : a;
+      }, base ?? "");
       lastTsRef.current = maxTs;
       setLastSync(maxTs);
       try {
