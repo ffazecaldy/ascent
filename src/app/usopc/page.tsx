@@ -44,7 +44,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   Altro: "#64748b",
 };
 
-const PRODUCTIVE = ["Lavoro", "Sviluppo", "Studio"];
+const PRODUCTIVE = ["Lavoro", "Sviluppo", "Dev", "Studio"];
 
 /** Data valida in formato yyyy-MM-dd (e giorno reale del calendario). */
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -298,7 +298,8 @@ export default function UsoPcPage() {
         Importa auto-tracker
       </Button>
       <Button variant="outline" size="sm" onClick={() => setMapOpen(true)}>
-        Mock app
+        <Icon name="settings" size={14} className="mr-1" />
+        Regole app/siti
       </Button>
       <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
         Import CSV
@@ -645,11 +646,11 @@ export default function UsoPcPage() {
         )}
       </Modal>
 
-      {/* Modal mapping app */}
-      <Modal open={mapOpen} onClose={() => { setMapOpen(false); setEditMapId(null); setAppName(""); }} title="Mapping app → categoria" width="max-w-md">
+      {/* Modal mapping app/sito → categoria */}
+      <Modal open={mapOpen} onClose={() => { setMapOpen(false); setEditMapId(null); setAppName(""); }} title="Regole: app o sito → categoria" width="max-w-md">
         <div className="mb-3 flex items-end gap-2">
-          <Field label={editMapId ? "Modifica app" : "App"} className="flex-1">
-            <Input value={appName} onChange={(e) => setAppName(e.target.value)} placeholder="es. Chrome" />
+          <Field label={editMapId ? "Modifica regola" : "App o sito"} className="flex-1">
+            <Input value={appName} onChange={(e) => setAppName(e.target.value)} placeholder="es. Hermes, tradingview.com, Netflix" />
           </Field>
           <Field label="Categoria" className="w-40">
             <Select value={appCat} onChange={(e) => setAppCat(e.target.value)}>
@@ -665,8 +666,9 @@ export default function UsoPcPage() {
             </Button>
           )}
         </div>
-        <p className="mb-2 text-[11px] text-muted-foreground">
-          Usato dal futuro connettore ActivityWatch (V2) per categorizzare automaticamente le app.
+        <p className="mb-2 text-[11px] leading-relaxed text-muted-foreground">
+          La regola vale per il nome dell&apos;app <span className="text-foreground">o per le parole nel titolo/sito</span>{" "}
+          (es. &quot;tradingview.com&quot; cattura tutto TradingView nel browser). Priorità massima sulle regole integrate.
         </p>
         <div className="space-y-1">
           {db.pcAppCategoryMap.map((m) => (

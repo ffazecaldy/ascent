@@ -105,7 +105,15 @@ export const LEISURE_TITLE: { cat: string; keys: string[] }[] = [
 /** Dominii produttivi nel TITOLO finestra → Lavoro/Dev. Dopo lo svago, prima dell'exe. */
 export const WORK_TITLE: { cat: string; keys: string[] }[] = [
   { cat: "Lavoro", keys: ["github", "gitlab", "stackoverflow", "stack overflow", "docs.", "documentation", "outlook", "gmail", "google meet", "notion.so", "atlassian", "jira", "confluence", "figma"] },
-  { cat: "Dev", keys: ["visual studio code", "vscode", "intellij", "pycharm", "webstorm", "terminal", "docker desktop", "postman", "localhost:", "vercel", "developer.mozilla", "mdn"] },
+  {
+    cat: "Dev",
+    keys: [
+      "visual studio code", "vscode", "intellij", "pycharm", "webstorm", "terminal", "docker desktop",
+      "postman", "localhost:", "vercel", "developer.mozilla", "mdn",
+      // strumenti quotidiani considerati produttivi
+      "hermes", "tradingview", "ascend",
+    ],
+  },
 ];
 
 export const EXE_CATEGORY: Record<string, string> = {
@@ -114,6 +122,8 @@ export const EXE_CATEGORY: Record<string, string> = {
   // Dev
   "code.exe": "Dev", "code-insiders.exe": "Dev", "pycharm64.exe": "Dev", "idea64.exe": "Dev", "webstorm64.exe": "Dev", "rider64.exe": "Dev", "clion64.exe": "Dev", "goland64.exe": "Dev", "phpstorm64.exe": "Dev", "rubymine64.exe": "Dev", "vim.exe": "Dev", "nvim.exe": "Dev", "notepad++.exe": "Dev", "sublime_text.exe": "Dev", "atom.exe": "Dev",
   "cmd.exe": "Dev", "powershell.exe": "Dev", "pwsh.exe": "Dev", "bash.exe": "Dev", "wsl.exe": "Dev", "git.exe": "Dev", "docker.exe": "Dev", "docker-compose.exe": "Dev",
+  // Produttivi quotidiani (app + servizi usati ogni giorno)
+  "hermes.exe": "Dev", "tradingview.exe": "Dev", "ascend.exe": "Dev",
   // Communication
   "teams.exe": "Communication", "slack.exe": "Communication", "discord.exe": "Communication", "whatsapp.exe": "Communication", "telegram.exe": "Communication", "signal.exe": "Communication", "skype.exe": "Communication", "zoom.exe": "Communication", "outlook.exe": "Communication",
   // Design

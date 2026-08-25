@@ -71,8 +71,16 @@ export function smartShort(n: number): string {
   return n.toLocaleString("it-IT", { maximumFractionDigits: 1 });
 }
 
-/** Compact per KPI header, es. 14 → "14 gg", 3.5h */
+/** Compact per KPI header, es. 14 → "14 gg".
+ *  Formato durata "smart": <60 min → "45 min"; ≥1h → "2h 40m" (minuti
+ *  arrotondati a 5; se i minuti fanno 0 → "2h"). */
 export function minutiToOre(min: number): string {
-  const h = min / 60;
-  return h.toLocaleString("it-IT", { maximumFractionDigits: 1 }) + "h";
+  if (!Number.isFinite(min) || min <= 0) return "0 min";
+  if (min < 60) {
+    const m = Math.max(1, Math.round(min));
+    return `${m} min`;
+  }
+  const h = Math.floor(min / 60);
+  const m = Math.round((min % 60) / 5) * 5;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
