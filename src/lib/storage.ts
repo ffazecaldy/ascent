@@ -334,19 +334,28 @@ export function markHydrated(): void {
   if (!hydrated) {
     hydrated = true;
     listeners.forEach((l) => l());
-    // Mirror boot: se il file del daemon ha un DB e il localStorage è vuoto
-    // (profilo browser nuovo / EXE al primo avvio), adottiamo i dati del file.
+    // Mirror boot (bidirezionale):
+    //  - file HA dati + profilo vuoto → adotta il file (EXE al primo avvio)
+    //  - profilo HA dati + file vuoto → semina il file (prima volta col mirror:
+    //    i dati storici del browser normale diventano la base condivisa)
     void mirrorPull().then((remote) => {
-      if (!remote || !isValidDBShape(remote)) return;
       const local = loadDB();
-      const localEmpty =
-        local.transactions.length === 0 &&
-        local.trades.length === 0 &&
-        local.pcUsageLogs.length === 0;
-      if (localEmpty) {
+      const localHasData =
+        local.transactions.length > 0 ||
+        local.trades.length > 0 ||
+        local.pcUsageLogs.length > 0;
+      const remoteValid = !!remote && isValidDBShape(remote);
+      const remoteHasData =
+        remoteValid &&
+        ((remote as DB).transactions.length > 0 ||
+          (remote as DB).trades.length > 0 ||
+          (remote as DB).pcUsageLogs.length > 0);
+      if (remoteHasData && !localHasData) {
         cache = migrate({ ...emptyDB(), ...(remote as DB), settings: { ...emptyDB().settings, ...(remote as DB).settings } });
         saveDB(cache);
         listeners.forEach((l) => l());
+      } else if (localHasData && !remoteHasData) {
+        mirrorPush(cache);
       }
     });
   }
