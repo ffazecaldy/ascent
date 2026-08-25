@@ -1,88 +1,64 @@
 "use client";
 // ============================================================
 // ASCEND — Pannello "Tracker live" (Uso PC)
-// Registrazione dinamica via micro-server locale (scripts/tracker-server.mjs):
-//  - badge stato tracker online/offline (dot verde/rossa, fetch /api/health)
-//  - ultima app attiva (lastSample da /api/active)
-//  - "● Inizia a registrare" / "■ Ferma": quando attivo, cronometro live
-//    HH:MM:SS + polling GET /api/since?ts=<ultimo import> ogni 20s →
-//    categorize() + aggregazione (giorno, categoria) → upsert in
-//    pcUsageLogs (source "auto").
-//  - "Ferma" ferma SOLO il polling e mostra le stats della sessione appena
-//    chiusa (buffer locale): durata, app distinte, top categorie,
-//    % produttivo, app più usata. Il riquadro si resetta al nuovo start.
-//  - Il tracker di sistema continua a campionare in background anche a
-//    registrazione ferma (i dati restano nel file .jsonl/giornaliero).
-// Offline: ogni fetch fallito (rete/CORS/processo spento) → lo stato passa a
-// "offline" e il polling riprende automaticamente quando il server torna su.
+// La REGISTRAZIONE è globale (src/lib/pc-record.ts): parte da qui
+// ma continua a girare su OGNI pagina (il polling vive nel modulo,
+// non nel componente). Un popup flottante (TrackerFloating,
+// montato in AppShell) permette di fermarla ovunque.
+// - badge stato tracker online/offline (fetch /api/health)
+// - ultima app attiva (lastSample da /api/active)
+// - "● Inizia a registrare" / "■ Ferma": cronometro HH:MM:SS +
+//   polling GET /api/since?ts=<ultimo import> ogni 20s →
+//   categorize() + aggregazione (giorno, categoria) → upsert in
+//   pcUsageLogs (source "auto").
+// - "Ferma" mostra le stats della sessione appena chiusa: durata,
+//   app distinte, top categorie, % produttivo, app più usata.
+// - Il tracker di sistema campiona in background anche a
+//   registrazione ferma (file .jsonl/giornaliero).
+// Offline: ogni fetch fallito (rete/CORS/processo spento) → stato
+// "offline"; il polling riprende quando il server torna su.
 // ============================================================
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardSubtitle, CardTitle } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
-import { useDB, updateDB, uid, nowISO } from "@/lib/storage";
+import { useDB } from "@/lib/storage";
 import { todayKey } from "@/lib/dates";
-import type { PCUsageLog } from "@/lib/types";
 import {
   TRACKER_POLL_MS,
-  TRACKER_SAMPLE_MIN,
   fetchTrackerActive,
   fetchTrackerHealth,
-  fetchTrackerSince,
-  aggregateSamples,
-  categorize,
   categoryColor,
   formatDurHMS,
   formatOreMin,
-  PRODUCTIVE_CATEGORIES,
   timeAgo,
   type TrackerSample,
 } from "@/lib/pc-tracker";
+import {
+  getRecordState,
+  getRecordStateServer,
+  startRecord,
+  stopRecord,
+  subscribeRecord,
+  type SessionStats,
+} from "@/lib/pc-record";
 import { cn } from "@/lib/cn";
 
 type TrackerStatus = "checking" | "online" | "offline";
 
 const STATUS_POLL_MS = 15_000;
-const LAST_TS_KEY = "ascend:pcTrackerLastTs";
-const SOURCE: PCUsageLog["source"] = "auto";
-
-/** Stats della sessione appena fermata (solo buffer locale, no storico). */
-interface SessionStats {
-  durationMs: number;
-  appCount: number;
-  productiveMin: number;
-  totalMin: number;
-  categories: { category: string; minutes: number }[];
-  topApp: { exe: string; samples: number } | null;
-}
 
 export function TrackerLive() {
   const db = useDB();
-
-  // Regole personali app→categoria (priorità massima nella categorizzazione)
-  const userMap = useMemo(
-    () => Object.fromEntries(db.pcAppCategoryMap.map((m) => [m.appName.toLowerCase(), m.category])),
-    [db.pcAppCategoryMap]
-  );
+  // stato registrazione GLOBALE: continua anche navigando via
+  const record = useSyncExternalStore(subscribeRecord, getRecordState, getRecordStateServer);
+  const { recording, sessionStart, lastSync, appCount, lastSessionStats } = record;
 
   const [status, setStatus] = useState<TrackerStatus>("checking");
   const [lastSample, setLastSample] = useState<TrackerSample | null>(null);
-  const [recording, setRecording] = useState(false);
-  const [lastSync, setLastSync] = useState<string | null>(null);
-  const [appCount, setAppCount] = useState(0);
-  const [sessionStart, setSessionStart] = useState<number | null>(null);
   const [nowTs, setNowTs] = useState(() => Date.now());
-  const [sessionStats, setSessionStats] = useState<SessionStats | null>(null);
-
-  // refs di lavoro (nessun re-render quando cambiano)
-  const lastTsRef = useRef<string | null>(null);
-  const pollTimerRef = useRef<number | null>(null);
-  const busyRef = useRef(false);
-  const appSetRef = useRef<Set<string>>(new Set());
-  const sessionStartRef = useRef<number | null>(null);
-  const sessionSamplesRef = useRef<TrackerSample[]>([]);
 
   const today = todayKey(db.settings.timezone);
   const todayMin = useMemo(
@@ -93,176 +69,10 @@ export function TrackerLive() {
   // --- cronometro live HH:MM:SS (1 tick/s mentre registra) ---
   useEffect(() => {
     if (sessionStart === null) return;
-    // Primo tick in microtask: il setState non è sincrono nel corpo dell'effect.
     queueMicrotask(() => setNowTs(Date.now()));
     const id = window.setInterval(() => setNowTs(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [sessionStart]);
-
-  // --- upsert campioni aggregati in pcUsageLogs (source "auto") ---
-  const importSamples = useCallback((samples: TrackerSample[]): number => {
-    if (samples.length === 0) return 0;
-
-    const aggregated = aggregateSamples(samples, userMap);
-    let inserted = 0;
-    updateDB((d) => {
-      const next = { ...d, pcUsageLogs: [...d.pcUsageLogs] };
-
-      for (const [key, minutes] of Object.entries(aggregated)) {
-        if (minutes <= 0) continue;
-        const [date, category] = key.split("|");
-        if (!date || !category) continue;
-
-        // upsert per (giorno, categoria)
-        const idx = next.pcUsageLogs.findIndex((l) => l.date === date && l.categoryId === category);
-        if (idx >= 0) {
-          const cur = next.pcUsageLogs[idx];
-          next.pcUsageLogs[idx] = { ...cur, minutes: Math.round((cur.minutes + minutes) * 10) / 10 };
-        } else {
-          next.pcUsageLogs.push({ id: uid(), date, categoryId: category, minutes, source: SOURCE, createdAt: nowISO() });
-          inserted++;
-        }
-      }
-      return next;
-    });
-    return inserted;
-  }, [userMap]);
-
-  // --- un ciclo di polling /api/since ---
-  const poll = useCallback(async () => {
-    if (busyRef.current) return; // evita sovrapposizioni se il fetch dura >20s
-    busyRef.current = true;
-    try {
-      const since = await fetchTrackerSince(lastTsRef.current ?? nowISO());
-      if (!since || !Array.isArray(since.samples) || since.samples.length === 0) return;
-
-      // il server filtra già per ts, ma proteggiamo dai doppioni.
-      // Confronto NUMERICO (Date.parse): i ts possono avere formati misti
-      // ("Z" del client vs "+02:00" del tracker) e il confronto
-      // lessicografico scartava campioni validi.
-      const base = lastTsRef.current;
-      const baseMs = base ? Date.parse(base) : NaN;
-      const fresh = base
-        ? since.samples.filter((s) => {
-            if (!s || typeof s.ts !== "string") return false;
-            const t = Date.parse(s.ts);
-            return Number.isFinite(t) && (!Number.isFinite(baseMs) || t > baseMs);
-          })
-        : since.samples;
-      if (fresh.length === 0) return;
-
-      importSamples(fresh);
-
-      // avanza il "ultimo import" al campione più recente
-      const maxTs = fresh.reduce((a, b) => {
-        const ta = Date.parse(a);
-        const tb = Date.parse(b.ts);
-        if (!Number.isFinite(ta)) return b.ts;
-        if (!Number.isFinite(tb)) return a;
-        return tb > ta ? b.ts : a;
-      }, base ?? "");
-      lastTsRef.current = maxTs;
-      setLastSync(maxTs);
-      try {
-        window.localStorage.setItem(LAST_TS_KEY, maxTs);
-      } catch {
-        /* quota/privato — ignorabile */
-      }
-
-      // contatore app distinte viste in questa sessione
-      const seen = appSetRef.current;
-      let changed = false;
-      for (const s of fresh) {
-        if (s.exe && !seen.has(s.exe)) {
-          seen.add(s.exe);
-          changed = true;
-        }
-      }
-      if (changed) setAppCount(seen.size);
-
-      // buffer locale per le stats di sessione allo stop
-      sessionSamplesRef.current.push(...fresh);
-    } finally {
-      busyRef.current = false;
-    }
-  }, [importSamples]);
-
-  const startRecording = useCallback(() => {
-    // Base: ultimo ts importato persistito (se di oggi), altrimenti "adesso".
-    // Così una sessione interrotta riprende dai campioni del gap senza doppioni.
-    let base = nowISO();
-    try {
-      const stored = window.localStorage.getItem(LAST_TS_KEY);
-      if (stored && !Number.isNaN(Date.parse(stored))) {
-        const d = new Date(stored);
-        const now = new Date();
-        if (d.toDateString() === now.toDateString()) base = stored;
-      }
-    } catch {
-      /* localStorage non disponibile */
-    }
-
-    lastTsRef.current = base;
-
-    // nuova sessione: resetta buffer + stats del riquadro precedente
-    const startMs = Date.now();
-    sessionStartRef.current = startMs;
-    sessionSamplesRef.current = [];
-    appSetRef.current = new Set();
-    setSessionStart(startMs);
-    setNowTs(startMs);
-    setSessionStats(null);
-    setAppCount(0);
-    setLastSync(null);
-    setRecording(true);
-
-    if (pollTimerRef.current !== null) window.clearInterval(pollTimerRef.current);
-    void poll(); // poll immediato + intervallo
-    pollTimerRef.current = window.setInterval(() => void poll(), TRACKER_POLL_MS);
-  }, [poll]);
-
-  const stopRecording = useCallback(() => {
-    if (pollTimerRef.current !== null) {
-      window.clearInterval(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
-    setRecording(false);
-    setSessionStart(null);
-
-    // --- stats della sessione appena fermata (solo buffer locale) ---
-    const startMs = sessionStartRef.current;
-    const durationMs = startMs !== null ? Date.now() - startMs : 0;
-    const buf = sessionSamplesRef.current;
-
-    const catMin = new Map<string, number>();
-    const exeCount = new Map<string, number>();
-    for (const s of buf) {
-      if (!s?.exe) continue;
-      const cat = categorize(s.exe, s.title ?? "", userMap);
-      catMin.set(cat, (catMin.get(cat) ?? 0) + TRACKER_SAMPLE_MIN);
-      exeCount.set(s.exe, (exeCount.get(s.exe) ?? 0) + 1);
-    }
-
-    const categories = [...catMin.entries()]
-      .map(([category, minutes]) => ({ category, minutes: Math.round(minutes * 10) / 10 }))
-      .sort((a, b) => b.minutes - a.minutes);
-
-    const totalMin = categories.reduce((s, c) => s + c.minutes, 0);
-    const productiveMin = categories
-      .filter((c) => PRODUCTIVE_CATEGORIES.has(c.category))
-      .reduce((s, c) => s + c.minutes, 0);
-
-    const topAppEntry = [...exeCount.entries()].sort((a, b) => b[1] - a[1])[0];
-
-    setSessionStats({
-      durationMs,
-      appCount: exeCount.size,
-      productiveMin,
-      totalMin,
-      categories: categories.slice(0, 3),
-      topApp: topAppEntry ? { exe: topAppEntry[0], samples: topAppEntry[1] } : null,
-    });
-  }, [userMap]);
 
   // --- stato tracker + ultima app attiva (sempre attivi) ---
   useEffect(() => {
@@ -278,7 +88,6 @@ export function TrackerLive() {
     return () => {
       cancelled = true;
       window.clearInterval(id);
-      if (pollTimerRef.current !== null) window.clearInterval(pollTimerRef.current);
     };
   }, []);
 
@@ -361,14 +170,14 @@ export function TrackerLive() {
       </div>
 
       {/* stats sessione appena fermata (resettate al prossimo start) */}
-      {sessionStats && <SessionSummary stats={sessionStats} />}
+      {lastSessionStats && <SessionSummary stats={lastSessionStats} />}
 
       {/* azioni */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button
           variant={recording ? "danger" : "primary"}
           glow={!recording}
-          onClick={recording ? stopRecording : startRecording}
+          onClick={recording ? stopRecord : startRecord}
           disabled={status === "checking"}
           className="flex-1 justify-center gap-2 sm:flex-none sm:px-6"
         >
@@ -376,8 +185,7 @@ export function TrackerLive() {
           <span>{recording ? "■ Ferma" : "● Inizia a registrare"}</span>
         </Button>
         <p className="text-[11px] text-muted-foreground">
-          Aggiorna ogni {TRACKER_POLL_MS / 1000}s · il tracker campiona in background ogni 30s anche a
-          registrazione ferma.
+          La registrazione continua anche se cambi pagina — fermala dal popup in alto.
         </p>
       </div>
     </Card>
@@ -386,7 +194,7 @@ export function TrackerLive() {
 
 // ============================================================
 // Riquadro "Sessione registrata" — stats SOLO della sessione
-// appena fermata (buffer locale dei campioni importati).
+// appena fermata (buffer globale del modulo pc-record).
 // ============================================================
 function SessionSummary({ stats }: { stats: SessionStats }) {
   const pct = stats.totalMin > 0 ? Math.round((stats.productiveMin / stats.totalMin) * 100) : 0;

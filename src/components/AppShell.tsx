@@ -25,6 +25,7 @@ import { PRIVACY_ORDER } from "@/lib/privacy";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { syncNow, readSyncConfig, detectDaemon, shutdownAscend } from "@/lib/sync";
 import { ConfirmDialog } from "@/components/ui/Modal";
+import { TrackerFloating } from "@/components/usopc/TrackerFloating";
 
 interface NavItem {
   href: string;
@@ -311,9 +312,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="relative flex min-h-screen">
-      {/* Semi-sfondo: wallpaper che svanisce gradualmente verso il basso (a malapena visibile) */}
-      <div aria-hidden className="wallpaper-fade pointer-events-none fixed inset-0 z-0" />
+      <div className="relative flex min-h-screen">
+        {/* Semi-sfondo: wallpaper che svanisce gradualmente verso il basso (a malapena visibile) */}
+        <div aria-hidden className="wallpaper-fade pointer-events-none fixed inset-0 z-0" />
+
+        {/* Popup registrazione tracker attiva (visibile su ogni pagina) */}
+        <TrackerFloating />
 
       {/* Sidebar desktop */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-[--bg-elev-1]/60 backdrop-blur-xl lg:flex">
