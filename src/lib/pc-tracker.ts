@@ -138,6 +138,9 @@ export const EXE_CATEGORY: Record<string, string> = {
   "explorer.exe": "System", "taskmgr.exe": "System", "regedit.exe": "System", "msconfig.exe": "System", "services.exe": "System",
   // Gaming
   "steam.exe": "Gaming", "epicgameslauncher.exe": "Gaming", "origin.exe": "Gaming", "battle.net.exe": "Gaming", "gog.exe": "Gaming",
+  // Giochi specifici (processi con nome non riconducibile al titolo):
+  // The Finals usa discovery-d.exe, Rocket League rocketleague.exe (+EAC).
+  "discovery-d.exe": "Gaming", "rocketleague.exe": "Gaming", "rocketleague_eac.exe": "Gaming",
 };
 
 export const TITLE_KEYWORDS: Record<string, string[]> = {
