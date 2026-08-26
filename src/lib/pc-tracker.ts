@@ -57,7 +57,7 @@ export const TRACKER_SAMPLE_MIN = 0.5;
 
 // --- Micro-API (offline-safe: ogni fetch fallito → null) --------------
 
-async function trackerGet<T>(path: string): Promise<T | null> {
+export async function trackerGet<T>(path: string): Promise<T | null> {
   try {
     const res = await fetch(`${TRACKER_BASE_URL}${path}`, { cache: "no-store" });
     if (!res.ok) return null;

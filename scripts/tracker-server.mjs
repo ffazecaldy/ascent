@@ -499,6 +499,25 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { ok: true, date: d, samples: samples.length, slots: lastInSlot.size, minutes }, req);
     }
 
+    // Campioni della DATA richiesta (default: oggi) ridotti a UNO per slot
+    // di 30s (l'ultimo del slot). La categorizzazione avviene lato app
+    // (pc-tracker.aggregateSamples): qui solo la materia prima pulita dai
+    // doppioni hook+poller.
+    if (p === "/api/slots") {
+      const d = url.searchParams.get("date") || ymd();
+      const samples = await readDateLines(d);
+      const SLOT_MS = 30_000;
+      const lastInSlot = new Map();
+      for (const s of samples) {
+        const t = new Date(s.ts).getTime();
+        if (!Number.isFinite(t)) continue;
+        const slot = Math.floor(t / SLOT_MS);
+        const cur = lastInSlot.get(slot);
+        if (!cur || t >= cur.t) lastInSlot.set(slot, s);
+      }
+      return send(res, 200, { ok: true, date: d, slots: lastInSlot.size, samples: [...lastInSlot.values()] }, req);
+    }
+
     if (p === "/api/today") {
       const d = ymd();
       const samples = await readDateLines(d);

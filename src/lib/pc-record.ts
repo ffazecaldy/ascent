@@ -16,10 +16,13 @@ import {
   aggregateSamples,
   categorize,
   fetchTrackerSince,
+  trackerGet,
   TRACKER_POLL_MS,
   TRACKER_SAMPLE_MIN,
   type TrackerSample,
 } from "./pc-tracker";
+import { isoToDayKey } from "./dates";
+import type { PCUsageSource } from "./types";
 import { loadDB, nowISO, updateDB, uid } from "./storage";
 
 const REC_KEY = "ascend:pcRecording";
@@ -179,6 +182,68 @@ function todaysSharedLastTs(): string | null {
   const stored = readStoredLastTs();
   if (stored && new Date(stored).toDateString() === new Date().toDateString()) return stored;
   return null;
+}
+
+/**
+ * RICALLIBRAZIONE GIORNALIERA dei pcUsageLogs dal tracker (fonte primaria).
+ * Risincronizza i giorni CHIUSI (non oggi) prendendo da /api/slots i campioni
+ * ridotti a uno per slot 30s e riaggregandoli con le categorie dell'app:
+ * sostituisce le righe `source:auto` del giorno, che nelle versioni precedenti
+ * potevano contenere doppioni (multi-tab) — il totale non può più superare il
+ * tempo reale di accensione. Eseguita UNA volta per giorno per tab
+ * (chiave ascend:resync-<data>), silenziosa in caso di errore.
+ */
+async function resyncPastDays(): Promise<void> {
+  try {
+    const today = isoToDayKey(nowISO(), "Europe/Rome");
+    const flag = window.localStorage.getItem(`ascend:resync-${today}`);
+    if (flag === "1") return;
+    // giorni chiusi con log auto nel DB (max 7 indietro)
+    const days = [...new Set(
+      loadDB().pcUsageLogs
+        .filter((l) => l.source === SOURCE && l.date < today)
+        .map((l) => l.date)
+    )].sort().slice(-7);
+    if (days.length === 0) {
+      window.localStorage.setItem(`ascend:resync-${today}`, "1");
+      return;
+    }
+    for (const date of days) {
+      const j = await trackerGet<{ ok: boolean; samples: TrackerSample[] }>(
+        `/api/slots?date=${date}`
+      );
+      if (!j?.ok || !Array.isArray(j.samples)) continue;
+      const dbNow = loadDB();
+      const userMap = Object.fromEntries(
+        dbNow.pcAppCategoryMap.map((m) => [m.appName.toLowerCase(), m.category])
+      );
+      const aggregated = aggregateSamples(j.samples, userMap);
+      updateDB((d) => {
+        // righe NON-auto del giorno (import CSV manuali ecc.) preservate;
+        // le auto del giorno vengono RIMPLEZZATE dall'aggregato pulito
+        const others = d.pcUsageLogs.filter((l) => l.date === date && l.source !== SOURCE);
+        const rest = d.pcUsageLogs.filter((l) => l.date !== date);
+        const rebuilt = Object.entries(aggregated).map(([key, minutes]) => {
+          const [dk, category] = key.split("|");
+          const prev = d.pcUsageLogs.find(
+            (l) => l.date === dk && l.categoryId === category && l.source === SOURCE
+          );
+          return {
+            id: prev?.id ?? uid(),
+            date: dk,
+            categoryId: category,
+            minutes,
+            source: SOURCE as PCUsageSource,
+            createdAt: prev?.createdAt ?? nowISO(),
+          };
+        });
+        return { ...d, pcUsageLogs: [...rest, ...rebuilt, ...others] };
+      });
+    }
+    window.localStorage.setItem(`ascend:resync-${today}`, "1");
+  } catch {
+    /* best effort: mai bloccare l'app per la ricalibrazione */
+  }
 }
 
 async function pollBody(): Promise<void> {
@@ -352,5 +417,9 @@ export function restoreIfNeeded(): void {
   lastTs = base;
   lastSync = null;
   startLoop(); // SEMPRE: il tracker alimenta Uso PC anche senza registrazione
+  // Ricalibrazione una volta al giorno dei giorni CHIUSI (2-7 indietro):
+  // rimpiazza gli eventuali doppioni storici con l'aggregato pulito dal
+  // tracker. Fire-and-forget, silenziosa.
+  void resyncPastDays();
   notify();
 }
