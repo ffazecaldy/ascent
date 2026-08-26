@@ -21,9 +21,14 @@ function pct(part: number, whole: number): number {
 
 export function UptimeCompareCard({ db, today }: { db: DB; today: string }) {
   const [uptimeMin, setUptimeMin] = useState<number | null>(null);
+  const [workMin, setWorkMin] = useState<number | null>(null);
   const [online, setOnline] = useState(true);
 
-  // uptime del PC: polling leggero 30s (0.4ms per lettura)
+  // uptime + lavoro tracciato: polling leggero 30s (0.4ms per lettura).
+  // Il lavoro viene da /api/worktoday del TRACKER (fonte primaria): minuti
+  // calcolati sul JSONL grezzo con dedup a slot 30s — immuni dai doppioni di
+  // sincronizzazione/multi-tab che gonfiavano la somma dei pcUsageLogs oltre
+  // il tempo reale di accensione. Fallback: somma dal DB (vecchio comportamento).
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
@@ -31,8 +36,18 @@ export function UptimeCompareCard({ db, today }: { db: DB; today: string }) {
         const res = await fetch(`${BASE}/api/sysinfo`, { cache: "no-store" });
         const j = await res.json();
         if (!cancelled && j.ok) setUptimeMin(Math.round(j.uptimeSec / 60));
+        setOnline(true);
       } catch {
         if (!cancelled) setOnline(false);
+      }
+      try {
+        const res2 = await fetch(`${BASE}/api/worktoday`, { cache: "no-store" });
+        const j2 = await res2.json();
+        if (!cancelled && j2.ok && typeof j2.minutes === "number") {
+          setWorkMin(Math.round(j2.minutes));
+        }
+      } catch {
+        /* tracker online ma endpoint assente → resta il fallback DB */
       }
     };
     void tick();
@@ -43,11 +58,13 @@ export function UptimeCompareCard({ db, today }: { db: DB; today: string }) {
     };
   }, []);
 
-  // lavoro effettivo oggi (tutte le categorie tracciate)
-  const workTodayMin = useMemo(
+  // lavoro effettivo oggi (tutte le categorie tracciate) — FALLBACK se il
+  // tracker non risponde con /api/worktoday
+  const workFromDbMin = useMemo(
     () => db.pcUsageLogs.filter((p) => p.date === today).reduce((s, p) => s + p.minutes, 0),
     [db, today]
   );
+  const workTodayMin = workMin ?? Math.round(workFromDbMin);
 
   // medie ultimi giorni COMPLETI (esclude oggi parziale)
   const avg7 = useMemo(() => {

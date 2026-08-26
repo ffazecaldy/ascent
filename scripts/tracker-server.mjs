@@ -478,6 +478,27 @@ const server = createServer(async (req, res) => {
       }, req);
     }
 
+    // Minuti tracciati di OGGI calcolati QUI (fonte primaria): dedup a slot
+    // di 30s sul JSONL grezzo — un solo campione per slot (l'ultimo). Così
+    // il numero è immune da doppioni client (multi-tab, sync vecchio): nel
+    // JSONL convivono il poller e l'hook a cambio-finestra, e senza dedup
+    // ogni alt-tab aggiungeva minuti finti.
+    if (p === "/api/worktoday") {
+      const d = url.searchParams.get("date") || ymd();
+      const samples = await readDateLines(d);
+      const SLOT_MS = 30_000;
+      const lastInSlot = new Map();
+      for (const s of samples) {
+        const t = new Date(s.ts).getTime();
+        if (!Number.isFinite(t)) continue;
+        const slot = Math.floor(t / SLOT_MS);
+        const cur = lastInSlot.get(slot);
+        if (!cur || t >= cur.t) lastInSlot.set(slot, { t });
+      }
+      const minutes = Math.round(lastInSlot.size * (INTERVAL / 60) * 10) / 10;
+      return send(res, 200, { ok: true, date: d, samples: samples.length, slots: lastInSlot.size, minutes }, req);
+    }
+
     if (p === "/api/today") {
       const d = ymd();
       const samples = await readDateLines(d);
