@@ -112,6 +112,8 @@ export const WORK_TITLE: { cat: string; keys: string[] }[] = [
       "postman", "localhost:", "vercel", "developer.mozilla", "mdn",
       // strumenti quotidiani considerati produttivi
       "hermes", "tradingview", "ascend",
+      // trading practice: replay bar-by-bar su dati storici (namireplays.com)
+      "nami replays", "namireplays",
     ],
   },
 ];
