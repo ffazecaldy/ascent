@@ -149,6 +149,11 @@ export function migrate(db: DB): DB {
     } else if (out.version < 8) {
       // v7 → v8: Studio — nuova collezione `studySubjects` vuota.
       out = { ...out, version: 8, studySubjects: out.studySubjects ?? [] };
+    } else if (out.version < 9) {
+      // v8 → v9: Uso PC — colore personalizzato per fascia (PCAppCategoryMap.color).
+      // Campo opzionale: nessun backfill necessario, le regole senza color
+      // usano il colore di default della categoria.
+      out = { ...out, version: 9 };
     } else {
       break;
     }

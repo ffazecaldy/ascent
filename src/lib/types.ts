@@ -209,6 +209,8 @@ export interface PCAppCategoryMap {
   id: string;
   appName: string;
   category: string;
+  /** Colore fascia personalizzato (es. "#22c55e"). Opzionale: assente = colore di default della categoria. */
+  color?: string;
 }
 
 export type BookStatus = "da_leggere" | "in_corso" | "finito";
@@ -357,7 +359,7 @@ export interface DB {
   badges: Badge[];
 }
 
-export const DB_VERSION = 8;
+export const DB_VERSION = 9;
 
 /**
  * Regola di transazione ricorrente mensile (affitto, abbonamenti...).

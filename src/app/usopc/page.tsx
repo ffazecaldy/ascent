@@ -34,6 +34,9 @@ const DEFAULT_CATEGORIES = [
   "Altro",
 ];
 
+/** Colori di default per fascia. Coprono le categorie italiane storiche
+ *  E quelle prodotte dal tracker (Web, Dev, Media, Social, Communication,
+ *  Productivity, Design, System, Gaming, Other). */
 const CATEGORY_COLORS: Record<string, string> = {
   Lavoro: "#4C7EFF",
   Sviluppo: "#8b5cf6",
@@ -42,7 +45,22 @@ const CATEGORY_COLORS: Record<string, string> = {
   Gaming: "#f97316",
   Social: "#ec4899",
   Altro: "#64748b",
+  // categorie del tracker
+  Web: "#38bdf8",
+  Dev: "#a78bfa",
+  Media: "#f472b6",
+  Communication: "#34d399",
+  Productivity: "#fbbf24",
+  Design: "#e879f9",
+  System: "#94a3b8",
+  Other: "#6b7280",
 };
+
+/** Colore fascia: regola personalizzata → default categoria → fallback grigio. */
+function catColor(db: { pcAppCategoryMap: PCAppCategoryMap[] }, cat: string): string {
+  const custom = db.pcAppCategoryMap.find((m) => m.appName === cat && m.color);
+  return custom?.color ?? CATEGORY_COLORS[cat] ?? "#64748b";
+}
 
 const PRODUCTIVE = ["Lavoro", "Sviluppo", "Dev", "Studio"];
 
@@ -162,9 +180,9 @@ export default function UsoPcPage() {
     const map = new Map<string, number>();
     logsMonth.forEach((p) => map.set(p.categoryId, (map.get(p.categoryId) ?? 0) + p.minutes));
     return Array.from(map.entries())
-      .map(([label, value]) => ({ label, value, color: CATEGORY_COLORS[label] ?? "#64748b" }))
+      .map(([label, value]) => ({ label, value, color: catColor(db, label) }))
       .sort((a, b) => b.value - a.value);
-  }, [logsMonth]);
+  }, [logsMonth, db]);
 
   const byCategoryDay = useMemo(() => {
     const map = new Map<string, number>();
@@ -264,19 +282,26 @@ export default function UsoPcPage() {
     setCsvPreview([]);
   };
 
-  // --- app→categoria map ---
+  // --- app→categoria map (con colore fascia personalizzato) ---
   const [mapOpen, setMapOpen] = useState(false);
   const [appName, setAppName] = useState("");
   const [appCat, setAppCat] = useState(DEFAULT_CATEGORIES[0]);
+  const [appColor, setAppColor] = useState<string>(CATEGORY_COLORS[DEFAULT_CATEGORIES[0]] ?? "#64748b");
   const [editMapId, setEditMapId] = useState<string | null>(null);
+
+  // quando cambia la categoria, proponi il suo colore di default
+  const onCatChange = (c: string) => {
+    setAppCat(c);
+    if (!editMapId) setAppColor(CATEGORY_COLORS[c] ?? "#64748b");
+  };
 
   const saveMap = () => {
     if (!appName.trim()) return;
     updateDB((d) => ({
       ...d,
       pcAppCategoryMap: upsert(d.pcAppCategoryMap, editMapId
-        ? { id: editMapId, appName: appName.trim(), category: appCat }
-        : { id: uid(), appName: appName.trim(), category: appCat }),
+        ? { id: editMapId, appName: appName.trim(), category: appCat, color: appColor }
+        : { id: uid(), appName: appName.trim(), category: appCat, color: appColor }),
     }));
     setAppName("");
     setEditMapId(null);
@@ -286,6 +311,7 @@ export default function UsoPcPage() {
     setEditMapId(m.id);
     setAppName(m.appName);
     setAppCat(m.category);
+    setAppColor(m.color ?? CATEGORY_COLORS[m.category] ?? "#64748b");
   };
 
   // --- header content (azioni) ---
@@ -445,7 +471,7 @@ export default function UsoPcPage() {
                     />
                     <div className="space-y-1.5">
                       {byCategoryDay.map((c) => {
-                        const color = CATEGORY_COLORS[c.label] ?? "#64748b";
+                        const color = catColor(db, c.label);
                         const pctDay = totalTodayMin > 0 ? Math.round((c.value / totalTodayMin) * 100) : 0;
                         return (
                           <div key={c.label} className="flex items-center justify-between rounded-lg border border-border bg-elevated/40 px-3 py-2 text-sm">
@@ -520,7 +546,7 @@ export default function UsoPcPage() {
                   className="group flex items-center justify-between rounded-lg border border-border bg-elevated/40 px-3 py-2 transition-colors hover:border-border-strong"
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[p.categoryId] ?? "#64748b" }} />
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: catColor(db, p.categoryId) }} />
                     <Badge>{p.categoryId}</Badge>
                     <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{p.source}</span>
                   </div>
@@ -622,7 +648,7 @@ export default function UsoPcPage() {
                 >
                   <span className="tnum text-secondary-text">{r.date || "—"}</span>
                   <span className="flex items-center gap-1.5 truncate">
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[r.category] ?? "#64748b" }} />
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: catColor(db, r.category) }} />
                     <span className="truncate">{r.category || "—"}</span>
                   </span>
                   <span className="tnum text-right text-secondary-text">{r.ok ? `${r.minutes}` : "—"}</span>
@@ -653,9 +679,24 @@ export default function UsoPcPage() {
             <Input value={appName} onChange={(e) => setAppName(e.target.value)} placeholder="es. Hermes, tradingview.com, Netflix" />
           </Field>
           <Field label="Categoria" className="w-40">
-            <Select value={appCat} onChange={(e) => setAppCat(e.target.value)}>
+            <Select value={appCat} onChange={(e) => onCatChange(e.target.value)}>
               {categories.map((c) => <option key={c} value={c}>{c}</option>)}
             </Select>
+          </Field>
+          <Field label="Colore" className="w-[72px]">
+            <label
+              className="relative block h-[38px] w-full cursor-pointer overflow-hidden rounded-lg border border-border"
+              style={{ backgroundColor: appColor }}
+              title={appColor}
+            >
+              <input
+                type="color"
+                value={appColor}
+                onChange={(e) => setAppColor(e.target.value)}
+                className="absolute inset-0 cursor-pointer opacity-0"
+                aria-label="Colore fascia"
+              />
+            </label>
           </Field>
           <Button size="sm" onClick={saveMap} disabled={!appName.trim()}>
             {editMapId ? "Aggiorna" : "+"}
@@ -673,7 +714,10 @@ export default function UsoPcPage() {
         <div className="space-y-1">
           {db.pcAppCategoryMap.map((m) => (
             <div key={m.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-1.5 text-sm">
-              <span className="font-medium">{m.appName}</span>
+              <span className="flex items-center gap-2 font-medium">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: m.color ?? CATEGORY_COLORS[m.category] ?? "#64748b" }} />
+                {m.appName}
+              </span>
               <span className="flex items-center gap-2">
                 <Badge>{m.category}</Badge>
                 <button onClick={() => startEditMap(m)} className="text-muted-foreground transition-colors hover:text-accent" aria-label="Modifica">
