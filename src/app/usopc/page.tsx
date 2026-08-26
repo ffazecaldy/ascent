@@ -25,6 +25,7 @@ import { AutoTrackerImport } from "@/components/usopc/AutoTrackerImport";
 import { TrackerLive } from "@/components/usopc/TrackerLive";
 import { SystemTab } from "@/components/usopc/SystemTab";
 import { HealthTab } from "@/components/usopc/HealthTab";
+import { UptimeCompareCard } from "@/components/usopc/UptimeCompareCard";
 
 const DEFAULT_CATEGORIES = [
   "Lavoro",
@@ -352,6 +353,11 @@ export default function UsoPcPage() {
       {/* Tracker live — registrazione dinamica (in alto, prima dei KPI) */}
       <Reveal delay={10}>
         <TrackerLive />
+      </Reveal>
+
+      {/* PC acceso vs lavoro effettivo (live, async) */}
+      <Reveal delay={15}>
+        <UptimeCompareCard db={db} today={today} />
       </Reveal>
 
       {/* KPI */}

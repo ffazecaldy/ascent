@@ -1,12 +1,14 @@
 // ============================================================
-// ASCEND — Registrazione tracker live GLOBALE (app-wide)
-// Il polling di /api/since e lo stato di registrazione vivono QUI
-// (modulo singoletto), NON nel componente della pagina Uso PC:
-// navigando tra home/benessere/coach/... la registrazione continua.
-// Persistenza su localStorage → sopravvive anche a reload/riavvio.
+// ASCEND — Sincronizzazione tracker → DB SEMPRE ATTIVA (app-wide)
+// Il polling di /api/since vive QUI (modulo singoletto) e gira dal
+// bootstrap dell'app: i campioni finiscono in pcUsageLogs in tempo
+// quasi reale (~60s) SENZA che l'utente prema nulla.
+// La "registrazione" manuale è solo una sessione misurata: buffer
+// dedicato per le stats (durata, app, categorie) mostrate al Ferma.
+// Persistenza su localStorage → sopravvive a reload/riavvio.
 //
 // Keys:
-//   ascend:pcRecording     '1'/'0' — registrazione attiva
+//   ascend:pcRecording     '1'/'0' — sessione manuale attiva
 //   ascend:pcSessionStart  epoch ms — inizio sessione in corso
 //   ascend:pcTrackerLastTs ISO — ultimo campione importato
 // ============================================================
@@ -247,15 +249,9 @@ function computeSessionStats(): SessionStats {
 // --- API pubbliche ---
 export function startRecord(): void {
   if (recording) return;
-  // Base: ultimo ts importato persistito (se di oggi), altrimenti "adesso".
-  // Così una sessione interrotta riprende dai campioni del gap senza doppioni.
-  let base = nowISO();
-  const stored = readStoredLastTs();
-  if (stored) {
-    const d = new Date(stored);
-    if (d.toDateString() === new Date().toDateString()) base = stored;
-  }
-  lastTs = base;
+  // La sessione manuale parte dal "subito": i campioni da ora in poi
+  // vanno nel buffer sessione. Il loop globale è già attivo e continua
+  // a importare nel DB per TUTTI (sempre).
   sessionStart = Date.now();
   appSet = new Set();
   sessionSamples = [];
@@ -263,33 +259,42 @@ export function startRecord(): void {
   lastSync = null;
   recording = true;
   persist();
-  startLoop();
+  startLoop(); // idempotente: se già gira, non fa nulla
   notify();
 }
 
 export function stopRecord(): void {
   if (!recording) return;
-  stopLoop();
+  // NON ferma il loop globale: il tracking automatico prosegue.
   recording = false;
   lastSessionStats = computeSessionStats();
   persist();
   notify();
 }
 
-/** Al mount dell'app: riprende la registrazione attiva prima di un
- *  reload/chiusura finestra (il tracker nel frattempo ha continuato
- *  a campionare su file; il primo poll recupera il gap). */
+/** Al mount dell'app: avvia SEMPRE il polling automatico; se c'era una
+ *  sessione manuale attiva prima di reload/chiusura, la riprende
+ *  (il tracker nel frattempo ha campionato su file: il primo poll
+ *  recupera tutto il gap senza doppioni). */
 export function restoreIfNeeded(): void {
-  if (recording) return;
   let wasRecording = false;
   try {
     wasRecording = window.localStorage.getItem(REC_KEY) === "1";
   } catch { /* noop */ }
-  if (!wasRecording) return;
-  let storedStart = 0;
-  try {
-    storedStart = Number(window.localStorage.getItem(SESSION_KEY) ?? 0);
-  } catch { /* noop */ }
+  if (wasRecording && !recording) {
+    let storedStart = 0;
+    try {
+      storedStart = Number(window.localStorage.getItem(SESSION_KEY) ?? 0);
+    } catch { /* noop */ }
+    sessionStart = Number.isFinite(storedStart) && storedStart > 0 ? storedStart : Date.now();
+    appSet = new Set();
+    sessionSamples = [];
+    lastSessionStats = null;
+    recording = true;
+    persist();
+  }
+  // base = ultimo ts importato (di oggi) o "adesso" → il primo poll
+  // recupera i campioni del gap dall'ultimo avvio dell'app.
   let base = nowISO();
   const stored = readStoredLastTs();
   if (stored) {
@@ -297,13 +302,7 @@ export function restoreIfNeeded(): void {
     if (d.toDateString() === new Date().toDateString()) base = stored;
   }
   lastTs = base;
-  sessionStart = Number.isFinite(storedStart) && storedStart > 0 ? storedStart : Date.now();
-  appSet = new Set();
-  sessionSamples = [];
-  lastSessionStats = null;
   lastSync = null;
-  recording = true;
-  persist();
-  startLoop();
+  startLoop(); // SEMPRE: il tracker alimenta Uso PC anche senza registrazione
   notify();
 }
