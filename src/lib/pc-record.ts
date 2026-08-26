@@ -185,30 +185,30 @@ function todaysSharedLastTs(): string | null {
 }
 
 /**
- * RICALLIBRAZIONE GIORNALIERA dei pcUsageLogs dal tracker (fonte primaria).
- * Risincronizza i giorni CHIUSI (non oggi) prendendo da /api/slots i campioni
- * ridotti a uno per slot 30s e riaggregandoli con le categorie dell'app:
- * sostituisce le righe `source:auto` del giorno, che nelle versioni precedenti
- * potevano contenere doppioni (multi-tab) — il totale non può più superare il
- * tempo reale di accensione. Eseguita UNA volta per giorno per tab
- * (chiave ascend:resync-<data>), silenziosa in caso di errore.
+ * RICALLIBRAZIONE dei pcUsageLogs dal tracker (fonte primaria).
+ * Risincronizza i giorni passati E quello corrente prendendo da /api/slots i
+ * campioni ridotti a uno per slot 30s e riaggregandoli con le categorie
+ * dell'app: sostituisce le righe `source:auto` del giorno, che nelle versioni
+ * precedenti potevano contenere doppioni (multi-tab/hook+poller) — il totale
+ * non può più superare il tempo reale di accensione. Le righe non-auto
+ * (CSV/manuali) sono preservate. Gated: al massimo 1 volta ogni 30 minuti,
+ * silenziosa in caso di errore.
  */
 async function resyncPastDays(): Promise<void> {
   try {
     const today = isoToDayKey(nowISO(), "Europe/Rome");
-    const flag = window.localStorage.getItem(`ascend:resync-${today}`);
-    if (flag === "1") return;
-    // giorni chiusi con log auto nel DB (max 7 indietro)
+    const LAST_RUN_KEY = "ascend:resync-last";
+    const lastRun = Number(window.localStorage.getItem(LAST_RUN_KEY) ?? 0);
+    const lastRunDay = lastRun ? isoToDayKey(new Date(lastRun).toISOString(), "Europe/Rome") : "";
+    if (Date.now() - lastRun < 30 * 60_000 && lastRunDay === today) return;
+    // giorni con log auto nel DB fino a oggi incluso (max 8 indietro)
     const days = [...new Set(
       loadDB().pcUsageLogs
-        .filter((l) => l.source === SOURCE && l.date < today)
+        .filter((l) => l.source === SOURCE && l.date <= today)
         .map((l) => l.date)
-    )].sort().slice(-7);
-    if (days.length === 0) {
-      window.localStorage.setItem(`ascend:resync-${today}`, "1");
-      return;
-    }
-    for (const date of days) {
+    )].sort().slice(-8);
+    if (days.length !== 0) {
+      for (const date of days) {
       const j = await trackerGet<{ ok: boolean; samples: TrackerSample[] }>(
         `/api/slots?date=${date}`
       );
@@ -239,8 +239,9 @@ async function resyncPastDays(): Promise<void> {
         });
         return { ...d, pcUsageLogs: [...rest, ...rebuilt, ...others] };
       });
+      }
     }
-    window.localStorage.setItem(`ascend:resync-${today}`, "1");
+    window.localStorage.setItem(LAST_RUN_KEY, String(Date.now()));
   } catch {
     /* best effort: mai bloccare l'app per la ricalibrazione */
   }
