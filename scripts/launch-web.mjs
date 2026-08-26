@@ -156,24 +156,51 @@ fs.writeFileSync(PID_FILE, String(process.pid));
 
 // ============================================================
 // Sempre attivo dal boot allo spegnimento PC.
-// Se next muore in corsa, riparte (max 3 riavvii all'ora) — l'app
-// deve esserci quando l'utente apre la finestra.
+// Auto-healing: se uno dei servizi muore in corsa riparte da solo
+// (next max 3 riavvii/ora; sync e tracker sono critici → sempre).
 // ============================================================
 let restartsInHour = 0;
 setInterval(() => { restartsInHour = 0; }, 3600_000).unref?.();
-setInterval(async () => {
+
+function spawnNext() {
+  return spawn(
+    process.execPath,
+    [path.join(ROOT, "node_modules", "next", "dist", "bin", "next"), "start"],
+    { cwd: ROOT, stdio: "ignore", windowsHide: true }
+  );
+}
+
+function spawnSync() {
+  return spawn(process.execPath, [path.join(ROOT, "scripts", "sync-server.mjs")], {
+    cwd: ROOT, stdio: "ignore", windowsHide: true,
+  });
+}
+
+function spawnTracker() {
+  return spawn(process.execPath, [path.join(ROOT, "scripts", "tracker-server.mjs")], {
+    cwd: ROOT, stdio: "ignore", windowsHide: true,
+  });
+}
+
+setInterval(() => {
+  // next: crash-loop protection
   if (started.next && started.next.exitCode !== null) {
     if (restartsInHour < 3) {
       restartsInHour++;
       log(`next uscito in corsa — riavvio (${restartsInHour}/3 in quest'ora)`);
-      started.next = spawn(
-        process.execPath,
-        [path.join(ROOT, "node_modules", "next", "dist", "bin", "next"), "start"],
-        { cwd: ROOT, stdio: "ignore", windowsHide: true }
-      );
+      started.next = spawnNext();
     } else {
-      log("troppi crash — resta spento fino a prossimo boot");
+      log("troppi crash next — resta spento fino a prossimo boot");
     }
+  }
+  // sync + tracker: senza di loro niente DB centrale né tracking → sempre su
+  if (started.sync && started.sync.exitCode !== null) {
+    log("sync server morto — riavvio");
+    started.sync = spawnSync();
+  }
+  if (started.tracker && started.tracker.exitCode !== null) {
+    log("tracker morto — riavvio");
+    started.tracker = spawnTracker();
   }
 }, 5000).unref?.();
 

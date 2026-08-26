@@ -223,6 +223,15 @@ const server = http.createServer(async (req, res) => {
         json(res, 400, { ok: false, error: "DB non valido nel body" });
         return;
       }
+      // ?replace=1 — sostituzione TOTALE (reset dal client): niente merge,
+      // il client è autoritativo (usato da purgeAscendStorage).
+      if (url.searchParams.get("replace") === "1") {
+        saveDb(parsed.db);
+        dbCache = parsed.db;
+        console.log("[sync] REPLACE totale richiesto dal client");
+        json(res, 200, { ok: true, db: parsed.db, replaced: true });
+        return;
+      }
       const merged = mergeDb(loadDb(), parsed.db);
       saveDb(merged.db);
       dbCache = merged.db;
