@@ -13,6 +13,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input, TextArea, Select, Field } from "@/components/ui/Field";
 import { rulesOfSetup } from "@/lib/compute";
+import { todayKey } from "@/lib/dates";
 import { getAccount } from "@/lib/db";
 import { currencySymbol } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -95,6 +96,14 @@ export function TradeForm({
 
   const isEdit = !!initial;
 
+  // Timezone delle settings come fonte di verità per le date del trade:
+  // muro digitato nel form → ISO (e ritorno) sempre nel fuso utente, mai in
+  // quello del browser (altrimenti un trade serale poteva cadere nel
+  // calendario al giorno successivo). `max` impedisce date future: si può
+  // registrare al massimo "oggi" (giorno della timezone utente).
+  const tzInput = db.settings.timezone;
+  const maxDateInput = `${todayKey(tzInput)}T23:59`;
+
   // Reset/populate alla apertura — setState in microtask (nessun setState
   // sincrono nel corpo dell'effect).
   useEffect(() => {
@@ -113,8 +122,8 @@ export function TradeForm({
         setSize(initial.size != null ? String(initial.size) : "");
         setResultNative(String(initial.resultNative));
         setResultR(String(initial.resultR));
-        setOpenDate(isoToLocalInput(initial.openDate) || isoToLocalInput(now));
-        setCloseDate(isoToLocalInput(initial.closeDate) || isoToLocalInput(now));
+        setOpenDate(isoToLocalInput(initial.openDate, tzInput) || isoToLocalInput(now, tzInput));
+        setCloseDate(isoToLocalInput(initial.closeDate, tzInput) || isoToLocalInput(now, tzInput));
         setDescription(initial.description ?? "");
         setEmotion(initial.emotion ?? "");
         setSetupId(initial.setupId ?? "");
@@ -141,8 +150,8 @@ export function TradeForm({
         setSize("");
         setResultNative("");
         setResultR("");
-        setOpenDate(isoToLocalInput(now));
-        setCloseDate(isoToLocalInput(now));
+        setOpenDate(isoToLocalInput(now, tzInput));
+        setCloseDate(isoToLocalInput(now, tzInput));
         setDescription("");
         setEmotion("");
         setSetupId("");
@@ -238,8 +247,8 @@ export function TradeForm({
       size: numOrNull(size),
       resultNative: numOrZero(resultNative),
       resultR: derivedR != null ? derivedR : numOrZero(resultR),
-      openDate: localInputToISO(openDate),
-      closeDate: localInputToISO(closeDate),
+      openDate: localInputToISO(openDate, tzInput),
+      closeDate: localInputToISO(closeDate, tzInput),
       screenshots,
       description: description.trim() ? description.trim() : undefined,
       setupId: setupId || null,
@@ -371,10 +380,20 @@ export function TradeForm({
         <FormSection title="Timing">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Apertura">
-              <Input type="datetime-local" value={openDate} onChange={(e) => setOpenDate(e.target.value)} />
+              <Input
+                type="datetime-local"
+                value={openDate}
+                onChange={(e) => setOpenDate(e.target.value)}
+                max={maxDateInput}
+              />
             </Field>
             <Field label="Chiusura">
-              <Input type="datetime-local" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} />
+              <Input
+                type="datetime-local"
+                value={closeDate}
+                onChange={(e) => setCloseDate(e.target.value)}
+                max={maxDateInput}
+              />
             </Field>
           </div>
 

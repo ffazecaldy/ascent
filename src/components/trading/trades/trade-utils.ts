@@ -44,19 +44,80 @@ export function readAsDataURL(file: File): Promise<string> {
   });
 }
 
-/** ISO → valore per input datetime-local (orologio locale del browser). */
-export function isoToLocalInput(iso: string): string {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+/**
+ * Parte "muro" (wall clock) di un istante UTC in una timezone IANA.
+ * hourCycle h23: mezzanotte = 00, mai 24 (evita il rollover spurio del giorno).
+ */
+function wallPartsInTZ(utcMs: number, timeZone: string): { y: number; m: number; d: number; h: number; min: number } {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const p = fmt.formatToParts(new Date(utcMs));
+  const get = (t: string) => p.find((x) => x.type === t)?.value ?? "0";
+  return {
+    y: Number(get("year")),
+    m: Number(get("month")),
+    d: Number(get("day")),
+    h: Number(get("hour")),
+    min: Number(get("minute")),
+  };
 }
 
-/** Valore datetime-local → ISO (interpretato come orario locale del browser). */
-export function localInputToISO(value: string): string {
+/** Minuti dal 1970-01-01T00:00 (Days-from-Civil, esatto sull'intero range). */
+function wallToMinutes(y: number, mo: number, d: number, h: number, min: number): number {
+  const yy = y - (mo <= 2 ? 1 : 0);
+  const era = Math.floor(yy / 400);
+  const yoe = yy - era * 400;
+  const doy = Math.floor((153 * (mo + (mo > 2 ? -3 : 9)) + 2) / 5) + d - 1;
+  const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+  return (era * 146097 + doe) * 1440 + h * 60 + min;
+}
+
+/**
+ * ISO UTC → valore per input datetime-local, nel muro della timezone delle
+ * SETTINGS (non del browser): editando un trade, il campo mostra l'ora che
+ * l'utente aveva digitato, a prescindere dal fuso del browser.
+ */
+export function isoToLocalInput(iso: string, timeZone: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const w = wallPartsInTZ(d.getTime(), timeZone);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${w.y}-${p(w.m)}-${p(w.d)}T${p(w.h)}:${p(w.min)}`;
+}
+
+/**
+ * Valore datetime-local → ISO UTC, interpretando il muro nella timezone delle
+ * SETTINGS. Prima il muro era letto nel fuso del browser: se i due fusi
+ * divergevano, un trade registrato la sera poteva finire nel calendario al
+ * giorno successivo (±1). Ora il giorno salvato è SEMPRE quello digitato.
+ * Convergenza su offset/DST: 3 iterazioni al massimo, poi si accetta l'ultima.
+ */
+export function localInputToISO(value: string, timeZone: string): string {
   if (!value) return new Date().toISOString();
-  const d = new Date(value);
-  return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value);
+  if (!m) return new Date().toISOString();
+  const y = +m[1],
+    mo = +m[2],
+    d = +m[3],
+    h = +m[4],
+    min = +m[5];
+  const want = wallToMinutes(y, mo, d, h, min);
+  let guess = Date.UTC(y, mo - 1, d, h, min);
+  for (let i = 0; i < 3; i++) {
+    const w = wallPartsInTZ(guess, timeZone);
+    const cur = wallToMinutes(w.y, w.m, w.d, w.h, w.min);
+    const diff = want - cur;
+    if (diff === 0) break;
+    guess += diff * 60000;
+  }
+  return new Date(guess).toISOString();
 }
 
 /** "yyyy-MM" → "Agosto 2026" */
