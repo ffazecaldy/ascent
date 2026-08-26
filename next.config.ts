@@ -15,8 +15,15 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // Le PAGINE HTML non vanno MAI cachate a lungo: dopo ogni deploy
+        // il browser deve riscaricarle (i chunk _next/static sono hashati
+        // e restano immutable). Senza questo, Brave/Edge servivano la
+        // versione vecchia dell'app per giorni.
         source: "/:path*",
-        headers: [{ key: "X-Frame-Options", value: "DENY" }],
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Cache-Control", value: "no-cache, must-revalidate" },
+        ],
       },
     ];
   },
