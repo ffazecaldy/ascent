@@ -23,6 +23,8 @@ import { BarsChart, DonutChart } from "@/components/charts";
 import { Icon } from "@/components/ui/Icon";
 import { AutoTrackerImport } from "@/components/usopc/AutoTrackerImport";
 import { TrackerLive } from "@/components/usopc/TrackerLive";
+import { SystemTab } from "@/components/usopc/SystemTab";
+import { HealthTab } from "@/components/usopc/HealthTab";
 
 const DEFAULT_CATEGORIES = [
   "Lavoro",
@@ -428,10 +430,10 @@ export default function UsoPcPage() {
           <CardHeader>
             <div>
               <CardTitle>Viste</CardTitle>
-              <CardSubtitle>Giorno, composizione mensile per categoria, trend 7 giorni</CardSubtitle>
+              <CardSubtitle>Giorno, composizione mensile, trend, sistema e salute</CardSubtitle>
             </div>
             <Badge tone="info">
-              {tab === "giorno" ? "Giorno" : tab === "mese" ? "Mese" : "Trend"}
+              {tab === "giorno" ? "Giorno" : tab === "mese" ? "Mese" : tab === "trend" ? "Trend" : tab === "sistema" ? "Sistema" : "Salute"}
             </Badge>
           </CardHeader>
           <Tabs
@@ -439,10 +441,22 @@ export default function UsoPcPage() {
               { id: "giorno", label: "Giorno" },
               { id: "mese", label: "Mese" },
               { id: "trend", label: "Trend 7gg" },
+              { id: "sistema", label: "Sistema" },
+              { id: "salute", label: "Salute" },
             ]}
             value={tab}
             onChange={setTab}
           />
+          {tab === "sistema" && (
+            <div className="animate-pop mt-4">
+              <SystemTab />
+            </div>
+          )}
+          {tab === "salute" && (
+            <div className="animate-pop mt-4">
+              <HealthTab today={today} />
+            </div>
+          )}
           <div key={tab} className="animate-pop mt-4">
             {tab === "giorno" && (
               <div className="space-y-3">

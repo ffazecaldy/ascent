@@ -27,7 +27,6 @@ import { Icon } from "@/components/ui/Icon";
 import { useDB } from "@/lib/storage";
 import { todayKey } from "@/lib/dates";
 import {
-  TRACKER_POLL_MS,
   fetchTrackerActive,
   fetchTrackerHealth,
   categoryColor,
