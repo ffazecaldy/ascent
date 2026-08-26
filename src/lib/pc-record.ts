@@ -251,14 +251,27 @@ function stopLoop() {
 function computeSessionStats(): SessionStats {
   const startMs = sessionStart ?? Date.now();
   const durationMs = Date.now() - startMs;
-  const catMin = new Map<string, number>();
-  const exeCount = new Map<string, number>();
+  // DEDUP a slot di 30s (stessa regola dell'aggregatore e di /api/worktoday):
+  // nel buffer convivono i tick del poller e gli eventi dell'hook a cambio
+  // finestra — senza dedup ogni alt-tab gonfia i minuti della sessione.
+  const SLOT_MS = 30_000;
+  const lastInSlot = new Map<number, TrackerSample>();
   for (const s of sessionSamples) {
     if (!s?.exe) continue;
-    const db = loadDB();
-    const userMap = Object.fromEntries(
-      db.pcAppCategoryMap.map((m) => [m.appName.toLowerCase(), m.category])
-    );
+    const t = Date.parse(s.ts);
+    if (!Number.isFinite(t)) continue;
+    const slot = Math.floor(t / SLOT_MS);
+    const cur = lastInSlot.get(slot);
+    if (!cur || Date.parse(s.ts) >= Date.parse(cur.ts)) lastInSlot.set(slot, s);
+  }
+  const db2 = loadDB();
+  const userMap = Object.fromEntries(
+    db2.pcAppCategoryMap.map((m) => [m.appName.toLowerCase(), m.category])
+  );
+  const catMin = new Map<string, number>();
+  const exeCount = new Map<string, number>();
+  for (const s of lastInSlot.values()) {
+    if (!s?.exe) continue;
     const cat = categorize(s.exe, s.title ?? "", userMap);
     catMin.set(cat, (catMin.get(cat) ?? 0) + TRACKER_SAMPLE_MIN);
     exeCount.set(s.exe, (exeCount.get(s.exe) ?? 0) + 1);
