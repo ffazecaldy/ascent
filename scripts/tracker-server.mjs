@@ -393,6 +393,49 @@ async function startHook() {
   }
 }
 
+// ------------------------------------------------------------------
+// SYSINFO: stato CPU (times cumulativi per il calcolo %) + top processi
+// via `tasklist /fo csv /nh` (solo Windows, ~54ms, SOLO on-demand).
+// ------------------------------------------------------------------
+let lastCpuTimes = null;
+let lastCpuTimesAt = 0;
+
+async function topProcessesWindows() {
+  return new Promise((resolve) => {
+    try {
+      const child = spawn("cmd", ["/c", "tasklist", "/fo", "csv", "/nh"], {
+        windowsHide: true, stdio: ["ignore", "pipe", "ignore"],
+      });
+      let buf = "";
+      const done = (list) => resolve(list);
+      const timer = setTimeout(() => { child.kill(); done([]); }, 4000);
+      child.stdout.on("data", (d) => { buf += d.toString("utf8"); });
+      child.stdout.on("end", () => {
+        clearTimeout(timer);
+        try {
+          const rows = [];
+          for (const line of buf.split("\n")) {
+            const t = line.trim();
+            if (!t || !t.startsWith('"')) continue;
+            const cols = t.split('","').map((c) => c.replaceAll('"', ""));
+            // formato CSV tasklist: "Nome","PID","Tipo sessione","Num sessione","Mem utilizzo"
+            if (cols.length < 5) continue;
+            const name = cols[0];
+            const memKb = parseInt(String(cols[4]).replaceAll(".", "").replaceAll(",", "").replace(/[^0-9]/g, ""), 10);
+            if (!Number.isFinite(memKb)) continue;
+            rows.push({ name, pid: parseInt(cols[1], 10) || 0, memMb: Math.round((memKb * 1024) / 1024 ** 2 * 10) / 10 });
+          }
+          rows.sort((a, b) => b.memMb - a.memMb);
+          resolve(rows.slice(0, 8));
+        } catch { resolve([]); }
+      });
+      child.on("error", () => { clearTimeout(timer); resolve([]); });
+    } catch {
+      resolve([]);
+    }
+  });
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const p = url.pathname;
@@ -439,6 +482,65 @@ const server = createServer(async (req, res) => {
       const d = ymd();
       const samples = await readDateLines(d);
       return send(res, 200, { ok: true, date: d, count: samples.length, samples }, req);
+    }
+
+    if (p === "/api/day") {
+      // Campioni raw di UN giorno qualsiasi (default: oggi) — usato dalla
+      // tab Salute (sessioni/pause/notte). Solo aggregati in jsonl locale.
+      const d = url.searchParams.get("date") || ymd();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        return send(res, 400, { ok: false, error: "date deve essere YYYY-MM-DD" }, req);
+      }
+      const samples = await readDateLines(d);
+      return send(res, 200, { ok: true, date: d, count: samples.length, samples }, req);
+    }
+
+    // ------------------------------------------------------------
+    // /api/sysinfo — CPU/RAM/disco/uptime + top processi (sola lettura).
+    // Costo misurato: os.cpus() ~0.4ms; tasklist ~54ms SOLO quando la
+    // querystring include withProcesses=1 (la tab lo chiede max ogni 10s).
+    // ------------------------------------------------------------
+    if (p === "/api/sysinfo") {
+      const osMod = await import("node:os");
+      // CPU %: delta tra due campionamenti os.cpus() (times cumulativi).
+      // Al primo colpo della sessione usa lastCpuTimes come base.
+      const now = Date.now();
+      let cpuPct = null;
+      try {
+        const cpus = osMod.cpus();
+        let idle = 0;
+        let total = 0;
+        for (const c of cpus) {
+          idle += c.times.idle;
+          total += c.times.user + c.times.nice + c.times.sys + c.times.idle + c.times.irq;
+        }
+        if (lastCpuTimes && now - lastCpuTimesAt >= 400) {
+          const dTotal = total - lastCpuTimes.total;
+          const dIdle = idle - lastCpuTimes.idle;
+          if (dTotal > 0) cpuPct = Math.max(0, Math.min(100, Math.round((1 - dIdle / dTotal) * 100)));
+        }
+        lastCpuTimes = { idle, total };
+        lastCpuTimesAt = now;
+      } catch { /* cpuPct resta null */ }
+
+      const totalMem = osMod.totalmem();
+      const freeMem = osMod.freemem();
+
+      const info = {
+        ok: true,
+        at: new Date().toISOString(),
+        cpuPercent: cpuPct,
+        cores: osMod.cpus().length,
+        memTotalGb: Math.round((totalMem / 1024 ** 3) * 10) / 10,
+        memUsedGb: Math.round(((totalMem - freeMem) / 1024 ** 3) * 10) / 10,
+        memUsedPercent: Math.round(((totalMem - freeMem) / totalMem) * 100),
+        uptimeSec: Math.round(osMod.uptime()),
+      };
+
+      if (url.searchParams.get("withProcesses") === "1" && process.platform === "win32") {
+        info.processes = await topProcessesWindows();
+      }
+      return send(res, 200, info, req);
     }
 
     if (p === "/api/since") {
