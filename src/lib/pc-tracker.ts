@@ -193,17 +193,35 @@ export function categorize(exe: string, title: string, userMap?: Record<string, 
 /**
  * Aggrega campioni per giorno+categoria in minuti.
  * Ogni campione = 30s = 0.5 min. Chiave risultato: "yyyy-MM-dd|Categoria".
+ *
+ * DEDUP A SLOT DI 30 SECONDI: nel JSONL convivono DUE scrittori — il poller
+ * periodico (30s) e l'hook PowerShell che registra un evento a ogni CAMBIO
+ * finestra (stesso istante: fino a 3 campioni). Senza dedup, ogni alt-tab
+ * aggiunge 0,5 min fittizi e "Lavoro tracciato" supera il tempo reale di
+ * accensione del PC (visto in produzione: 575 min tracciati su 483 accesi).
+ * Regola: uno slot 30s = UNA misura; conta solo l'ULTIMO campione dello slot
+ * (la finestra attiva a fine slot, esattamente ciò che un poller puro vedrebbe).
  */
 export function aggregateSamples(entries: TrackerSample[], userMap?: Record<string, string>): Record<string, number> {
-  const byDayCat = new Map<string, number>();
+  const SLOT_MS = 30_000;
+  const lastInSlot = new Map<number, TrackerSample>();
 
   for (const e of entries) {
     if (!e?.ts || !e?.exe) continue;
+    const t = Date.parse(e.ts);
+    if (!Number.isFinite(t)) continue;
+    const slot = Math.floor(t / SLOT_MS);
+    const cur = lastInSlot.get(slot);
+    // vince il campione con ts più alto nello slot (ultimo evento reale)
+    if (!cur || Date.parse(e.ts) >= Date.parse(cur.ts)) lastInSlot.set(slot, e);
+  }
+
+  const byDayCat = new Map<string, number>();
+  for (const e of lastInSlot.values()) {
     const date = e.ts.split("T")[0];
     const cat = categorize(e.exe, e.title ?? "", userMap);
     const key = `${date}|${cat}`;
-    const prev = byDayCat.get(key) ?? 0;
-    byDayCat.set(key, prev + TRACKER_SAMPLE_MIN);
+    byDayCat.set(key, (byDayCat.get(key) ?? 0) + TRACKER_SAMPLE_MIN);
   }
 
   const result: Record<string, number> = {};

@@ -156,44 +156,79 @@ function importSamples(samples: TrackerSample[]): number {
 }
 
 // --- un ciclo di polling /api/since ---
-async function poll() {
-  if (busy) return; // evita sovrapposizioni se il fetch dura >20s
-  busy = true;
-  try {
-    const since = await fetchTrackerSince(lastTs ?? nowISO());
-    if (!since || !Array.isArray(since.samples) || since.samples.length === 0) return;
+/**
+ * MUTUA ESCLUSIONE TRA TAB: con più finestre/tabelle di Ascend aperte ognuna
+ * esegue il proprio polling col proprio watermark in memoria → gli stessi
+ * campioni venivano importati DUE VOLTE (minuti gonfiati oltre il tempo reale
+ * di accensione del PC). Il Web Lock serializza il ciclo a livello di profilo
+ * browser: chi prende il lock rilegge PRIMA il watermark condiviso da
+ * localStorage, quindi i campioni già importati da un altro tab vengono
+ * saltati. Browser senza Web Locks (fallback): comportamento precedente.
+ */
+type LockManagerLike = {
+  request: <T>(name: string, cb: () => Promise<T>) => Promise<T>;
+};
+function runExclusive(fn: () => Promise<void>): Promise<void> {
+  const locks = (navigator as unknown as { locks?: LockManagerLike }).locks;
+  if (locks) return locks.request("ascend-pc-record", fn);
+  return fn();
+}
 
-    // Il server filtra già per ts; qui protezione anti-doppioni con
-    // confronto NUMERICO (i formati dei ts possono essere misti).
-    const base = lastTs;
-    const baseMs = base ? Date.parse(base) : NaN;
-    const fresh = base
-      ? since.samples.filter((s) => {
+/** Watermark condiviso (localStorage) SOLO se è di oggi. */
+function todaysSharedLastTs(): string | null {
+  const stored = readStoredLastTs();
+  if (stored && new Date(stored).toDateString() === new Date().toDateString()) return stored;
+  return null;
+}
+
+async function pollBody(): Promise<void> {
+  // Un altro tab potrebbe aver già importato fin qui: avanza il nostro
+  // watermark al valore condiviso SENZA ri-importare quei campioni.
+  const shared = todaysSharedLastTs();
+  if (shared && (!lastTs || Date.parse(shared) > Date.parse(lastTs))) {
+    lastTs = shared;
+  }
+  const since = await fetchTrackerSince(lastTs ?? nowISO());
+  if (!since || !Array.isArray(since.samples) || since.samples.length === 0) return;
+
+  // Il server filtra già per ts; qui protezione anti-doppioni con
+  // confronto NUMERICO (i formati dei ts possono essere misti).
+  const base = lastTs;
+  const baseMs = base ? Date.parse(base) : NaN;
+  const fresh = base
+    ? since.samples.filter((s) => {
           if (!s || typeof s.ts !== "string") return false;
           const t = Date.parse(s.ts);
           return Number.isFinite(t) && (!Number.isFinite(baseMs) || t > baseMs);
         })
-      : since.samples;
-    if (fresh.length === 0) return;
+    : since.samples;
+  if (fresh.length === 0) return;
 
-    importSamples(fresh);
+  importSamples(fresh);
 
-    const maxTs = fresh.reduce((a, b) => {
-      const ta = Date.parse(a);
-      const tb = Date.parse(b.ts);
-      if (!Number.isFinite(ta)) return b.ts;
-      if (!Number.isFinite(tb)) return a;
-      return tb > ta ? b.ts : a;
-    }, base ?? "");
-    lastTs = maxTs;
-    persistLastTs(maxTs);
-    lastSync = maxTs;
+  const maxTs = fresh.reduce((a, b) => {
+    const ta = Date.parse(a);
+    const tb = Date.parse(b.ts);
+    if (!Number.isFinite(ta)) return b.ts;
+    if (!Number.isFinite(tb)) return a;
+    return tb > ta ? b.ts : a;
+  }, base ?? "");
+  lastTs = maxTs;
+  persistLastTs(maxTs);
+  lastSync = maxTs;
 
-    for (const s of fresh) {
-      if (s.exe) appSet.add(s.exe);
-    }
-    sessionSamples.push(...fresh);
-    notify();
+  for (const s of fresh) {
+    if (s.exe) appSet.add(s.exe);
+  }
+  sessionSamples.push(...fresh);
+  notify();
+}
+
+async function poll() {
+  if (busy) return; // evita sovrapposizioni se il fetch dura >20s
+  busy = true;
+  try {
+    await runExclusive(pollBody);
   } finally {
     busy = false;
   }

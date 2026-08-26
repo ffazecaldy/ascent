@@ -80,7 +80,13 @@ export function minutiToOre(min: number): string {
     const m = Math.max(1, Math.round(min));
     return `${m} min`;
   }
-  const h = Math.floor(min / 60);
-  const m = Math.round((min % 60) / 5) * 5;
+  // Il resto arrotondato a multipli di 5 può dare 60 (es. resti ≥ 57.5):
+  // riporta il riporto nelle ore, mai "8h 60m".
+  let h = Math.floor(min / 60);
+  let m = Math.round((min % 60) / 5) * 5;
+  if (m >= 60) {
+    h += 1;
+    m = 0;
+  }
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
