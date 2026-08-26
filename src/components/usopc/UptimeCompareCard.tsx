@@ -85,7 +85,7 @@ export function UptimeCompareCard({ db, today }: { db: DB; today: string }) {
     <Card>
       <div className="flex items-center justify-between">
         <div>
-          <CardTitle className="text-sm">PC acceso vs lavoro effettivo</CardTitle>
+          <CardTitle className="text-sm">PC acceso vs tempo di tracciatura</CardTitle>
           <CardSubtitle>tempo dal boot · campioni tracker di oggi · live</CardSubtitle>
         </div>
         {!online && <Badge tone="danger">offline</Badge>}
@@ -111,7 +111,7 @@ export function UptimeCompareCard({ db, today }: { db: DB; today: string }) {
         <div>
           <div className="mb-1 flex items-center justify-between text-[11px]">
             <span className="flex items-center gap-1 text-secondary-text">
-              <span className="h-2 w-2 rounded-full bg-success" /> Lavoro tracciato
+              <span className="h-2 w-2 rounded-full bg-success" /> Tempo di tracciatura
             </span>
             <span className="tnum font-semibold text-foreground">{minutiToOre(workTodayMin)}</span>
           </div>
@@ -143,7 +143,8 @@ export function UptimeCompareCard({ db, today }: { db: DB; today: string }) {
       </div>
 
       <p className="mt-2 text-center text-[11px] text-muted-foreground">
-        Il tracker campiona ogni 30s quando il PC è acceso: la differenza è pausa/svago/schermo spento.
+        Il tracker campiona ogni 30s quando il PC è acceso: include lavoro, studio e
+        anche svago (giochi, YouTube…) se fai alt-tab — la differenza è solo pausa/schermo spento.
       </p>
     </Card>
   );
