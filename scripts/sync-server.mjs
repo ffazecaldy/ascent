@@ -137,7 +137,12 @@ function saveDb(db) {
 // ------------------------------------------------------------
 // HTTP
 // ------------------------------------------------------------
-const CORS = { "Access-Control-Allow-Origin": "http://localhost:3000" };
+// CORS aperto: l'app può girare su localhost:3000, 127.0.0.1:3000, IP LAN o
+// hostname custom (se il fetch è bloccato, i push muoiono IN SILENZIO e il DB
+// centrale resta congelato mentre i browser salvano solo in locale — visto in
+// produzione: 4 trade in Brave, 1 nel file). La protezione resta il token
+// (x-sync-token): senza token nessun /api/db o /api/sync.
+const CORS = { "Access-Control-Allow-Origin": "*" };
 
 function json(res, code, data, extra = {}) {
   const body = JSON.stringify(data);

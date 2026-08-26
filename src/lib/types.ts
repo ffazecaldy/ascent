@@ -91,6 +91,10 @@ export interface Trade {
   setupId?: string | null;
   emotion?: string;
   createdAt: string;
+  /** Aggiornato a ogni salvataggio (create o modifica): fa vincere la voce nel
+   *  merge del sync-server quando lo stesso trade esiste già col createdAt
+   *  uguale (es. trade modificato: il merge confronta itemTs = updatedAt ?? createdAt). */
+  updatedAt?: string;
 }
 
 export interface Setup {

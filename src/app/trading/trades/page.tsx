@@ -95,6 +95,10 @@ export default function TradesPage() {
       ...input.trade,
       id: tradeId,
       createdAt: input.trade.createdAt ?? nowISO(),
+      // Ogni salvataggio (create o modifica) aggiorna il timestamp: nel merge
+      // del sync-server la copia modificata vince Sempre su quelle più vecchie
+      // (il merge confronta updatedAt ?? createdAt).
+      updatedAt: nowISO(),
     } as Trade;
     updateDB((d) => {
       const kept = d.tradeSetupRules.filter((r) => r.tradeId !== tradeId);

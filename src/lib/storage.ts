@@ -236,23 +236,32 @@ export function saveDB(db: DB): void {
     maybeSnapshot();
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(deduped));
   } catch {
-    // Quota superata (screenshot pesanti/legacy): salva le parti essenziali
-    // MA avvisa l'utente: gli screenshot NON sono persistiti.
-    try {
-      const slim = { ...deduped, trades: deduped.trades.map((t) => ({ ...t, screenshots: [] })) };
-      const hadShots = deduped.trades.some((t) => (t.screenshots?.length ?? 0) > 0);
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(slim));
-      if (hadShots) {
-         
-        console.warn(
-          "[ascend] Quota localStorage superata: gli screenshot dei trade non sono stati salvati. Riduci le dimensioni o esporta un backup."
-        );
-      }
-    } catch {
-      // rinuncia silenziosa (ultimo baluardo)
-    }
-  }
-  listeners.forEach((l) => l());
+      // Quota superata (screenshot pesanti/legacy): prima salva senza screenshot,
+      // se non basta ANCORA libera le snapshot di backup (le più vecchie prima)
+      // e riprova. Mai rinunciare in silenzio su un salvataggio utente.
+      try {
+        const slim = { ...deduped, trades: deduped.trades.map((t) => ({ ...t, screenshots: [] })) };
+        const hadShots = deduped.trades.some((t) => (t.screenshots?.length ?? 0) > 0);
+        try {
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(slim));
+        } catch {
+          // ancora piena: butta le snapshot di backup (i dati essenziali sono
+          // già nel JSON slim) e riprova l'ultima volta
+          for (let i = 1; i <= SNAP_COUNT; i++) {
+            window.localStorage.removeItem(`${SNAP_PREFIX}${i}`);
+          }
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(slim));
+        }
+        if (hadShots) {
+          console.warn(
+            "[ascend] Quota localStorage superata: gli screenshot dei trade non sono stati salvati (backup rotanti rimossi se serviva). Riduci le dimensioni o esporta un backup."
+          );
+        }
+      } catch {
+              // rinuncia solo come ultimo baluardo
+            }
+        }
+        listeners.forEach((l) => l());
 }
 
 // Multi-tab / multi-window: quando un ALTRO tab scrive su localStorage,
