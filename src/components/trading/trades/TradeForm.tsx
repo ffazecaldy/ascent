@@ -372,6 +372,11 @@ export function TradeForm({
                   Il segno del risultato in R non coincide con quello in {currencySymbol(currency)}: un
                   errore di segno invertirebbe win/loss nelle statistiche.
                 </p>
+              ) : !isNaN(rn) && isNaN(rr) ? (
+                <p className="mt-1 text-[11px] font-medium text-danger">
+                  Compila anche il risultato in R (o entry+stop+size per derivarlo): senza, il
+                  pulsante &quot;Salva trade&quot; resta disabilitato.
+                </p>
               ) : null}
             </Field>
           </div>
