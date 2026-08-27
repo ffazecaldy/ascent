@@ -186,26 +186,26 @@ export function UptimeCompareCard({ db, today }: { db: DB; today: string }) {
       </div>
 
       {/* tabella utilizzo settimanale */}
-      <div className="mt-3">
-        <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          <span className="h-px w-3 bg-border-strong" />
+      <div className="mt-5 border-t border-border pt-4">
+        <p className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <span className="h-px w-4 bg-border-strong" />
           Utilizzo ultimi 7 giorni
         </p>
-        <div className="space-y-1">
+        <div className="space-y-2.5">
           {week.map((d) => {
             const max = Math.max(...week.map((w) => w.min), 1);
             const w = Math.max(2, Math.round((d.min / max) * 100));
             return (
-              <div key={d.key} className="flex items-center gap-2">
+              <div key={d.key} className="flex items-center gap-3">
                 <span
                   className={cn(
-                    "w-16 shrink-0 text-[11px] font-medium capitalize",
-                    d.isToday ? "text-accent" : "text-muted-foreground"
+                    "w-20 shrink-0 text-[12px] font-medium capitalize",
+                    d.isToday ? "text-accent" : "text-secondary-text"
                   )}
                 >
                   {d.dow} {d.date}
                 </span>
-                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-elevated-2">
+                <div className="h-4 flex-1 overflow-hidden rounded-full bg-elevated-2">
                   <div
                     className={cn(
                       "h-full rounded-full",
@@ -216,8 +216,8 @@ export function UptimeCompareCard({ db, today }: { db: DB; today: string }) {
                 </div>
                 <span
                   className={cn(
-                    "tnum w-14 shrink-0 text-right text-[11px] font-semibold",
-                    d.isToday ? "text-foreground" : "text-secondary-text"
+                    "tnum w-16 shrink-0 text-right text-[12px] font-semibold",
+                    d.isToday ? "text-foreground" : "text-muted-foreground"
                   )}
                 >
                   {d.min > 0 ? minutiToOre(d.min) : "—"}
@@ -228,7 +228,7 @@ export function UptimeCompareCard({ db, today }: { db: DB; today: string }) {
         </div>
       </div>
 
-      <p className="mt-2 text-center text-[11px] text-muted-foreground">
+      <p className="mt-4 text-center text-[11px] text-muted-foreground">
         Il tracker campiona ogni 30s quando il PC è acceso: include lavoro, studio e
         anche svago (giochi, YouTube…) se fai alt-tab — la differenza è solo pausa/schermo spento.
         {uptimeMin !== null && accesoOggiMin !== null && uptimeMin - accesoOggiMin >= 60 && (
