@@ -11,6 +11,7 @@ import { Card, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { minutiToOre } from "@/lib/format";
+import { cn } from "@/lib/cn";
 import type { DB } from "@/lib/types";
 
 const BASE = "http://127.0.0.1:4877";
@@ -66,7 +67,22 @@ export function UptimeCompareCard({ db, today }: { db: DB; today: string }) {
   );
   const workTodayMin = workMin ?? Math.round(workFromDbMin);
 
-  // medie ultimi giorni COMPLETI (esclude oggi parziale)
+  // "PC acceso OGGI": l'uptime NON si azzera con lo standby e può coprire più
+  // giorni (boot di ieri → 32h anche se oggi è attivo da 9h). La card confronta
+  // OGGI con OGGI: min(uptime, minuti trascorsi da mezzanotte locale).
+  const accesoOggiMin = useMemo(() => {
+    if (uptimeMin === null) return null;
+    const fmt = new Intl.DateTimeFormat("en-GB", {
+      timeZone: db.settings.timezone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    const [h, m] = fmt.format(new Date()).split(":").map(Number);
+    return Math.min(uptimeMin, h * 60 + m);
+  }, [uptimeMin, db.settings.timezone]);
+
+  // Media 7gg: ultimi giorni COMPLETI (esclude oggi parziale) — somma dei log
   const avg7 = useMemo(() => {
     const days = new Set<string>();
     for (const l of db.pcUsageLogs) {
@@ -78,15 +94,42 @@ export function UptimeCompareCard({ db, today }: { db: DB; today: string }) {
     return Math.round(total / recent.length);
   }, [db, today]);
 
-  const gapMin = uptimeMin === null ? null : Math.max(0, uptimeMin - workTodayMin);
-  const ratio = uptimeMin !== null && uptimeMin > 0 ? pct(workTodayMin, uptimeMin) : 0;
+  // ULTIMI 7 GIORNI (oggi incluso): minuti tracciati per giorno, per la tabella
+  const week = useMemo(() => {
+    const parse = (k: string) => {
+      const [y, m, d] = k.split("-").map(Number);
+      return new Date(y, m - 1, d);
+    };
+    const shift = (k: string, n: number) => {
+      const dt = parse(k);
+      dt.setDate(dt.getDate() + n);
+      return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+    };
+    const out: { key: string; dow: string; date: string; min: number; isToday: boolean }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const key = shift(today, -i);
+      const dt = parse(key);
+      const min = db.pcUsageLogs.filter((p) => p.date === key).reduce((s, p) => s + p.minutes, 0);
+      out.push({
+        key,
+        dow: dt.toLocaleDateString("it-IT", { weekday: "short" }),
+        date: dt.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" }),
+        min: Math.round(min),
+        isToday: i === 0,
+      });
+    }
+    return out;
+  }, [db.pcUsageLogs, today]);
+
+  const gapMin = accesoOggiMin === null ? null : Math.max(0, accesoOggiMin - workTodayMin);
+  const ratio = accesoOggiMin !== null && accesoOggiMin > 0 ? pct(workTodayMin, accesoOggiMin) : 0;
 
   return (
     <Card>
       <div className="flex items-center justify-between">
         <div>
           <CardTitle className="text-sm">PC acceso vs tempo di tracciatura</CardTitle>
-          <CardSubtitle>tempo dal boot · campioni tracker di oggi · live</CardSubtitle>
+          <CardSubtitle>oggi · campioni tracker · live</CardSubtitle>
         </div>
         {!online && <Badge tone="danger">offline</Badge>}
       </div>
@@ -97,10 +140,10 @@ export function UptimeCompareCard({ db, today }: { db: DB; today: string }) {
         <div>
           <div className="mb-1 flex items-center justify-between text-[11px]">
             <span className="flex items-center gap-1 text-secondary-text">
-              <span className="h-2 w-2 rounded-full bg-accent/50" /> PC acceso
+              <span className="h-2 w-2 rounded-full bg-accent/50" /> PC acceso oggi
             </span>
             <span className="tnum font-semibold text-foreground">
-              {uptimeMin === null ? "…" : minutiToOre(uptimeMin)}
+              {accesoOggiMin === null ? "…" : minutiToOre(accesoOggiMin)}
             </span>
           </div>
           <div className="h-3 overflow-hidden rounded-full bg-elevated-2">
@@ -142,9 +185,55 @@ export function UptimeCompareCard({ db, today }: { db: DB; today: string }) {
         </div>
       </div>
 
+      {/* tabella utilizzo settimanale */}
+      <div className="mt-3">
+        <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <span className="h-px w-3 bg-border-strong" />
+          Utilizzo ultimi 7 giorni
+        </p>
+        <div className="space-y-1">
+          {week.map((d) => {
+            const max = Math.max(...week.map((w) => w.min), 1);
+            const w = Math.max(2, Math.round((d.min / max) * 100));
+            return (
+              <div key={d.key} className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "w-16 shrink-0 text-[11px] font-medium capitalize",
+                    d.isToday ? "text-accent" : "text-muted-foreground"
+                  )}
+                >
+                  {d.dow} {d.date}
+                </span>
+                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-elevated-2">
+                  <div
+                    className={cn(
+                      "h-full rounded-full",
+                      d.isToday ? "bg-accent" : "bg-accent/40"
+                    )}
+                    style={{ width: `${w}%` }}
+                  />
+                </div>
+                <span
+                  className={cn(
+                    "tnum w-14 shrink-0 text-right text-[11px] font-semibold",
+                    d.isToday ? "text-foreground" : "text-secondary-text"
+                  )}
+                >
+                  {d.min > 0 ? minutiToOre(d.min) : "—"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <p className="mt-2 text-center text-[11px] text-muted-foreground">
         Il tracker campiona ogni 30s quando il PC è acceso: include lavoro, studio e
         anche svago (giochi, YouTube…) se fai alt-tab — la differenza è solo pausa/schermo spento.
+        {uptimeMin !== null && accesoOggiMin !== null && uptimeMin - accesoOggiMin >= 60 && (
+          <> Il PC è acceso da {minutiToOre(uptimeMin)} senza riavvii (lo standby non azzera il contatore).</>
+        )}
       </p>
     </Card>
   );
