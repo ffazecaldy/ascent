@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { minutiToOre } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { PRODUCTIVE_CATEGORIES } from "@/lib/pc-record";
 import type { DB } from "@/lib/types";
 
 const BASE = "http://127.0.0.1:4877";
@@ -94,7 +95,9 @@ export function UptimeCompareCard({ db, today }: { db: DB; today: string }) {
     return Math.round(total / recent.length);
   }, [db, today]);
 
-  // ULTIMI 7 GIORNI (oggi incluso): minuti tracciati per giorno, per la tabella
+  // tabella settimanale: per ogni giorno, totale tracciato + ore produttive
+  // (Dev/Lavoro/Studio). Oggi si aggiorna dinamicamente (re-render del DB dal
+  // polling tracker).
   const week = useMemo(() => {
     const parse = (k: string) => {
       const [y, m, d] = k.split("-").map(Number);
@@ -105,16 +108,21 @@ export function UptimeCompareCard({ db, today }: { db: DB; today: string }) {
       dt.setDate(dt.getDate() + n);
       return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
     };
-    const out: { key: string; dow: string; date: string; min: number; isToday: boolean }[] = [];
+    const out: { key: string; dow: string; date: string; min: number; prodMin: number; isToday: boolean }[] = [];
     for (let i = 6; i >= 0; i--) {
       const key = shift(today, -i);
       const dt = parse(key);
-      const min = db.pcUsageLogs.filter((p) => p.date === key).reduce((s, p) => s + p.minutes, 0);
+      const logs = db.pcUsageLogs.filter((p) => p.date === key);
+      const min = logs.reduce((s, p) => s + p.minutes, 0);
+      const prodMin = logs
+        .filter((p) => PRODUCTIVE_CATEGORIES.has(p.categoryId))
+        .reduce((s, p) => s + p.minutes, 0);
       out.push({
         key,
         dow: dt.toLocaleDateString("it-IT", { weekday: "short" }),
         date: dt.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" }),
         min: Math.round(min),
+        prodMin: Math.round(prodMin),
         isToday: i === 0,
       });
     }
@@ -187,14 +195,23 @@ export function UptimeCompareCard({ db, today }: { db: DB; today: string }) {
 
       {/* tabella utilizzo settimanale */}
       <div className="mt-5 border-t border-border pt-4">
-        <p className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          <span className="h-px w-4 bg-border-strong" />
-          Utilizzo ultimi 7 giorni
-        </p>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <span className="h-px w-4 bg-border-strong" />
+            Utilizzo ultimi 7 giorni
+          </p>
+          <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span className="h-2 w-2 rounded-full bg-success/80" /> produttive
+            <span className="ml-1.5 flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-accent/50" /> totali
+            </span>
+          </span>
+        </div>
         <div className="space-y-2.5">
           {week.map((d) => {
             const max = Math.max(...week.map((w) => w.min), 1);
-            const w = Math.max(2, Math.round((d.min / max) * 100));
+            const wp = d.min > 0 ? Math.max(3, Math.round((d.prodMin / max) * 100)) : 0;
+            const wt = Math.max(wp, Math.max(3, Math.round((d.min / max) * 100)));
             return (
               <div key={d.key} className="flex items-center gap-3">
                 <span
@@ -205,22 +222,23 @@ export function UptimeCompareCard({ db, today }: { db: DB; today: string }) {
                 >
                   {d.dow} {d.date}
                 </span>
-                <div className="h-4 flex-1 overflow-hidden rounded-full bg-elevated-2">
+                <div className="relative h-4 flex-1 overflow-hidden rounded-full bg-elevated-2">
+                  {/* barra totale */}
                   <div
-                    className={cn(
-                      "h-full rounded-full",
-                      d.isToday ? "bg-accent" : "bg-accent/40"
-                    )}
-                    style={{ width: `${w}%` }}
+                    className="absolute inset-y-0 left-0 rounded-full bg-accent/40"
+                    style={{ width: `${wt}%` }}
                   />
-                </div>
-                <span
-                  className={cn(
-                    "tnum w-16 shrink-0 text-right text-[12px] font-semibold",
-                    d.isToday ? "text-foreground" : "text-muted-foreground"
+                  {/* barra produttiva sovrapposta */}
+                  {wp > 0 && (
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full bg-success/80"
+                      style={{ width: `${wp}%` }}
+                    />
                   )}
-                >
-                  {d.min > 0 ? minutiToOre(d.min) : "—"}
+                </div>
+                <span className="tnum w-24 shrink-0 text-right text-[12px] font-semibold">
+                  <span className="text-success">{d.prodMin > 0 ? minutiToOre(d.prodMin) : "—"}</span>
+                  <span className="text-muted-foreground"> / {d.min > 0 ? minutiToOre(d.min) : "—"}</span>
                 </span>
               </div>
             );

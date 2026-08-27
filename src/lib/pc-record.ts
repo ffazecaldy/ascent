@@ -47,7 +47,7 @@ interface RecordState {
   lastSessionStats: SessionStats | null;
 }
 
-const PRODUCTIVE_CATEGORIES: ReadonlySet<string> = new Set(["Dev", "Sviluppo", "Lavoro"]);
+export const PRODUCTIVE_CATEGORIES: ReadonlySet<string> = new Set(["Dev", "Sviluppo", "Lavoro"]);
 
 // --- stato interno (non reattivo) ---
 let recording = false;
