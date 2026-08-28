@@ -50,6 +50,8 @@ const emptyDB = (): DB => ({
   studySubjects: [],
   knowledgeMaps: [],
   studyMaterials: [],
+  customGoals: [],
+  customGoalChecks: [],
   badges: [],
 });
 
@@ -162,6 +164,14 @@ export function migrate(db: DB): DB {
     } else if (out.version < 11) {
       // v10 → v11: Study Vault — nuova collezione `studyMaterials` vuota.
       out = { ...out, version: 11, studyMaterials: out.studyMaterials ?? [] };
+    } else if (out.version < 12) {
+      // v11 → v12: Obiettivi personalizzati + check manuale.
+      out = {
+        ...out,
+        version: 12,
+        customGoals: out.customGoals ?? [],
+        customGoalChecks: out.customGoalChecks ?? [],
+      };
     } else {
       break;
     }
@@ -453,6 +463,8 @@ function dedupeCollections(db: DB): DB {
     recurringRules: dedupeById(db.recurringRules),
     knowledgeMaps: dedupeById(db.knowledgeMaps),
     studyMaterials: dedupeById(db.studyMaterials),
+    customGoals: dedupeById(db.customGoals),
+    customGoalChecks: dedupeById(db.customGoalChecks),
     badges: dedupeById(db.badges),
   };
 }

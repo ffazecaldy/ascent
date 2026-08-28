@@ -71,6 +71,8 @@ export function seedDB(): DB {
     studySubjects: [],
     knowledgeMaps: [],
     studyMaterials: [],
+    customGoals: [],
+    customGoalChecks: [],
     badges: [],
   };
 }

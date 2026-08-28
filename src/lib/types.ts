@@ -181,6 +181,30 @@ export type GoalType =
   | "allenamento" // almeno un workout nel giorno
   | "ore_produttive"; // minuti produttivi PC >= target
 
+/** Obiettivo personalizzato (check manuale, non calcolato) */
+export interface CustomGoal {
+  id: string;
+  title: string; // es. "Ripassare algoritmi"
+  note?: string; // dettaglio opzionale
+  target?: number | null; // quantità opzionale (es. 20 esercizi)
+  unit?: string; // es. "esercizi", "pagine", "minuti"
+  frequency: "daily" | "weekdays" | "weekly"; // weekdays = lun-ven; weekly = giorni scelti
+  weekDays?: number[]; // 0=dom...6=sab; usato solo con frequency "weekly"
+  dueDate?: string | null; // "yyyy-MM-dd" — scompare dai reminder dopo
+  color?: string; // hex opzionale per il badge in home
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Check manuale di un giorno per un CustomGoal (un solo record per goal+giorno) */
+export interface CustomGoalCheck {
+  id: string;
+  goalId: string;
+  date: string; // "yyyy-MM-dd"
+  createdAt: string;
+}
+
 export interface DailyGoal {
   id: string;
   type: GoalType;
@@ -407,6 +431,8 @@ export interface DB {
   studySubjects: StudySubject[];
   knowledgeMaps: KnowledgeMap[];
   studyMaterials: StudyMaterial[];
+  customGoals: CustomGoal[];
+  customGoalChecks: CustomGoalCheck[];
   savingsGoals: SavingsGoal[];
   savingsDeposits: SavingsDeposit[];
   sportProfile: SportProfile | null;
@@ -415,7 +441,7 @@ export interface DB {
   badges: Badge[];
 }
 
-export const DB_VERSION = 11;
+export const DB_VERSION = 12;
 
 /**
  * Regola di transazione ricorrente mensile (affitto, abbonamenti...).
