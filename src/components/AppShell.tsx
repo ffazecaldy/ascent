@@ -31,6 +31,8 @@ interface NavItem {
   href: string;
   label: string;
   icon: IconName | { img: string; alt: string };
+  /** Tooltip opzionale (title) — es. "Mappe di conoscenza" */
+  title?: string;
 }
 
 // localStorage key per l'acknowledge dei banner di drawdown:
@@ -69,6 +71,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
     group: "Personale",
     items: [
       { href: "/studio", label: "Studio", icon: { img: "/icons/studio.png", alt: "Studio" } },
+      { href: "/studio/mappe", label: "Mappe", icon: "compass", title: "Mappe di conoscenza" },
       { href: "/libri", label: "Libri", icon: "book-open" },
       { href: "/sport", label: "Sport", icon: "dumbbell" },
       { href: "/benessere", label: "Benessere", icon: "moon" },
@@ -499,6 +502,7 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
                   <Link
                     key={item.href}
                     href={item.href}
+                    title={item.title}
                     onClick={onNavigate}
                     className={cn(
                       "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors duration-150",
