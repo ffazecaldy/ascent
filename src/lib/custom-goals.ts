@@ -49,7 +49,6 @@ export function streakOf(
   checks: CustomGoalCheck[],
   todayKey: string
 ): number {
-  const tz = undefined; // streak in locale, sufficiente per contatore
   let streak = 0;
   let day = todayKey;
   for (;;) {

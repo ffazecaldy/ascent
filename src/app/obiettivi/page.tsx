@@ -27,6 +27,7 @@ import {
 } from "@/lib/dates";
 import type { DB, DailyGoal, WeeklyGoal, GoalType } from "@/lib/types";
 import { cn } from "@/lib/cn";
+import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar, EmptyState, SectionHeader } from "@/components/ui/Misc";
@@ -821,6 +822,33 @@ export default function ObiettiviPage() {
           </div>
         </div>
       </div>
+
+      {/* — Obiettivi personalizzati (check manuale) — */}
+      <Reveal delay={90}>
+        <Card className="mt-4">
+          <CardHeader>
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle>Obiettivi personalizzati</CardTitle>
+                <CardSubtitle>
+                  Goal a check manuale con reminder in Home: spunta quando li completi,
+                  con streak e percentuale di completamento.
+                </CardSubtitle>
+              </div>
+              <Link href="/obiettivi/custom-goals" className="shrink-0">
+                <Button variant="outline" size="sm">
+                  Gestisci →
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <div className="px-4 pb-3 text-[12px] text-secondary-text">
+            {db.customGoals.length === 0
+              ? "Nessun obiettivo personalizzato: aggiungine uno per apparire nella card Reminder della Home."
+              : `${db.customGoals.filter((g) => g.active).length} attivi · ${db.customGoalChecks.length} check registrati.`}
+          </div>
+        </Card>
+      </Reveal>
 
       {!hasAny ? (
         <EmptyState

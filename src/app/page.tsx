@@ -11,6 +11,7 @@ import { Reveal } from "@/components/ui/Reveal";
 import { StreakHero } from "@/components/home/StreakHero";
 import { AscendDayCard } from "@/components/home/AscendDayCard";
 import { MissingTodayCard } from "@/components/home/MissingTodayCard";
+import { CustomGoalsCard } from "@/components/home/CustomGoalsCard";
 import { DeadlinesCard } from "@/components/home/DeadlinesCard";
 import { QuickSummary } from "@/components/home/QuickSummary";
 import { BestWorstCard } from "@/components/home/BestWorstCard";
@@ -94,6 +95,9 @@ export default function HomePage() {
         <div className="flex flex-col gap-4">
           <Reveal delay={0}>
             <MissingTodayCard db={db} />
+          </Reveal>
+          <Reveal delay={20}>
+            <CustomGoalsCard db={db} />
           </Reveal>
           <Reveal delay={40}>
             <DeadlinesCard db={db} />
