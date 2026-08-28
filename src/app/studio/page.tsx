@@ -8,6 +8,7 @@
 // ============================================================
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useDB, updateDB, upsert, uid, nowISO } from "@/lib/storage";
 import type { StudyAttachment, StudySession } from "@/lib/types";
 import { SectionHeader } from "@/components/ui/Misc";
@@ -21,9 +22,11 @@ import { StudyKpis } from "@/components/studio/StudyKpis";
 import { StudyCharts } from "@/components/studio/StudyCharts";
 import { SubjectManager } from "@/components/studio/SubjectManager";
 import { Icon } from "@/components/ui/Icon";
+import { Card, CardTitle, CardSubtitle } from "@/components/ui/Card";
 
 export default function StudioPage() {
   const db = useDB();
+  const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<StudySession | null>(null);
 
@@ -121,6 +124,22 @@ export default function StudioPage() {
           <StudyCharts />
           <Reveal delay={30}>
             <SubjectManager />
+          </Reveal>
+          <Reveal delay={30}>
+            <Card
+              onClick={() => router.push("/studio/vault")}
+              className="cursor-pointer hover:border-accent/50 transition-colors"
+            >
+              <CardTitle>Study Vault</CardTitle>
+              <CardSubtitle>PDF, file e link con riassunti AI</CardSubtitle>
+              <div className="mt-3 flex items-center gap-2 text-sm text-secondary-text">
+                <Icon name="book" size={16} className="text-accent" />
+                <span className="tnum">
+                  {db.studyMaterials.length} materiali ·{" "}
+                  {db.studyMaterials.filter((mat) => mat.summary).length} con riassunto
+                </span>
+              </div>
+            </Card>
           </Reveal>
           <StudyLog onEdit={openEdit} />
         </>

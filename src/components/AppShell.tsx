@@ -72,6 +72,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
     items: [
       { href: "/studio", label: "Studio", icon: { img: "/icons/studio.png", alt: "Studio" } },
       { href: "/studio/mappe", label: "Mappe", icon: "compass", title: "Mappe di conoscenza" },
+      { href: "/studio/vault", label: "Vault", icon: "book", title: "Study Vault" },
       { href: "/libri", label: "Libri", icon: "book-open" },
       { href: "/sport", label: "Sport", icon: "dumbbell" },
       { href: "/benessere", label: "Benessere", icon: "moon" },
