@@ -299,6 +299,29 @@ export interface KnowledgeMap {
   updatedAt: string;
 }
 
+/** Vault Studio — materiale caricato (file/PDF) o link (YouTube/web) */
+export interface StudyMaterial {
+  id: string;
+  kind: "file" | "link";
+  // file
+  fileName?: string; // nome originale
+  mime?: string;
+  size?: number; // byte
+  fileId?: string; // id blob in IndexedDB ('ascend-files')
+  // link
+  url?: string; // URL completo
+  provider?: "youtube" | "web";
+  title: string; // titolo del materiale (utente o oembed)
+  author?: string; // autore (oembed / utente)
+  transcript?: string; // testo estratto dal PDF o trascrizione/descrizione incollata
+  summary?: string; // riassunto AI (markdown)
+  summaryModel?: string; // modello Ollama usato
+  summaryAt?: string; // quando è stato generato
+  subject?: string; // materia opzionale (lega a StudySubject.name)
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Risparmi — conto di accumulo progressivo per investimenti futuri */
 export interface SavingsGoal {
   id: string;
@@ -383,6 +406,7 @@ export interface DB {
   studySessions: StudySession[];
   studySubjects: StudySubject[];
   knowledgeMaps: KnowledgeMap[];
+  studyMaterials: StudyMaterial[];
   savingsGoals: SavingsGoal[];
   savingsDeposits: SavingsDeposit[];
   sportProfile: SportProfile | null;
@@ -391,7 +415,7 @@ export interface DB {
   badges: Badge[];
 }
 
-export const DB_VERSION = 10;
+export const DB_VERSION = 11;
 
 /**
  * Regola di transazione ricorrente mensile (affitto, abbonamenti...).

@@ -70,6 +70,7 @@ export function seedDB(): DB {
     wellnessLogs: [],
     studySubjects: [],
     knowledgeMaps: [],
+    studyMaterials: [],
     badges: [],
   };
 }

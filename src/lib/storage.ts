@@ -49,6 +49,7 @@ const emptyDB = (): DB => ({
   wellnessLogs: [],
   studySubjects: [],
   knowledgeMaps: [],
+  studyMaterials: [],
   badges: [],
 });
 
@@ -158,6 +159,9 @@ export function migrate(db: DB): DB {
     } else if (out.version < 10) {
       // v9 → v10: Mappe di conoscenza — nuova collezione `knowledgeMaps` vuota.
       out = { ...out, version: 10, knowledgeMaps: out.knowledgeMaps ?? [] };
+    } else if (out.version < 11) {
+      // v10 → v11: Study Vault — nuova collezione `studyMaterials` vuota.
+      out = { ...out, version: 11, studyMaterials: out.studyMaterials ?? [] };
     } else {
       break;
     }
@@ -448,6 +452,7 @@ function dedupeCollections(db: DB): DB {
     savingsDeposits: dedupeById(db.savingsDeposits),
     recurringRules: dedupeById(db.recurringRules),
     knowledgeMaps: dedupeById(db.knowledgeMaps),
+    studyMaterials: dedupeById(db.studyMaterials),
     badges: dedupeById(db.badges),
   };
 }
