@@ -69,6 +69,7 @@ export function seedDB(): DB {
     recurringRules: [],
     wellnessLogs: [],
     studySubjects: [],
+    knowledgeMaps: [],
     badges: [],
   };
 }

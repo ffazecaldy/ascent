@@ -48,6 +48,7 @@ const emptyDB = (): DB => ({
   recurringRules: [],
   wellnessLogs: [],
   studySubjects: [],
+  knowledgeMaps: [],
   badges: [],
 });
 
@@ -154,6 +155,9 @@ export function migrate(db: DB): DB {
       // Campo opzionale: nessun backfill necessario, le regole senza color
       // usano il colore di default della categoria.
       out = { ...out, version: 9 };
+    } else if (out.version < 10) {
+      // v9 → v10: Mappe di conoscenza — nuova collezione `knowledgeMaps` vuota.
+      out = { ...out, version: 10, knowledgeMaps: out.knowledgeMaps ?? [] };
     } else {
       break;
     }
@@ -439,9 +443,11 @@ function dedupeCollections(db: DB): DB {
     books: dedupeById(db.books),
     workouts: dedupeById(db.workouts),
     studySessions: dedupeById(db.studySessions),
+    studySubjects: dedupeById(db.studySubjects),
     savingsGoals: dedupeById(db.savingsGoals),
     savingsDeposits: dedupeById(db.savingsDeposits),
     recurringRules: dedupeById(db.recurringRules),
+    knowledgeMaps: dedupeById(db.knowledgeMaps),
     badges: dedupeById(db.badges),
   };
 }

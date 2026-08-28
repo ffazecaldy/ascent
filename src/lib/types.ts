@@ -272,6 +272,33 @@ export interface StudySubject {
   createdAt: string;
 }
 
+/** Mappe di conoscenza — nodo di una mind-map */
+export interface KnowledgeNode {
+  id: string;
+  label: string;
+  x: number; // posizione su canvas
+  y: number;
+  color?: string; // hex opzionale (default: accent)
+}
+
+/** Collegamento tra due nodi di una mappa */
+export interface KnowledgeEdge {
+  id: string;
+  from: string; // KnowledgeNode.id
+  to: string; // KnowledgeNode.id
+}
+
+/** Una mappa di conoscenza completa (isTemplate=true = modello riutilizzabile) */
+export interface KnowledgeMap {
+  id: string;
+  name: string;
+  nodes: KnowledgeNode[];
+  edges: KnowledgeEdge[];
+  isTemplate?: boolean; // true = modello selezionabile alla creazione
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Risparmi — conto di accumulo progressivo per investimenti futuri */
 export interface SavingsGoal {
   id: string;
@@ -355,6 +382,7 @@ export interface DB {
   workouts: Workout[];
   studySessions: StudySession[];
   studySubjects: StudySubject[];
+  knowledgeMaps: KnowledgeMap[];
   savingsGoals: SavingsGoal[];
   savingsDeposits: SavingsDeposit[];
   sportProfile: SportProfile | null;
@@ -363,7 +391,7 @@ export interface DB {
   badges: Badge[];
 }
 
-export const DB_VERSION = 9;
+export const DB_VERSION = 10;
 
 /**
  * Regola di transazione ricorrente mensile (affitto, abbonamenti...).
