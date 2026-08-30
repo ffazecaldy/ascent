@@ -17,6 +17,7 @@ import {
   Controls,
   ReactFlowProvider,
   addEdge,
+  ConnectionMode,
   useEdgesState,
   useNodesState,
   useReactFlow,
@@ -251,6 +252,7 @@ function KnowledgeEditorInner({ map, onSaved }: KnowledgeEditorInnerProps) {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          connectionMode={ConnectionMode.Loose}
           nodeTypes={nodeTypes}
           deleteKeyCode={["Backspace", "Delete"]}
           proOptions={{ hideAttribution: true }}
