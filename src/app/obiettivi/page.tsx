@@ -9,6 +9,7 @@
 // ============================================================
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useDB, updateDB, uid, removeById } from "@/lib/storage";
 import {
   ascordDay,
@@ -27,7 +28,6 @@ import {
 } from "@/lib/dates";
 import type { DB, DailyGoal, WeeklyGoal, GoalType } from "@/lib/types";
 import { cn } from "@/lib/cn";
-import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar, EmptyState, SectionHeader } from "@/components/ui/Misc";
@@ -61,6 +61,7 @@ const WEEKLY_ICONS: Record<WeeklyGoalType, IconName> = {
   finanze_check: "coins",
   trade_log: "activity",
   lettura_minuti: "book-open",
+  lettura_pagine: "book-open",
   allenamento: "dumbbell",
   ore_produttive: "monitor",
   disciplina_ok: "clipboard",
@@ -175,14 +176,6 @@ function weeklyProgress(db: DB, g: WeeklyGoal): PeriodProgress {
   const txs = db.transactions.filter((t) => inRange(t.date)).length;
   const trades = db.trades.filter((t) => inRange(isoToDayKey(t.closeDate, tz))).length;
 
-  // minuti di lettura nel periodo (stima: 1 pagina ≈ 3 min), coerentemente con ascordDay.
-  // updatedAt è un ISO: si confronta per day key nella timezone utente
-  // (mai new Date() locale del browser).
-  let pagesInPeriod = 0;
-  db.books.forEach((b) => {
-    const day = isoToDayKey(b.updatedAt, tz);
-    if (day >= start && day <= end) pagesInPeriod += b.pagesRead;
-  });
   // pagine totali lette nei libri attualmente in corso
   const bookPagesTotal = db.books
     .filter((b) => b.status === "in_corso")
@@ -198,7 +191,22 @@ function weeklyProgress(db: DB, g: WeeklyGoal): PeriodProgress {
     case "ore_produttive":
       return { value: pcMin, target: g.targetValue, unit: "min" };
     case "lettura_minuti":
-      return { value: pagesInPeriod * 3, target: g.targetValue, unit: "min" };
+      return {
+        value:
+          db.readingLog
+            .filter((r) => inRange(r.date))
+            .reduce((sum, r) => sum + (r.pages || 0), 0) * 3,
+        target: g.targetValue,
+        unit: "min",
+      };
+    case "lettura_pagine":
+      return {
+        value: db.readingLog
+          .filter((r) => inRange(r.date))
+          .reduce((sum, r) => sum + (r.pages || 0), 0),
+        target: g.targetValue,
+        unit: "pagg.",
+      };
     case "finanze_check":
       return { value: txs, target: g.targetValue, unit: "" };
     case "trade_log":

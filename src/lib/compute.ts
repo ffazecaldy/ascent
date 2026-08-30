@@ -171,6 +171,11 @@ export interface AscordDayResult {
   byGoal: Record<string, { met: boolean; value: number; target: number }>;
 }
 
+/** Pagine realmente lette in un giorno (dal readingLog). */
+export function readingPagesOn(db: DB, dayKey: string): number {
+  return db.readingLog.filter((r) => r.date === dayKey).reduce((s, r) => s + (r.pages || 0), 0);
+}
+
 /** Verifica i DailyGoal attivi per un certo giorno. */
 export function ascordDay(db: DB, dayKey: string): AscordDayResult {
   const goals = db.dailyGoals.filter((g) => g.active);
@@ -181,15 +186,6 @@ export function ascordDay(db: DB, dayKey: string): AscordDayResult {
   const tradesThisDay = db.trades.filter((t) => isoToDayKey(t.closeDate, tz) === dayKey);
   const workoutsThisDay = db.workouts.filter((w) => w.date === dayKey);
   const pcMinutes = db.pcUsageLogs.filter((p) => p.date === dayKey).reduce((s, p) => s + p.minutes, 0);
-  // minuti di lettura = progresso pagine del giorno (stimato: 1 pagina ≈ 3 min)
-  const bookStart = new Date(dayKey + "T00:00:00");
-  const bookEnd = new Date(dayKey + "T23:59:59");
-  let letturaMin = 0;
-  db.books.forEach((b) => {
-    const u = new Date(b.updatedAt);
-    if (u >= bookStart && u <= bookEnd) letturaMin += 3 * (b.pagesRead || 0);
-  });
-
   const disciplineOk = tradesWithSetupAllRespected(db, tradesThisDay.map((t) => t.id));
 
   for (const g of goals) {
@@ -211,7 +207,12 @@ export function ascordDay(db: DB, dayKey: string): AscordDayResult {
         else met = disciplineOk;
         break;
       case "lettura_minuti":
-        value = letturaMin;
+        // stima: 3 min/pagina — ora dal log reale delle pagine lette del giorno
+        value = readingPagesOn(db, dayKey) * 3;
+        met = value >= target;
+        break;
+      case "lettura_pagine":
+        value = readingPagesOn(db, dayKey);
         met = value >= target;
         break;
       case "allenamento":
@@ -862,6 +863,7 @@ export const GOAL_LABELS: Record<GoalType, string> = {
   trade_log: "Chiudi almeno un trade",
   disciplina_ok: "Rispetta il playbook",
   lettura_minuti: "Minuti di lettura",
+  lettura_pagine: "Pagine lette",
   allenamento: "Allenati",
   ore_produttive: "Ore produttive al PC",
 };
@@ -1016,7 +1018,17 @@ function weeklyGoalValue(db: DB, g: WeeklyGoal, dayKey: string): number {
     case "ore_produttive":
       return pcMin;
     case "lettura_minuti":
-      return pages * 3;
+      return (
+        db.readingLog
+          .filter((r) => inRange(r.date))
+          .reduce((sum, r) => sum + (r.pages || 0), 0) * 3
+      );
+    case "lettura_pagine": {
+      // week: somma il readingLog della settimana; month: tutto il periodo
+      return db.readingLog
+        .filter((r) => inRange(r.date))
+        .reduce((sum, r) => sum + (r.pages || 0), 0);
+    }
     case "finanze_check":
       return db.transactions.filter((t) => inRange(t.date)).length;
     case "trade_log":
@@ -1089,6 +1101,7 @@ export const WEEKLY_GOAL_LABELS: Record<string, string> = {
   finanze_check: "Check finanze",
   trade_log: "Trade loggati",
   lettura_minuti: "Minuti di lettura",
+  lettura_pagine: "Pagine lette",
   allenamento: "Allenamenti",
   ore_produttive: "Ore produttive",
   disciplina_ok: "Disciplina",

@@ -32,7 +32,7 @@ const LIST_KEYS = [
   "tradeSetupRules", "firmExpenses", "payouts", "weeklyReviews", "dailyGoals",
   "weeklyGoals", "pcUsageLogs", "pcAppCategoryMap", "books", "workouts",
   "studySessions", "studySubjects", "knowledgeMaps", "studyMaterials",
-  "customGoals", "customGoalChecks", "savingsGoals", "savingsDeposits",
+  "customGoals", "customGoalChecks", "readingLog", "savingsGoals", "savingsDeposits",
   "recurringRules", "wellnessLogs", "badges",
 ];
 const BASIC_KEYS = ["categories", "transactions", "accounts", "trades"];

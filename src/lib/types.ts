@@ -177,7 +177,8 @@ export type GoalType =
   | "finanze_check" // almeno una transazione registrata nel giorno
   | "trade_log" // almeno un trade CHIUSO nel giorno
   | "disciplina_ok" // tutti i trade chiusi del giorno con setup rispettato / nessun trade senza setup
-  | "lettura_minuti" // minuti di lettura (conteggiati dal progresso libri del giorno)
+  | "lettura_minuti" // minuti di lettura (stima dal progresso libri: 1 pagina ≈ 3 min)
+  | "lettura_pagine" // pagine LETTE nel giorno (da readingLog, dato reale)
   | "allenamento" // almeno un workout nel giorno
   | "ore_produttive"; // minuti produttivi PC >= target
 
@@ -257,6 +258,16 @@ export interface Book {
   endDate?: string | null;
   createdAt: string;
   updatedAt: string; // usato per conteggiare i minuti di lettura del giorno
+}
+
+/** Sessione di lettura per giorno+libro: traccia le pagine REALLY lette (per il goal lettura_pagine). */
+export interface ReadingSession {
+  id: string;
+  date: string; // "yyyy-MM-dd" nella timezone utente
+  bookId: string;
+  pages: number; // pagine lette in quel giorno su quel libro
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Workout {
@@ -426,6 +437,7 @@ export interface DB {
   pcUsageLogs: PCUsageLog[];
   pcAppCategoryMap: PCAppCategoryMap[];
   books: Book[];
+  readingLog: ReadingSession[];
   workouts: Workout[];
   studySessions: StudySession[];
   studySubjects: StudySubject[];
@@ -441,7 +453,7 @@ export interface DB {
   badges: Badge[];
 }
 
-export const DB_VERSION = 12;
+export const DB_VERSION = 13;
 
 /**
  * Regola di transazione ricorrente mensile (affitto, abbonamenti...).

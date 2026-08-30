@@ -52,6 +52,7 @@ const emptyDB = (): DB => ({
   studyMaterials: [],
   customGoals: [],
   customGoalChecks: [],
+  readingLog: [],
   badges: [],
 });
 
@@ -171,6 +172,23 @@ export function migrate(db: DB): DB {
         version: 12,
         customGoals: out.customGoals ?? [],
         customGoalChecks: out.customGoalChecks ?? [],
+      };
+    } else if (out.version < 13) {
+      // v12 → v13: log sessioni di lettura + goal lettura convertiti da minuti (≈3 min/pag) a pagine.
+      out = {
+        ...out,
+        version: 13,
+        readingLog: out.readingLog ?? [],
+        dailyGoals: (out.dailyGoals ?? []).map((g) =>
+          g.type === "lettura_minuti"
+            ? { ...g, type: "lettura_pagine" as const, targetValue: Math.max(1, Math.round(g.targetValue / 3)) }
+            : g
+        ),
+        weeklyGoals: (out.weeklyGoals ?? []).map((g) =>
+          g.type === "lettura_minuti"
+            ? { ...g, type: "lettura_pagine" as const, targetValue: Math.max(1, Math.round(g.targetValue / 3)) }
+            : g
+        ),
       };
     } else {
       break;
@@ -465,6 +483,7 @@ function dedupeCollections(db: DB): DB {
     studyMaterials: dedupeById(db.studyMaterials),
     customGoals: dedupeById(db.customGoals),
     customGoalChecks: dedupeById(db.customGoalChecks),
+    readingLog: dedupeById(db.readingLog),
     badges: dedupeById(db.badges),
   };
 }

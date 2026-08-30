@@ -154,15 +154,10 @@ export function EveningReviewCard({ db }: { db: DB }) {
       value: pcMinutes > 0 ? `${pcMinutes} min` : null,
     };
 
-    // 5) Pagine libro aggiornate oggi (updatedAt nel giorno → pagesRead)
-    const bStart = new Date(`${day}T00:00:00`);
-    const bEnd = new Date(`${day}T23:59:59`);
-    const pagesToday = db.books
-      .filter((b) => {
-        const u = new Date(b.updatedAt);
-        return u >= bStart && u <= bEnd;
-      })
-      .reduce((s, b) => s + (b.pagesRead || 0), 0);
+    // 5) Pagine lette oggi (dal readingLog: dato reale per giorno)
+    const pagesToday = (db.readingLog ?? [])
+      .filter((r) => r.date === day)
+      .reduce((s, r) => s + (r.pages || 0), 0);
     const bookRow: Row = {
       key: "book",
       icon: "book-open",

@@ -17,8 +17,11 @@ function valueText(type: GoalType, value: number, target: number): string {
   if (target <= 0) return value > 0 ? String(value) : "";
   switch (type) {
     case "ore_produttive":
+      return `${value}/${target} min`;
     case "lettura_minuti":
       return `${value}/${target} min`;
+    case "lettura_pagine":
+      return `${value}/${target} pagg.`;
     default:
       return `${value}/${target}`;
   }

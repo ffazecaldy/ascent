@@ -438,24 +438,38 @@ export default function LibriPage() {
   // ---- quick action +X pagine oggi ----
   const addPages = (book: Book, pages: number) => {
     if (!Number.isFinite(pages) || pages <= 0) return;
-    updateDB((d) => ({
-      ...d,
-      books: d.books.map((b) => {
-        if (b.id !== book.id) return b;
-        const total = Math.max(0, b.totalPages || 0);
-        const next = total > 0 ? Math.min(b.pagesRead + Math.floor(pages), total) : b.pagesRead + Math.floor(pages);
-        const finished = total > 0 && next >= total;
-        const today = todayKey(d.settings.timezone);
-        return {
-          ...b,
-          pagesRead: next,
-          status: finished ? "finito" : b.status === "da_leggere" ? "in_corso" : b.status,
-          startDate: !finished && b.status === "da_leggere" && !b.startDate ? today : b.startDate,
-          endDate: finished ? today : b.endDate,
-          updatedAt: nowISO(),
-        };
-      }),
-    }));
+    const p = Math.floor(pages);
+    updateDB((d) => {
+      const today = todayKey(d.settings.timezone);
+      // log lettura per il goal "pagine lette": somma le pagine del giorno sul libro
+      const existing = (d.readingLog ?? []).find((r) => r.date === today && r.bookId === book.id);
+      const readingLog = existing
+        ? d.readingLog.map((r) =>
+            r.id === existing.id ? { ...r, pages: r.pages + p, updatedAt: nowISO() } : r
+          )
+        : [
+            ...d.readingLog,
+            { id: uid(), date: today, bookId: book.id, pages: p, createdAt: nowISO(), updatedAt: nowISO() },
+          ];
+      return {
+        ...d,
+        readingLog,
+        books: d.books.map((b) => {
+          if (b.id !== book.id) return b;
+          const total = Math.max(0, b.totalPages || 0);
+          const next = total > 0 ? Math.min(b.pagesRead + p, total) : b.pagesRead + p;
+          const finished = total > 0 && next >= total;
+          return {
+            ...b,
+            pagesRead: next,
+            status: finished ? "finito" : b.status === "da_leggere" ? "in_corso" : b.status,
+            startDate: !finished && b.status === "da_leggere" && !b.startDate ? today : b.startDate,
+            endDate: finished ? today : b.endDate,
+            updatedAt: nowISO(),
+          };
+        }),
+      };
+    });
   };
 
   const setRating = (book: Book, r: number) => {

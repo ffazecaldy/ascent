@@ -39,13 +39,13 @@ export const DEFAULT_GOALS: GoalDef[] = [
     target: 0,
   },
   {
-    type: "lettura_minuti",
+    type: "lettura_pagine",
     label: "Leggere",
-    description: "Minuti di lettura al giorno, contati dal progresso dei libri.",
+    description: "Pagine da leggere al giorno: registri le pagine in Zona Libri, il goal le conta.",
     icon: "book-open",
     active: true,
-    target: 15,
-    targetOptions: [10, 15, 20, 30, 45, 60],
+    target: 20,
+    targetOptions: [10, 20, 30, 50, 100],
   },
   {
     type: "allenamento",

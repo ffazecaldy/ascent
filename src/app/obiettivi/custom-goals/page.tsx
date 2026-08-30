@@ -13,7 +13,7 @@ import { cn } from "@/lib/cn";
 import { useDB, updateDB, uid, removeById, nowISO } from "@/lib/storage";
 import { checkedOn, streakOf, completionRate, isDueOn } from "@/lib/custom-goals";
 import { todayKey } from "@/lib/dates";
-import type { DB, CustomGoal, CustomGoalCheck } from "@/lib/types";
+import type { CustomGoal, CustomGoalCheck } from "@/lib/types";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";

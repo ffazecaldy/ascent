@@ -73,6 +73,7 @@ export function seedDB(): DB {
     studyMaterials: [],
     customGoals: [],
     customGoalChecks: [],
+    readingLog: [],
     badges: [],
   };
 }

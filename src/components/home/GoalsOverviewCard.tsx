@@ -71,13 +71,6 @@ function weeklyProgress(db: DB, g: WeeklyGoal): PeriodProgress {
   const txs = db.transactions.filter((t) => inRange(t.date)).length;
   const trades = db.trades.filter((t) => inRange(isoToDayKey(t.closeDate, tz))).length;
 
-  const ps = new Date(start + "T00:00:00");
-  const pe = new Date(end + "T23:59:59");
-  let pagesInPeriod = 0;
-  db.books.forEach((b) => {
-    const u = new Date(b.updatedAt);
-    if (u >= ps && u <= pe) pagesInPeriod += b.pagesRead;
-  });
   const bookPagesTotal = db.books
     .filter((b) => b.status === "in_corso")
     .reduce((s, b) => s + b.pagesRead, 0);
@@ -92,7 +85,22 @@ function weeklyProgress(db: DB, g: WeeklyGoal): PeriodProgress {
     case "ore_produttive":
       return { value: pcMin, target: g.targetValue, unit: "min" };
     case "lettura_minuti":
-      return { value: pagesInPeriod * 3, target: g.targetValue, unit: "min" };
+      return {
+        value:
+          db.readingLog
+            .filter((r) => inRange(r.date))
+            .reduce((sum, r) => sum + (r.pages || 0), 0) * 3,
+        target: g.targetValue,
+        unit: "min",
+      };
+    case "lettura_pagine":
+      return {
+        value: db.readingLog
+          .filter((r) => inRange(r.date))
+          .reduce((sum, r) => sum + (r.pages || 0), 0),
+        target: g.targetValue,
+        unit: "pagg.",
+      };
     case "finanze_check":
       return { value: txs, target: g.targetValue, unit: "" };
     case "trade_log":
