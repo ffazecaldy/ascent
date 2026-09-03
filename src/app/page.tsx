@@ -12,6 +12,7 @@ import { StreakHero } from "@/components/home/StreakHero";
 import { AscendDayCard } from "@/components/home/AscendDayCard";
 import { MissingTodayCard } from "@/components/home/MissingTodayCard";
 import { CustomGoalsCard } from "@/components/home/CustomGoalsCard";
+import { MilestonesCard } from "@/components/home/MilestonesCard";
 import { DeadlinesCard } from "@/components/home/DeadlinesCard";
 import { QuickSummary } from "@/components/home/QuickSummary";
 import { BestWorstCard } from "@/components/home/BestWorstCard";
@@ -98,6 +99,9 @@ export default function HomePage() {
           </Reveal>
           <Reveal delay={20}>
             <CustomGoalsCard db={db} />
+          </Reveal>
+          <Reveal delay={30}>
+            <MilestonesCard db={db} />
           </Reveal>
           <Reveal delay={40}>
             <DeadlinesCard db={db} />

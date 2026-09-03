@@ -858,6 +858,33 @@ export default function ObiettiviPage() {
         </Card>
       </Reveal>
 
+      {/* — Milestone con deadline — */}
+      <Reveal delay={100}>
+        <Card className="mt-4">
+          <CardHeader>
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle>Milestone</CardTitle>
+                <CardSubtitle>
+                  Traguardi con data precisa: appaiono nel reminder in Home,
+                  con urgenza e spunta al raggiungimento.
+                </CardSubtitle>
+              </div>
+              <Link href="/obiettivi/milestones" className="shrink-0">
+                <Button variant="outline" size="sm">
+                  Gestisci →
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <div className="px-4 pb-3 text-[12px] text-secondary-text">
+            {(db.milestones ?? []).length === 0
+              ? "Nessuna milestone: aggiungine una per vederla nel reminder della Home."
+              : `${(db.milestones ?? []).filter((m) => !m.done).length} aperte · ${(db.milestones ?? []).filter((m) => m.done).length} completate.`}
+          </div>
+        </Card>
+      </Reveal>
+
       {!hasAny ? (
         <EmptyState
           icon={<Icon name="target" size={34} className="text-accent" />}
