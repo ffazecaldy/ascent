@@ -74,6 +74,7 @@ export function seedDB(): DB {
     customGoals: [],
     customGoalChecks: [],
     readingLog: [],
+    milestones: [],
     badges: [],
   };
 }

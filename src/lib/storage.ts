@@ -53,6 +53,7 @@ const emptyDB = (): DB => ({
   customGoals: [],
   customGoalChecks: [],
   readingLog: [],
+  milestones: [],
   badges: [],
 });
 
@@ -190,6 +191,9 @@ export function migrate(db: DB): DB {
             : g
         ),
       };
+    } else if (out.version < 14) {
+      // v13 → v14: Milestone con deadline — nuova collezione `milestones` vuota.
+      out = { ...out, version: 14, milestones: out.milestones ?? [] };
     } else {
       break;
     }
@@ -484,6 +488,7 @@ function dedupeCollections(db: DB): DB {
     customGoals: dedupeById(db.customGoals),
     customGoalChecks: dedupeById(db.customGoalChecks),
     readingLog: dedupeById(db.readingLog),
+    milestones: dedupeById(db.milestones),
     badges: dedupeById(db.badges),
   };
 }

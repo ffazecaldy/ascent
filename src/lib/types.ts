@@ -206,6 +206,19 @@ export interface CustomGoalCheck {
   createdAt: string;
 }
 
+/** Milestone con deadline: traguardo da raggiungere entro una data precisa (es. "Esame", "Consegna"). */
+export interface Milestone {
+  id: string;
+  title: string; // es. "Esame di reti"
+  note?: string; // dettaglio opzionale
+  date: string; // "yyyy-MM-dd" — la deadline
+  color?: string; // hex opzionale per il badge
+  done: boolean; // spuntata manualmente quando raggiunta
+  doneAt?: string | null; // ISO quando è stata completata
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DailyGoal {
   id: string;
   type: GoalType;
@@ -445,6 +458,7 @@ export interface DB {
   studyMaterials: StudyMaterial[];
   customGoals: CustomGoal[];
   customGoalChecks: CustomGoalCheck[];
+  milestones: Milestone[];
   savingsGoals: SavingsGoal[];
   savingsDeposits: SavingsDeposit[];
   sportProfile: SportProfile | null;
@@ -453,7 +467,7 @@ export interface DB {
   badges: Badge[];
 }
 
-export const DB_VERSION = 13;
+export const DB_VERSION = 14;
 
 /**
  * Regola di transazione ricorrente mensile (affitto, abbonamenti...).
