@@ -95,13 +95,13 @@ export default function HomePage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="flex flex-col gap-4">
           <Reveal delay={0}>
+            <MilestonesCard db={db} />
+          </Reveal>
+          <Reveal delay={10}>
             <MissingTodayCard db={db} />
           </Reveal>
           <Reveal delay={20}>
             <CustomGoalsCard db={db} />
-          </Reveal>
-          <Reveal delay={30}>
-            <MilestonesCard db={db} />
           </Reveal>
           <Reveal delay={40}>
             <DeadlinesCard db={db} />
