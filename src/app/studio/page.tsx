@@ -119,20 +119,56 @@ export default function StudioPage() {
       </Reveal>
 
       {!hasSessions ? (
-        <Reveal delay={40}>
-          <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
-            <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
-              <Icon name="book-open" size={30} className="text-accent" />
+        <>
+          <Reveal delay={40}>
+            <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong py-12 text-center">
+              <div className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/30 bg-accent/10 shadow-[0_0_28px_-8px_rgba(76,126,255,0.6)]">
+                <Icon name="book-open" size={30} className="text-accent" />
+              </div>
+              <p className="text-sm font-medium text-secondary-text">Prima sessione di studio</p>
+              <p className="max-w-xs text-xs text-muted-foreground">
+                Registra la prima sessione per vedere minuti, materie e il contributo all&apos;Activity Streak.
+              </p>
+              <div className="mt-2">
+                <Button onClick={openNew}>Aggiungi sessione</Button>
+              </div>
             </div>
-            <p className="text-sm font-medium text-secondary-text">Prima sessione di studio</p>
-            <p className="max-w-xs text-xs text-muted-foreground">
-              Registra la prima sessione per vedere minuti, materie e il contributo all&apos;Activity Streak.
-            </p>
-            <div className="mt-2">
-              <Button onClick={openNew}>Aggiungi sessione</Button>
-            </div>
+          </Reveal>
+          <Reveal delay={30}>
+            <SubjectManager />
+          </Reveal>
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <Reveal delay={30}>
+              <Card
+                onClick={() => router.push("/studio/vault")}
+                className="cursor-pointer hover:border-accent/50 transition-colors"
+              >
+                <CardTitle>Study Vault</CardTitle>
+                <CardSubtitle>PDF, file e link con riassunti AI</CardSubtitle>
+                <div className="mt-3 flex items-center gap-2 text-sm text-secondary-text">
+                  <Icon name="book" size={16} className="text-accent" />
+                  <span className="tnum">
+                    {db.studyMaterials.length} materiali ·{" "}
+                    {db.studyMaterials.filter((mat) => mat.summary).length} con riassunto
+                  </span>
+                </div>
+              </Card>
+            </Reveal>
+            <Reveal delay={40}>
+              <Card
+                onClick={() => router.push("/studio/mappe")}
+                className="cursor-pointer hover:border-accent/50 transition-colors"
+              >
+                <CardTitle>Mappe di conoscenza</CardTitle>
+                <CardSubtitle>Schemi e collegamenti tra concetti</CardSubtitle>
+                <div className="mt-3 flex items-center gap-2 text-sm text-secondary-text">
+                  <Icon name="compass" size={16} className="text-accent" />
+                  <span className="tnum">{db.knowledgeMaps.length} mappe</span>
+                </div>
+              </Card>
+            </Reveal>
           </div>
-        </Reveal>
+        </>
       ) : (
         <>
           <Reveal delay={30}>
