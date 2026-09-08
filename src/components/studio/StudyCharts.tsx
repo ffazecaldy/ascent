@@ -7,6 +7,7 @@
 // ============================================================
 
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useDB } from "@/lib/storage";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -17,6 +18,7 @@ import { last7Minutes, subjectColor } from "./constants";
 
 export function StudyCharts() {
   const db = useDB();
+  const router = useRouter();
   const tz = db.settings.timezone;
   const locale = db.settings.locale || "it-IT";
   const today = todayKey(tz);
@@ -95,13 +97,34 @@ export function StudyCharts() {
             </Badge>
           </CardHeader>
           {donut.length > 0 ? (
-            <DonutChart
-              data={donut}
-              size={150}
-              thickness={24}
-              centerLabel="min"
-              centerValue={String(monthTotal)}
-            />
+            <>
+              <DonutChart
+                data={donut}
+                size={150}
+                thickness={24}
+                centerLabel="min"
+                centerValue={String(monthTotal)}
+              />
+              <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Filtra per materia">
+                {donut.map((d) => (
+                  <button
+                    key={d.label}
+                    type="button"
+                    onClick={() => router.push(`/studio?materia=${encodeURIComponent(d.label)}`)}
+                    title={`Filtra sessioni per ${d.label}`}
+                    aria-label={`Filtra sessioni per ${d.label}`}
+                    className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors hover:bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+                    style={{ color: d.color, borderColor: `${d.color}40` }}
+                  >
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: d.color }}
+                    />
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            </>
           ) : (
             <p className="text-sm text-secondary-text">Nessuna sessione questo mese.</p>
           )}

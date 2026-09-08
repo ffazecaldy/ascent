@@ -8,11 +8,14 @@
 // ============================================================
 
 import { useEffect, useState } from "react";
-import { updateDB, nowISO, removeById } from "@/lib/storage";
+import { useRouter } from "next/navigation";
+import { useDB, updateDB, nowISO, removeById } from "@/lib/storage";
 import type { StudyMaterial } from "@/lib/types";
 import { summarizeMaterial } from "@/lib/materials";
 import { listOllamaModels, isCoachOffline } from "@/lib/ai";
 import { cn } from "@/lib/cn";
+import { labelDayKey } from "@/lib/dates";
+import { fmtDur } from "@/components/studio/constants";
 import { getFile, deleteFile, downloadAttachment, fmtBytes } from "@/lib/file-store";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -30,6 +33,8 @@ interface Props {
 type Tab = "riassunto" | "testo";
 
 export default function MaterialDetail({ material, onDeleted }: Props) {
+  const db = useDB();
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("riassunto");
   // Modelli Ollama per la generazione riassunto
   const [models, setModels] = useState<string[]>([]);
@@ -134,6 +139,15 @@ export default function MaterialDetail({ material, onDeleted }: Props) {
 
   const ts = material.summaryAt ? new Date(material.summaryAt) : null;
   const hasSummary = !!material.summary;
+  const locale = db.settings.locale || "it-IT";
+  const linkedSessions = db.studySessions
+    .filter((s) => s.materialId === material.id)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+
+  function handleStudyNow() {
+    const base = `/studio?materialId=${material.id}`;
+    router.push(material.subject ? `${base}&materia=${encodeURIComponent(material.subject)}` : base);
+  }
 
   return (
     <div className="space-y-4">
@@ -199,6 +213,10 @@ export default function MaterialDetail({ material, onDeleted }: Props) {
           {material.size != null && material.kind === "file" && (
             <span className="text-[11px] text-muted-foreground">{fmtBytes(material.size)}</span>
           )}
+          <Button variant="primary" size="sm" glow onClick={handleStudyNow}>
+            <Icon name="timer" size={13} />
+            Studia ora → registra sessione
+          </Button>
         </div>
 
         {/* generazione riassunto: select modello + bottone */}
@@ -345,6 +363,42 @@ export default function MaterialDetail({ material, onDeleted }: Props) {
             </pre>
           )}
         </div>
+      </div>
+
+      {/* sessioni collegate al materiale */}
+      <div className="rounded-[--radius] border border-border bg-card p-4 shadow-[--shadow-card]">
+        <h3 className="text-[13px] font-semibold text-foreground">
+          Sessioni collegate <span className="tnum">({linkedSessions.length})</span>
+        </h3>
+        {linkedSessions.length === 0 ? (
+          <p className="mt-2 text-[12px] text-muted-foreground">
+            Nessuna sessione collegata — collega dal form sessione.
+          </p>
+        ) : (
+          <div className="mt-2 space-y-1.5">
+            {linkedSessions.slice(0, 5).map((s) => (
+              <div
+                key={s.id}
+                className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-lg border border-border bg-elevated/40 px-3 py-2"
+              >
+                <span className="text-[11px] tnum text-muted-foreground">
+                  {labelDayKey(s.date, locale)}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-foreground">
+                  {s.subject}
+                </span>
+                <span className="shrink-0 text-[12px] font-semibold tnum text-accent">
+                  {fmtDur(s.minutes)}
+                </span>
+              </div>
+            ))}
+            {linkedSessions.length > 5 && (
+              <p className="text-[11px] text-muted-foreground">
+                e altre <span className="tnum">{linkedSessions.length - 5}</span>
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <ConfirmDialog

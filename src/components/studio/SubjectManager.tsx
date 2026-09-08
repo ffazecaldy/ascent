@@ -11,6 +11,7 @@
 // ============================================================
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useDB, updateDB, removeById, upsert, uid, nowISO } from "@/lib/storage";
 import type { StudySubject } from "@/lib/types";
 import { addDaysKey, parseDateKey, todayKey } from "@/lib/dates";
@@ -33,6 +34,7 @@ function daysBetween(fromKey: string, toKey: string): number {
 
 export function SubjectManager() {
   const db = useDB();
+  const router = useRouter();
   const today = todayKey(db.settings.timezone);
   const cutoff = addDaysKey(today, -6);
 
@@ -165,6 +167,15 @@ export function SubjectManager() {
                   <span className="shrink-0 text-[11px] text-muted-foreground">
                     <span className="tnum">{mins}</span> min · 7gg
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/studio?materia=${encodeURIComponent(name)}`)}
+                    aria-label={`Filtra sessioni per ${name}`}
+                    title={`Filtra sessioni per ${name}`}
+                    className="grid h-6 w-6 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/15 hover:text-accent"
+                  >
+                    <Icon name="tag" size={13} />
+                  </button>
                   <button
                     type="button"
                     onClick={() => setEditingName(name)}

@@ -5,10 +5,12 @@
 // CRUD sessioni di studio, KPI con AnimatedNumber + sparkline,
 // bars 7 giorni, donut materie, badge streak e timer veloce.
 // Tutto scrive/legge da db.studySessions via useDB/updateDB.
+// Filtro globale v1 (?materia= + ?materialId=): copre banner +
+// StudyLog; KPI/Charts/Stats restano globali (vedi report 2.1).
 // ============================================================
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useDB, updateDB, upsert, uid, nowISO } from "@/lib/storage";
 import type { StudyAttachment, StudySession } from "@/lib/types";
 import { SectionHeader } from "@/components/ui/Misc";
@@ -26,8 +28,28 @@ import { Icon } from "@/components/ui/Icon";
 import { Card, CardTitle, CardSubtitle } from "@/components/ui/Card";
 
 export default function StudioPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6">
+          <p className="text-sm text-muted-foreground">Caricamento zona studio…</p>
+        </div>
+      }
+    >
+      <StudioContent />
+    </Suspense>
+  );
+}
+
+function StudioContent() {
   const db = useDB();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawMateria = (searchParams.get("materia") ?? "").trim();
+  const subjectFilter = rawMateria !== "" ? rawMateria : null;
+  const rawMaterialId = (searchParams.get("materialId") ?? "").trim();
+  const selectedMaterial =
+    rawMaterialId !== "" ? (db.studyMaterials.find((m) => m.id === rawMaterialId) ?? null) : null;
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<StudySession | null>(null);
 
@@ -114,6 +136,32 @@ export default function StudioPage() {
         />
       </Reveal>
 
+      {subjectFilter && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-accent/30 bg-accent/10 px-3 py-2">
+          <span className="text-[12px] text-secondary-text">
+            Filtro: <span className="font-semibold text-foreground">{subjectFilter}</span>
+          </span>
+          <Button variant="ghost" size="sm" onClick={() => router.push("/studio")} aria-label="Rimuovi filtro materia">
+            <Icon name="x" size={13} />
+            Rimuovi
+          </Button>
+        </div>
+      )}
+
+      {rawMaterialId !== "" && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-elevated/60 px-3 py-2">
+          <span className="text-[12px] text-secondary-text">
+            Materiale selezionato:{" "}
+            <span className="font-semibold text-foreground">
+              {selectedMaterial ? selectedMaterial.title : rawMaterialId}
+            </span>
+          </span>
+          <Button variant="outline" size="sm" onClick={openNew}>
+            Nuova sessione
+          </Button>
+        </div>
+      )}
+
       <Reveal delay={20}>
         <StudyTimer />
       </Reveal>
@@ -195,7 +243,7 @@ export default function StudioPage() {
               </div>
             </Card>
           </Reveal>
-          <StudyLog onEdit={openEdit} />
+          <StudyLog onEdit={openEdit} subjectFilter={subjectFilter} />
         </>
       )}
 

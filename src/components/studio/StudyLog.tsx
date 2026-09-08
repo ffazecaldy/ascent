@@ -5,7 +5,7 @@
 // durata, nota, data) + eliminazione con conferma.
 // ============================================================
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDB, updateDB, removeById } from "@/lib/storage";
 import type { StudySession } from "@/lib/types";
 import { labelDayKey } from "@/lib/dates";
@@ -21,7 +21,13 @@ import { downloadAttachment, fmtBytes } from "@/lib/file-store";
 
 type SortKey = "recenti" | "durata" | "focus";
 
-export function StudyLog({ onEdit }: { onEdit: (s: StudySession) => void }) {
+export function StudyLog({
+  onEdit,
+  subjectFilter,
+}: {
+  onEdit: (s: StudySession) => void;
+  subjectFilter?: string | null;
+}) {
   const db = useDB();
   const locale = db.settings.locale || "it-IT";
   const [deleteTarget, setDeleteTarget] = useState<StudySession | null>(null);
@@ -30,6 +36,12 @@ export function StudyLog({ onEdit }: { onEdit: (s: StudySession) => void }) {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [sort, setSort] = useState<SortKey>("recenti");
+
+  // Filtro globale v1 (?materia=): sincronizza il filtro interno quando il prop cambia.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronizzazione intenzionale prop -> stato locale (task 2.1)
+    setSubject(!subjectFilter ? "Tutte" : subjectFilter);
+  }, [subjectFilter]);
 
   const subjects = useMemo(
     () => Array.from(new Set(db.studySessions.map((s) => s.subject))).sort((a, b) => a.localeCompare(b)),
