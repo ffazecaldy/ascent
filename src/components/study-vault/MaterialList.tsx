@@ -13,8 +13,10 @@ import { fmtBytes } from "@/lib/file-store";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { Select } from "@/components/ui/Field";
+import { Select, Input } from "@/components/ui/Field";
 import AddMaterialDialog from "./AddMaterialDialog";
+
+type StatusFilter = "" | NonNullable<StudyMaterial["status"]>;
 
 interface Props {
   selectedId: string | null;
@@ -83,6 +85,8 @@ export function MaterialList({ selectedId, onSelect }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [subjectFilter, setSubjectFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState<"" | "file" | "link">("");
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
 
   const subjects = useMemo(
     () =>
@@ -91,11 +95,20 @@ export function MaterialList({ selectedId, onSelect }: Props) {
   );
 
   const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
     return db.studyMaterials
       .filter((m) => (subjectFilter ? m.subject === subjectFilter : true))
       .filter((m) => (typeFilter ? m.kind === typeFilter : true))
+      .filter((m) => (statusFilter ? (m.status ?? "da_studiare") === statusFilter : true))
+      .filter((m) =>
+        q
+          ? [m.title, m.transcript ?? "", m.summary ?? ""].some((t) =>
+              t.toLowerCase().includes(q)
+            )
+          : true
+      )
       .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
-  }, [db.studyMaterials, subjectFilter, typeFilter]);
+  }, [db.studyMaterials, subjectFilter, typeFilter, query, statusFilter]);
 
   return (
     <div className="space-y-3">
@@ -106,6 +119,13 @@ export function MaterialList({ selectedId, onSelect }: Props) {
 
       {db.studyMaterials.length > 0 && (
         <div className="grid grid-cols-1 gap-2">
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Cerca in titolo, testo, riassunto…"
+            className="h-8 py-0 text-[12px]"
+            aria-label="Cerca nei materiali"
+          />
           <Select
             value={subjectFilter}
             onChange={(e) => setSubjectFilter(e.target.value)}
@@ -129,12 +149,23 @@ export function MaterialList({ selectedId, onSelect }: Props) {
             <option value="file">File</option>
             <option value="link">Link</option>
           </Select>
+          <Select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            className="h-8 py-0 text-[12px]"
+            aria-label="Filtra per stato"
+          >
+            <option value="">Tutti gli stati</option>
+            <option value="da_studiare">Da studiare</option>
+            <option value="in_ripasso">In ripasso</option>
+            <option value="completato">Completato</option>
+          </Select>
         </div>
       )}
 
       <div>
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          I tuoi materiali
+          I tuoi materiali · {visible.length} di {db.studyMaterials.length}
         </p>
         {visible.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border-strong px-3 py-4 text-center text-xs text-muted-foreground">

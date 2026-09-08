@@ -214,3 +214,113 @@ export async function summarizeMaterial(
   // fusione finale dei parziali nel formato obbligatorio
   return coachChat(finalMessages(material.title, [partial]), model);
 }
+
+const MAX_FLASHCARDS_CHARS = 6_000; // troncamento sanitario per il prompt flashcard
+
+const FLASHCARDS_SYSTEM_PROMPT = `Sei un assistente di studio per uno studente universitario di Informatica al primo anno.
+Ricevi il testo (o la trascrizione, o il riassunto) di un materiale didattico e produci ESATTAMENTE 8 flashcard di studio in italiano.
+Usa SOLO il testo fornito: non inventare nulla, non aggiungere conoscenza esterna.
+Formato di output RIGOROSO, senza testo introduttivo o conclusivo: ripeti 8 volte questo blocco, con una riga vuota tra i blocchi:
+
+Q: <domanda chiara e autoportante>
+A: <risposta breve, 1-2 frasi>
+
+REGOLE:
+- Copri i concetti più importanti del testo, senza ripetizioni.
+- Domande in italiano, risposte asciutte e tecniche.
+- Ogni Q su una sola riga che inizia con "Q:", ogni A su una sola riga che inizia con "A:".`;
+
+/** Rimuove bullet/numerazione/markdown di testa per riconoscere i prefissi Q:/A:. */
+function stripListMarker(line: string): string {
+  return line
+    .trim()
+    .replace(/^(\d+[.)]\s*|[-*•]\s*)+/, "")
+    .replace(/^\*\*(.+)\*\*$/, "$1")
+    .trim();
+}
+
+function cleanCardText(s: string): string {
+  return s
+    .replace(/\*\*/g, "")
+    .replace(/^["«“'\s]+|["»”'\s]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Parsing robusto di `Q: ...\\nA: ...` ripetuto (risposte anche multi-riga). */
+function parseFlashcardsResponse(raw: string): { q: string; a: string }[] {
+  const cards: { q: string; a: string }[] = [];
+  let curQ = "";
+  let curA = "";
+  let mode: "none" | "q" | "a" = "none";
+
+  const push = () => {
+    const q = cleanCardText(curQ);
+    const a = cleanCardText(curA);
+    if (q && a) cards.push({ q, a });
+    curQ = "";
+    curA = "";
+    mode = "none";
+  };
+
+  for (const line of raw.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    const probe = stripListMarker(line);
+    const mq = /^Q\s*[:.\-–]\s*(.+)\s*$/i.exec(probe);
+    if (mq?.[1]) {
+      if (curQ.trim() || curA.trim()) push();
+      curQ = mq[1];
+      mode = "q";
+      continue;
+    }
+    const ma = /^A\s*[:.\-–]\s*(.+)\s*$/i.exec(probe);
+    if (ma?.[1]) {
+      if (!curQ.trim()) continue; // A senza Q: ignora
+      curA = ma[1];
+      mode = "a";
+      continue;
+    }
+    // continuazione multi-riga
+    if (mode === "a") curA += " " + line.trim();
+    else if (mode === "q") curQ += " " + line.trim();
+  }
+  if (curQ.trim() || curA.trim()) push();
+  return cards;
+}
+
+/**
+ * Genera 8 flashcard Q/A in italiano da transcript (fallback: summary) con Ollama.
+ * Tronca il testo a ~6000 caratteri (summarizeMaterial usa chunking a 24k:
+ * nessun helper da riusare per questo limite, slice diretto).
+ * Lancia Error("Formato flashcard non riconosciuto") se il parsing fallisce.
+ */
+export async function generateFlashcards(
+  material: Pick<StudyMaterial, "title" | "transcript" | "summary">,
+  model: string
+): Promise<{ q: string; a: string }[]> {
+  const source = (material.transcript ?? "").trim()
+    ? (material.transcript ?? "").trim()
+    : (material.summary ?? "").trim();
+  if (!source) {
+    throw new Error(
+      "Nessun testo da cui generare flashcard: incolla la trascrizione o genera prima il riassunto."
+    );
+  }
+  const text =
+    source.length > MAX_FLASHCARDS_CHARS
+      ? source.slice(0, MAX_FLASHCARDS_CHARS) + "…[troncato]"
+      : source;
+  const raw = await coachChat(
+    [
+      { role: "system", content: FLASHCARDS_SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: `Titolo del materiale: "${material.title}"\n\nTesto del materiale:\n\n${text}`,
+      },
+    ],
+    model
+  );
+  const cards = parseFlashcardsResponse(raw);
+  if (cards.length === 0) throw new Error("Formato flashcard non riconosciuto");
+  return cards;
+}
