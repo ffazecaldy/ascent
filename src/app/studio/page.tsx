@@ -25,6 +25,7 @@ import { StudyStats } from "@/components/studio/StudyStats";
 import { StudyCharts } from "@/components/studio/StudyCharts";
 import { SubjectManager } from "@/components/studio/SubjectManager";
 import { Icon } from "@/components/ui/Icon";
+import { MilestonesCard } from "@/components/home/MilestonesCard";
 import { Card, CardTitle, CardSubtitle } from "@/components/ui/Card";
 
 export default function StudioPage() {
@@ -164,6 +165,11 @@ function StudioContent() {
 
       <Reveal delay={20}>
         <StudyTimer />
+      </Reveal>
+
+      {/* Milestone reminder — visibile anche in Studio */}
+      <Reveal delay={25}>
+        <MilestonesCard db={db} />
       </Reveal>
 
       {!hasSessions ? (
