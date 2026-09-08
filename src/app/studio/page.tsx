@@ -51,6 +51,11 @@ export default function StudioPage() {
     minutes: number;
     note?: string;
     attachments?: StudyAttachment[];
+    focus?: 1 | 2 | 3 | 4 | 5 | null;
+    energy?: 1 | 2 | 3 | 4 | 5 | null;
+    materialId?: string | null;
+    mapId?: string | null;
+    subjectId?: string | null;
   }) {
     const s: StudySession = editing
       ? {
@@ -60,6 +65,12 @@ export default function StudioPage() {
           minutes: p.minutes,
           note: p.note,
           attachments: p.attachments,
+          focus: p.focus ?? null,
+          energy: p.energy ?? null,
+          materialId: p.materialId ?? null,
+          mapId: p.mapId ?? null,
+          subjectId: p.subjectId ?? null,
+          updatedAt: nowISO(),
         }
       : {
           id: uid(),
@@ -68,6 +79,11 @@ export default function StudioPage() {
           minutes: p.minutes,
           note: p.note,
           attachments: p.attachments,
+          focus: p.focus ?? null,
+          energy: p.energy ?? null,
+          materialId: p.materialId ?? null,
+          mapId: p.mapId ?? null,
+          subjectId: p.subjectId ?? null,
           createdAt: nowISO(),
         };
     updateDB((d) => ({ ...d, studySessions: upsert(d.studySessions, s) }));

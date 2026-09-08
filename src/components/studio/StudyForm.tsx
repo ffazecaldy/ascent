@@ -37,6 +37,11 @@ export function StudyForm({
     minutes: number;
     note?: string;
     attachments?: StudyAttachment[];
+    focus?: 1 | 2 | 3 | 4 | 5 | null;
+    energy?: 1 | 2 | 3 | 4 | 5 | null;
+    materialId?: string | null;
+    mapId?: string | null;
+    subjectId?: string | null;
   }) => void;
 }) {
   const db = useDB();
@@ -71,6 +76,10 @@ export function StudyForm({
   const [customDraft, setCustomDraft] = useState("");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const [fFocus, setFFocus] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
+  const [fEnergy, setFEnergy] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
+  const [fMaterialId, setFMaterialId] = useState("");
+  const [fMapId, setFMapId] = useState("");
 
   // Sincronizza i campi a ogni apertura/switch crea↔modifica
   useEffect(() => {
@@ -82,12 +91,20 @@ export function StudyForm({
         setFSubject(editing.subject);
         setFMin(String(editing.minutes));
         setFNote(editing.note ?? "");
+        setFFocus(editing.focus ?? null);
+        setFEnergy(editing.energy ?? null);
+        setFMaterialId(editing.materialId ?? "");
+        setFMapId(editing.mapId ?? "");
         setRemovedIds([]);
       } else {
         setFDate(today);
         setFSubject(SUBJECT_PRESETS[0]);
         setFMin("");
         setFNote("");
+        setFFocus(null);
+        setFEnergy(null);
+        setFMaterialId("");
+        setFMapId("");
         setRemovedIds([]);
       }
       setPendingFiles([]);
@@ -109,6 +126,23 @@ export function StudyForm({
     );
     return out;
   }, [savedSubjects, derivedCustoms, editing]);
+
+  /** Materiali Vault: prima quelli della materia corrente, poi il resto (con prefisso materia). */
+  const materialOptions = useMemo(() => {
+    const cur = fSubject.trim();
+    const mats = [...db.studyMaterials];
+    mats.sort((a, b) => {
+      const am = (a.subject ?? "") === cur ? 0 : 1;
+      const bm = (b.subject ?? "") === cur ? 0 : 1;
+      if (am !== bm) return am - bm;
+      return a.title.localeCompare(b.title, "it");
+    });
+    return mats;
+  }, [db.studyMaterials, fSubject]);
+
+  /** Se l'id selezionato non esiste più nel DB, il Select mostra l'opzione vuota. */
+  const materialValue = db.studyMaterials.some((m) => m.id === fMaterialId) ? fMaterialId : "";
+  const mapValue = db.knowledgeMaps.some((m) => m.id === fMapId) ? fMapId : "";
 
   /** Salva la nuova materia nel DB (persistente) e la seleziona. */
   function addCustom() {
@@ -180,6 +214,11 @@ export function StudyForm({
       minutes: Math.round(Number(fMin)),
       note: fNote.trim() || undefined,
       attachments: attachments.length > 0 ? attachments : undefined,
+      focus: fFocus,
+      energy: fEnergy,
+      materialId: fMaterialId || null,
+      mapId: fMapId || null,
+      subjectId: db.studySubjects.find((s) => s.name === fSubject.trim())?.id ?? null,
     });
   }
 
@@ -271,6 +310,80 @@ export function StudyForm({
             value={fNote}
             onChange={(e) => setFNote(e.target.value)}
           />
+        </Field>
+      </div>
+
+      {/* ——— Concentrazione / Energia ——— */}
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <div>
+          <Label>Concentrazione</Label>
+          <div className="flex gap-1.5" role="group" aria-label="Concentrazione">
+            {([1, 2, 3, 4, 5] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                aria-label={`Concentrazione ${v} su 5`}
+                aria-pressed={fFocus === v}
+                onClick={() => setFFocus(fFocus === v ? null : v)}
+                className={`h-8 w-8 rounded-lg border text-sm font-medium transition-colors ${
+                  fFocus === v
+                    ? "border-accent bg-accent/15 text-accent"
+                    : "border-border text-muted-foreground hover:border-border-strong"
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <Label>Energia</Label>
+          <div className="flex gap-1.5" role="group" aria-label="Energia">
+            {([1, 2, 3, 4, 5] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                aria-label={`Energia ${v} su 5`}
+                aria-pressed={fEnergy === v}
+                onClick={() => setFEnergy(fEnergy === v ? null : v)}
+                className={`h-8 w-8 rounded-lg border text-sm font-medium transition-colors ${
+                  fEnergy === v
+                    ? "border-accent bg-accent/15 text-accent"
+                    : "border-border text-muted-foreground hover:border-border-strong"
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ——— Link materiale / mappa ——— */}
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label="Materiale Vault (opzionale)">
+          <Select value={materialValue} onChange={(e) => setFMaterialId(e.target.value)}>
+            <option value="">—</option>
+            {materialOptions.map((m) => {
+              const cur = fSubject.trim();
+              const showPrefix = m.subject && m.subject !== cur;
+              return (
+                <option key={m.id} value={m.id}>
+                  {showPrefix ? `${m.title} — ${m.subject}` : m.title}
+                </option>
+              );
+            })}
+          </Select>
+        </Field>
+        <Field label="Mappa (opzionale)">
+          <Select value={mapValue} onChange={(e) => setFMapId(e.target.value)}>
+            <option value="">—</option>
+            {db.knowledgeMaps.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </Select>
         </Field>
       </div>
 
