@@ -180,7 +180,8 @@ export type GoalType =
   | "lettura_minuti" // minuti di lettura (stima dal progresso libri: 1 pagina ≈ 3 min)
   | "lettura_pagine" // pagine LETTE nel giorno (da readingLog, dato reale)
   | "allenamento" // almeno un workout nel giorno
-  | "ore_produttive"; // minuti produttivi PC >= target
+  | "ore_produttive" // minuti produttivi PC >= target
+  | "studio_minuti"; // minuti di studio nel giorno (da studySessions)
 
 /** Obiettivo personalizzato (check manuale, non calcolato) */
 export interface CustomGoal {
@@ -302,6 +303,12 @@ export interface StudySession {
   note?: string;
   attachments?: StudyAttachment[]; // file allegati (es. PDF), blob in IndexedDB
   createdAt: string;
+  subjectId?: string | null; // lega a StudySubject.id (lazy in UI, nessun backfill in migrazione)
+  focus?: 1 | 2 | 3 | 4 | 5 | null; // concentrazione percepita
+  energy?: 1 | 2 | 3 | 4 | 5 | null; // energia percepita
+  materialId?: string | null; // lega a StudyMaterial.id
+  mapId?: string | null; // lega a KnowledgeMap.id
+  updatedAt?: string; // ISO ultima modifica
 }
 
 /** Allegato di una sessione di studio: metadati nel DB, blob in IndexedDB (id). */
@@ -318,6 +325,12 @@ export interface StudySubject {
   id: string;
   name: string;
   createdAt: string;
+  color?: string | null; // hex opzionale per badge/chip
+  icon?: string | null; // emoji o chiave icona
+  weeklyTargetMin?: number | null; // obiettivo minuti settimanali
+  examDate?: string | null; // "yyyy-MM-dd" — data esame opzionale
+  archived?: boolean; // true = nascosta dai select (storico conservato)
+  updatedAt?: string; // ISO ultima modifica
 }
 
 /** Mappe di conoscenza — nodo di una mind-map */
@@ -366,6 +379,8 @@ export interface StudyMaterial {
   summaryModel?: string; // modello Ollama usato
   summaryAt?: string; // quando è stato generato
   subject?: string; // materia opzionale (lega a StudySubject.name)
+  status?: "da_studiare" | "in_ripasso" | "completato"; // avanzamento studio
+  flashcards?: { q: string; a: string }[]; // domande/risposte (manuali o generate)
   createdAt: string;
   updatedAt: string;
 }
@@ -467,7 +482,7 @@ export interface DB {
   badges: Badge[];
 }
 
-export const DB_VERSION = 14;
+export const DB_VERSION = 15;
 
 /**
  * Regola di transazione ricorrente mensile (affitto, abbonamenti...).

@@ -194,6 +194,16 @@ export function migrate(db: DB): DB {
     } else if (out.version < 14) {
       // v13 → v14: Milestone con deadline — nuova collezione `milestones` vuota.
       out = { ...out, version: 14, milestones: out.milestones ?? [] };
+    } else if (out.version < 15) {
+      // v14 → v15: Zona Studio v2 — campi opzionali su sessioni/materie/materiali + goal studio_minuti.
+      // Nessun backfill di subjectId (risolto lazy in UI); garantisce solo array presenti.
+      out = {
+        ...out,
+        version: 15,
+        studySessions: out.studySessions ?? [],
+        studySubjects: out.studySubjects ?? [],
+        studyMaterials: out.studyMaterials ?? [],
+      };
     } else {
       break;
     }
