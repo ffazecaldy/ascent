@@ -12,7 +12,7 @@ import { useDB } from "@/lib/storage";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Reveal } from "@/components/ui/Reveal";
-import { ActivityHeatmap, BarsChart, DonutChart } from "@/components/charts";
+import { ActivityHeatmap, BarsChart, DonutChart, HEATMAP_COLORS } from "@/components/charts";
 import { addDaysKey, todayKey, monthKeyOf, weekStartKey } from "@/lib/dates";
 import { last7Minutes, subjectColor } from "./constants";
 
@@ -61,11 +61,16 @@ export function StudyCharts() {
       if (r >= 0.25) return 2;
       return 1;
     };
-    const weeks: { date: string; level: 0 | 1 | 2 | 3 | 4 }[][] = [];
+    const weeks: { date: string; level: 0 | 1 | 2 | 3 | 4; value: number }[][] = [];
     for (let w = 0; w < 12; w++) {
-      weeks.push(days.slice(w * 7, w * 7 + 7).map((c) => ({ date: c.date, level: levelOf(c.min) })));
+      weeks.push(days.slice(w * 7, w * 7 + 7).map((c) => ({ date: c.date, level: levelOf(c.min), value: c.min })));
     }
-    return { weeks, total: days.reduce((a, d) => a + d.min, 0) };
+    // Etichetta mese solo sulla colonna in cui il mese cambia.
+    const MONTHS = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
+    const colMonth = weeks.map((w) => Number(w[0].date.slice(5, 7)) - 1);
+    const monthLabels = colMonth.map((m, i) => (i === 0 || m !== colMonth[i - 1] ? MONTHS[m] : null));
+    const activeDays = weeks.flat().filter((c) => c.level > 0).length;
+    return { weeks, total: days.reduce((a, d) => a + d.min, 0), monthLabels, activeDays };
   }, [sessions, today]);
 
   return (
@@ -135,14 +140,31 @@ export function StudyCharts() {
         <Card hairline="accent" className="h-full">
           <CardHeader>
             <div>
-              <CardTitle>Ultime 12 settimane</CardTitle>
-              <CardSubtitle>Minuti di studio per giorno</CardSubtitle>
+              <CardTitle>Calendario studio</CardTitle>
+              <CardSubtitle>
+                {heat.activeDays > 0
+                  ? `${heat.activeDays} giorni attivi · ${heat.total} min totali`
+                  : "Nessuna sessione nel periodo"}
+              </CardSubtitle>
             </div>
             <Badge tone="info">
               <span className="tnum">{heat.total} min</span>
             </Badge>
           </CardHeader>
-          <ActivityHeatmap weeks={heat.weeks} />
+          <ActivityHeatmap
+            weeks={heat.weeks}
+            size={20}
+            gap={4}
+            monthLabels={heat.monthLabels}
+            todayKey={today}
+          />
+          <div className="mt-3 flex items-center justify-end gap-1.5">
+            <span className="mr-1 text-[11px] text-muted-foreground">Meno</span>
+            {HEATMAP_COLORS.map((c) => (
+              <span key={c} className="h-3 w-3 rounded-[3px]" style={{ backgroundColor: c }} />
+            ))}
+            <span className="ml-1 text-[11px] text-muted-foreground">Più</span>
+          </div>
         </Card>
       </Reveal>
     </div>

@@ -307,45 +307,95 @@ export function DonutChart({
 
 // ------------------------------------------------------------
 // ActivityHeatmap — calendario stile GitHub (ultimi N giorni)
-// Livelli: 0..4
+// Livelli: 0..4 — palette condivisa (export per la legenda).
+// Opzioni: size/gap (celle), monthLabels (etichette mese per
+// colonna), todayKey (anello su oggi), value nei cell → tooltip.
 // ------------------------------------------------------------
+export const HEATMAP_COLORS = ["var(--bg-elev-3)", "#27354f", "#31519e", "#4C7EFF", VIOLET];
+
 export function ActivityHeatmap({
   weeks,
-  // Scala d'attività su brand blu→azzurro; celle vuote dal tema via var(--...)
-  levelColors = ["var(--bg-elev-3)", "#27354f", "#31519e", "#4C7EFF", VIOLET],
+  levelColors = HEATMAP_COLORS,
   weekLabels = ["L", "M", "M", "G", "V", "S", "D"],
   onPick,
+  size = 14,
+  gap = 3,
+  monthLabels,
+  todayKey,
 }: {
-  weeks: { date: string; level: 0 | 1 | 2 | 3 | 4 }[][]; // array di settimane (colonne), ogni settimana = 7 celle
+  weeks: { date: string; level: 0 | 1 | 2 | 3 | 4; value?: number }[][]; // array di settimane (colonne), ogni settimana = 7 celle
   levelColors?: string[];
   weekLabels?: string[];
   onPick?: (date: string) => void;
+  /** lato cella in px (default 14) */
+  size?: number;
+  /** gap tra celle in px (default 3) */
+  gap?: number;
+  /** etichetta mese per colonna (null = nessuna); stessa lunghezza di weeks */
+  monthLabels?: (string | null)[];
+  /** "yyyy-MM-dd" (da todayKey(timezone)) → anello evidenza su oggi */
+  todayKey?: string;
 }) {
+  const cellStyle = { width: size, height: size };
+  const radius = Math.max(3, Math.round(size / 5));
   return (
     <div className="flex gap-1 overflow-x-auto">
-      <div className="flex flex-col justify-between py-0.5 pr-1 text-[11px] text-muted-foreground">
+      <div className="flex flex-col pr-1" style={{ gap, paddingTop: monthLabels ? 14 + gap : 0 }}>
         {weekLabels.map((l, i) => (
-          <span key={i} className="h-3 leading-3" style={{ height: 14 }}>
+          <span
+            key={i}
+            className="flex items-center text-[11px] leading-none text-muted-foreground"
+            style={cellStyle}
+          >
             {l}
           </span>
         ))}
       </div>
-      <div className="flex gap-[3px]">
-        {weeks.map((week, wi) => (
-          <div key={wi} className="flex flex-col gap-[3px]">
-            {week.map((cell, di) => (
-              <div
-                key={di}
-                role="button"
-                tabIndex={0}
-                title={cell.date}
-                onClick={() => onPick?.(cell.date)}
-                style={{ backgroundColor: levelColors[cell.level] }}
-                className="h-[14px] w-[14px] cursor-pointer rounded-[3px] transition-transform hover:scale-125"
-              />
+      <div>
+        {monthLabels && (
+          <div className="mb-0 flex" style={{ gap, height: 14 }}>
+            {monthLabels.map((l, i) => (
+              <span
+                key={i}
+                className="whitespace-nowrap text-[11px] leading-none text-muted-foreground"
+                style={{ width: size }}
+              >
+                {l ?? ""}
+              </span>
             ))}
           </div>
-        ))}
+        )}
+        <div className="flex" style={{ gap }}>
+          {weeks.map((week, wi) => (
+            <div key={wi} className="flex flex-col" style={{ gap }}>
+              {week.map((c, di) => {
+                const isToday = todayKey != null && c.date === todayKey;
+                return (
+                  <div
+                    key={di}
+                    role="button"
+                    tabIndex={0}
+                    title={c.value != null && c.value > 0 ? `${c.date} · ${c.value} min` : c.date}
+                    onClick={() => onPick?.(c.date)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onPick?.(c.date);
+                      }
+                    }}
+                    style={{
+                      ...cellStyle,
+                      borderRadius: radius,
+                      backgroundColor: levelColors[c.level],
+                      boxShadow: isToday ? "0 0 0 1.5px var(--accent)" : undefined,
+                    }}
+                    className="cursor-pointer transition-transform hover:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
