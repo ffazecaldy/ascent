@@ -223,6 +223,12 @@ export function ascordDay(db: DB, dayKey: string): AscordDayResult {
         value = pcMinutes;
         met = value >= target;
         break;
+      case "studio_minuti":
+        value = db.studySessions
+          .filter((s) => s.date === dayKey)
+          .reduce((s, x) => s + (x.minutes || 0), 0);
+        met = value >= target;
+        break;
     }
     byGoal[g.id] = { met, value, target };
   }
@@ -866,6 +872,7 @@ export const GOAL_LABELS: Record<GoalType, string> = {
   lettura_pagine: "Pagine lette",
   allenamento: "Allenati",
   ore_produttive: "Ore produttive al PC",
+  studio_minuti: "Minuti di studio",
 };
 
 // ------------------------------------------------------------
@@ -1029,6 +1036,10 @@ function weeklyGoalValue(db: DB, g: WeeklyGoal, dayKey: string): number {
         .filter((r) => inRange(r.date))
         .reduce((sum, r) => sum + (r.pages || 0), 0);
     }
+    case "studio_minuti":
+      return db.studySessions
+        .filter((s) => inRange(s.date))
+        .reduce((sum, s) => sum + (s.minutes || 0), 0);
     case "finanze_check":
       return db.transactions.filter((t) => inRange(t.date)).length;
     case "trade_log":
@@ -1105,6 +1116,7 @@ export const WEEKLY_GOAL_LABELS: Record<string, string> = {
   allenamento: "Allenamenti",
   ore_produttive: "Ore produttive",
   disciplina_ok: "Disciplina",
+  studio_minuti: "Minuti di studio",
 };
 
 // ------------------------------------------------------------

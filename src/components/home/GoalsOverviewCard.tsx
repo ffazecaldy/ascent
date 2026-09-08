@@ -101,6 +101,14 @@ function weeklyProgress(db: DB, g: WeeklyGoal): PeriodProgress {
         target: g.targetValue,
         unit: "pagg.",
       };
+    case "studio_minuti":
+      return {
+        value: db.studySessions
+          .filter((s) => inRange(s.date))
+          .reduce((sum, s) => sum + (s.minutes || 0), 0),
+        target: g.targetValue,
+        unit: "min",
+      };
     case "finanze_check":
       return { value: txs, target: g.targetValue, unit: "" };
     case "trade_log":

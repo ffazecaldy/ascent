@@ -64,6 +64,9 @@ export function buildCoachContext(db: DB): string {
     lines.push("Sport: nessun allenamento questa settimana.");
   }
 
+  const studyMin = db.studySessions.filter((s) => s.date >= ws && s.date <= addDaysKey(ws, 6)).reduce((a, s) => a + (s.minutes || 0), 0);
+  lines.push(studyMin > 0 ? `Studio: ${studyMin} min questa settimana.` : "Studio: nessuna sessione questa settimana.");
+
   // --- PC / produttività ---
   lines.push(`Minuti al PC (sett.): ${num(pcMinutesInWeek(db, ws))}.`);
 

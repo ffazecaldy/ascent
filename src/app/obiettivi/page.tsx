@@ -65,6 +65,7 @@ const WEEKLY_ICONS: Record<WeeklyGoalType, IconName> = {
   allenamento: "dumbbell",
   ore_produttive: "monitor",
   disciplina_ok: "clipboard",
+  studio_minuti: "book-open",
   workout_count: "dumbbell",
   book_pages: "book",
   pc_hours: "monitor",
@@ -206,6 +207,14 @@ function weeklyProgress(db: DB, g: WeeklyGoal): PeriodProgress {
           .reduce((sum, r) => sum + (r.pages || 0), 0),
         target: g.targetValue,
         unit: "pagg.",
+      };
+    case "studio_minuti":
+      return {
+        value: db.studySessions
+          .filter((s) => inRange(s.date))
+          .reduce((sum, s) => sum + (s.minutes || 0), 0),
+        target: g.targetValue,
+        unit: "min",
       };
     case "finanze_check":
       return { value: txs, target: g.targetValue, unit: "" };
