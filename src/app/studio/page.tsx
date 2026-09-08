@@ -19,6 +19,7 @@ import { StudyForm } from "@/components/studio/StudyForm";
 import { StudyLog } from "@/components/studio/StudyLog";
 import { StudyTimer } from "@/components/studio/StudyTimer";
 import { StudyKpis } from "@/components/studio/StudyKpis";
+import { StudyStats } from "@/components/studio/StudyStats";
 import { StudyCharts } from "@/components/studio/StudyCharts";
 import { SubjectManager } from "@/components/studio/SubjectManager";
 import { Icon } from "@/components/ui/Icon";
@@ -137,6 +138,7 @@ export default function StudioPage() {
           <Reveal delay={30}>
             <StudyKpis />
           </Reveal>
+          <StudyStats />
           <StudyCharts />
           <Reveal delay={30}>
             <SubjectManager />

@@ -1383,6 +1383,10 @@ function disciplinePnlBucket(trades: Trade[]): DisciplinePnlBucket {
   };
 }
 
+// ------------------------------------------------------------
+// Correlazione Disciplina → P&L
+// ------------------------------------------------------------
+
 /**
  * Correlazione disciplina → P&L: raggruppa i trade (chiusi) per esito di
  * disciplina — rispettati (tradeRespected === true), violati (=== false) e
@@ -1404,4 +1408,63 @@ export function disciplinePnlSplit(db: DB, trades: Trade[]): DisciplinePnlSplit 
     violated: disciplinePnlBucket(violated),
     none: disciplinePnlBucket(none),
   };
+}
+
+// ------------------------------------------------------------
+// Studio — stats avanzate: funzioni pure sul DB (mai persistite).
+// Streak studio PURO: conta i giorni consecutivi con >=1 sessione
+// terminanti a `today`; se `today` non ha sessioni lo streak è 0 anche se ieri era presente
+// ieri era presente (NESSUN freeze: a differenza di activityStreak).
+// ------------------------------------------------------------
+export interface StudyStats {
+  totalMin: number;
+  sessions: number;
+  avgMin: number;
+  bestDay: { date: string; min: number } | null;
+  avgFocus: number | null;
+  streakDays: number;
+  perSubject: { name: string; min: number }[];
+}
+
+export function studyStreak(db: DB, today: string): number {
+  const days = new Set<string>();
+  for (const s of db.studySessions) days.add(s.date);
+  let streak = 0;
+  let cursor = today;
+  while (days.has(cursor)) {
+    streak++;
+    cursor = addDaysKey(cursor, -1);
+  }
+  return streak;
+}
+
+export function studyStats(db: DB, from: string, to: string): StudyStats {
+  const inRange = db.studySessions.filter((s) => s.date >= from && s.date <= to);
+  const totalMin = inRange.reduce((sum, s) => sum + (s.minutes || 0), 0);
+  const sessions = inRange.length;
+  const avgMin = sessions > 0 ? totalMin / sessions : 0;
+
+  const byDay = new Map<string, number>();
+  for (const s of inRange) byDay.set(s.date, (byDay.get(s.date) ?? 0) + (s.minutes || 0));
+  let bestDay: StudyStats["bestDay"] = null;
+  for (const [date, min] of byDay) {
+    if (!bestDay || min > bestDay.min || (min === bestDay.min && date > bestDay.date)) {
+      bestDay = { date, min };
+    }
+  }
+
+  const focuses = inRange
+    .map((s) => s.focus)
+    .filter((f): f is 1 | 2 | 3 | 4 | 5 => f != null);
+  const avgFocus = focuses.length > 0 ? focuses.reduce((a, b) => a + b, 0) / focuses.length : null;
+
+  const bySubject = new Map<string, number>();
+  for (const s of inRange) bySubject.set(s.subject, (bySubject.get(s.subject) ?? 0) + (s.minutes || 0));
+  const perSubject = Array.from(bySubject.entries())
+    .map(([name, min]) => ({ name, min }))
+    .sort((a, b) => b.min - a.min || a.name.localeCompare(b.name));
+
+  const streakDays = studyStreak(db, to);
+
+  return { totalMin, sessions, avgMin, bestDay, avgFocus, streakDays, perSubject };
 }
