@@ -16,7 +16,7 @@ import {
 } from "@/lib/dates";
 import type { DB } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
-import { ActivityHeatmap } from "@/components/charts";
+import { ActivityHeatmap, HEATMAP_COLORS } from "@/components/charts";
 
 type Cell = { date: string; level: 0 | 1 | 2 | 3 | 4 };
 
@@ -80,7 +80,7 @@ export function ActivityHeatmapCard({ db }: { db: DB }) {
       <ActivityHeatmap weeks={weeks} />
       <div className="mt-3 flex items-center justify-end gap-1.5">
         <span className="mr-1 text-[11px] text-muted-foreground">Meno</span>
-        {["#1a1a1d", "#27282e", "#3a4c78", "#4C7EFF", "#8aadff"].map((c) => (
+        {HEATMAP_COLORS.map((c) => (
           <span
             key={c}
             className="h-3 w-3 rounded-[3px]"

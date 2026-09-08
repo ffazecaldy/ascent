@@ -50,6 +50,7 @@ const emptyDB = (): DB => ({
   studySubjects: [],
   knowledgeMaps: [],
   studyMaterials: [],
+  reviewCards: [],
   customGoals: [],
   customGoalChecks: [],
   readingLog: [],
@@ -204,6 +205,10 @@ export function migrate(db: DB): DB {
         studySubjects: out.studySubjects ?? [],
         studyMaterials: out.studyMaterials ?? [],
       };
+    } else if (out.version < 16) {
+      // v15 → v16: Ripasso flashcard — nuova collezione `reviewCards` vuota
+      // (SM-2 semplificato, carte generate dalle flashcards del Vault).
+      out = { ...out, version: 16, reviewCards: out.reviewCards ?? [] };
     } else {
       break;
     }
@@ -495,6 +500,7 @@ function dedupeCollections(db: DB): DB {
     recurringRules: dedupeById(db.recurringRules),
     knowledgeMaps: dedupeById(db.knowledgeMaps),
     studyMaterials: dedupeById(db.studyMaterials),
+    reviewCards: dedupeById(db.reviewCards),
     customGoals: dedupeById(db.customGoals),
     customGoalChecks: dedupeById(db.customGoalChecks),
     readingLog: dedupeById(db.readingLog),

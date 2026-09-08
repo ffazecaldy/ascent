@@ -23,6 +23,8 @@ import { StudyTimer } from "@/components/studio/StudyTimer";
 import { StudyKpis } from "@/components/studio/StudyKpis";
 import { StudyStats } from "@/components/studio/StudyStats";
 import { StudyCharts } from "@/components/studio/StudyCharts";
+import { StudyFocusBar } from "@/components/studio/StudyFocusBar";
+import { StudyReviewCard } from "@/components/studio/StudyReviewCard";
 import { SubjectManager } from "@/components/studio/SubjectManager";
 import { Icon } from "@/components/ui/Icon";
 import { MilestonesCard } from "@/components/home/MilestonesCard";
@@ -163,8 +165,18 @@ function StudioContent() {
         </div>
       )}
 
+      {/* Focus: obiettivo settimanale + streak, sempre in cima */}
+      <Reveal delay={15}>
+        <StudyFocusBar db={db} />
+      </Reveal>
+
       <Reveal delay={20}>
         <StudyTimer />
+      </Reveal>
+
+      {/* Ripasso flashcard — schedulazione SM-2 dal Vault */}
+      <Reveal delay={22}>
+        <StudyReviewCard db={db} />
       </Reveal>
 
       {/* Milestone reminder — visibile anche in Studio */}

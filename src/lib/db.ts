@@ -71,6 +71,7 @@ export function seedDB(): DB {
     studySubjects: [],
     knowledgeMaps: [],
     studyMaterials: [],
+    reviewCards: [],
     customGoals: [],
     customGoalChecks: [],
     readingLog: [],

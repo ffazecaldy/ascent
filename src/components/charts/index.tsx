@@ -311,7 +311,9 @@ export function DonutChart({
 // Opzioni: size/gap (celle), monthLabels (etichette mese per
 // colonna), todayKey (anello su oggi), value nei cell → tooltip.
 // ------------------------------------------------------------
-export const HEATMAP_COLORS = ["var(--bg-elev-3)", "#27354f", "#31519e", "#4C7EFF", VIOLET];
+// Scala d'attività (livelli 0..4) su viola: 0 = vuoto, poi dal più
+// scuro al più chiaro con l'intensità crescente. Export per la legenda.
+export const HEATMAP_COLORS = ["var(--bg-elev-3)", "#3b2f63", "#6d28d9", "#8b5cf6", "#c4b5fd"];
 
 export function ActivityHeatmap({
   weeks,

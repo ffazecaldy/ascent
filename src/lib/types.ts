@@ -385,6 +385,37 @@ export interface StudyMaterial {
   updatedAt: string;
 }
 
+// ============================================================
+// RIPASSO — flashcard con ripetizione dilazionata (SM-2 semplificato)
+// ============================================================
+
+/**
+ * Una flashcard in ripasso. Ogni carta porta con sé lo stato dello
+ * scheduler SM-2 semplificato (le regole di scheduling pure stanno in
+ * src/lib/review.ts, nessun altro punto del codice tocca questi campi):
+ * - ease: fattore di facilità (default 2.5). Cresce con i ripassi riusciti,
+ *   cala quando la carta viene dimenticata; clampato 1.3..2.8 così gli
+ *   intervalli né esplodono né collassano.
+ * - intervalDays: giorni fino al prossimo ripasso. 0 = carta nuova o
+ *   dimenticata, da ripresentare oggi stesso.
+ * - due: day key "yyyy-MM-dd" del prossimo ripasso; il confronto con oggi è
+ *   lessicale (due <= today), niente orari o timezone extra.
+ * - lapses: quante volte la carta è stata dimenticata ("Di nuovo"):
+ *   misura dell'affidabilità, usata solo come contatore.
+ */
+export interface ReviewCard {
+  id: string;
+  materialId: string; // lega a StudyMaterial.id (la carta nasce da una sua flashcard)
+  q: string; // domanda
+  a: string; // risposta
+  ease: number;
+  intervalDays: number;
+  due: string;
+  lapses: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Risparmi — conto di accumulo progressivo per investimenti futuri */
 export interface SavingsGoal {
   id: string;
@@ -471,6 +502,8 @@ export interface DB {
   studySubjects: StudySubject[];
   knowledgeMaps: KnowledgeMap[];
   studyMaterials: StudyMaterial[];
+  /** Carte di ripasso SM-2 semplificato generate dalle flashcards del Vault (v16) */
+  reviewCards: ReviewCard[];
   customGoals: CustomGoal[];
   customGoalChecks: CustomGoalCheck[];
   milestones: Milestone[];
@@ -482,7 +515,7 @@ export interface DB {
   badges: Badge[];
 }
 
-export const DB_VERSION = 15;
+export const DB_VERSION = 16;
 
 /**
  * Regola di transazione ricorrente mensile (affitto, abbonamenti...).
