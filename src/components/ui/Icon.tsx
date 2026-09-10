@@ -297,6 +297,12 @@ const PATHS = {
       <path d="m12 5 7 7-7 7" />
     </>
   ),
+  "arrow-left": (
+    <>
+      <path d="M19 12H5" />
+      <path d="m12 19-7-7 7-7" />
+    </>
+  ),
   menu: (
     <>
       <path d="M4 6h16" />

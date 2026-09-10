@@ -17,6 +17,7 @@ import { Reveal } from "@/components/ui/Reveal";
 import { WellnessForm } from "@/components/benessere/WellnessForm";
 import { WellnessKpis } from "@/components/benessere/WellnessKpis";
 import { WellnessCharts } from "@/components/benessere/WellnessCharts";
+import { SleepMonthTable } from "@/components/benessere/SleepMonthTable";
 import { WellnessLog as WellnessLogList } from "@/components/benessere/WellnessLog";
 import { Icon } from "@/components/ui/Icon";
 
@@ -119,6 +120,9 @@ export default function BenesserePage() {
         <>
           <Reveal delay={30}>
             <WellnessCharts />
+          </Reveal>
+          <Reveal delay={35}>
+            <SleepMonthTable />
           </Reveal>
           <Reveal delay={40}>
             <WellnessLogList onEdit={openEdit} />
