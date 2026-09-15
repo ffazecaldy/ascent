@@ -419,6 +419,57 @@ export function markHydrated(): void {
         ((remote as DB).transactions.length > 0 ||
           (remote as DB).trades.length > 0 ||
           (remote as DB).pcUsageLogs.length > 0);
+      // Merge UNIONE a chiavi: qualunque collezione abbia voci da solo un
+      // lato (es. materie/milestone scritte direttamente nel file centrale)
+      // arriva comunque nel browser. Il server ha già dedup per id+timestamp.
+      if (remoteValid) {
+        const r = remote as DB;
+        let changed = false;
+        const merged: DB = { ...local };
+        const LIST_KEYS_LOCAL: (keyof DB)[] = [
+          "transactions", "trades", "pcUsageLogs", "books", "workouts",
+          "studySessions", "studySubjects", "knowledgeMaps", "studyMaterials",
+          "customGoals", "customGoalChecks", "readingLog", "milestones",
+          "savingsGoals", "savingsDeposits", "recurringRules", "wellnessLogs",
+          "badges", "setups", "setupRules", "tradeSetupRules", "firmExpenses",
+          "payouts", "weeklyReviews", "categories", "pcAppCategoryMap", "dailyGoals", "weeklyGoals",
+        ];
+        for (const key of LIST_KEYS_LOCAL) {
+          const lArr = (merged[key] as unknown[]) ?? [];
+          const rArr = (r[key] as unknown[]) ?? [];
+          if (rArr.length === 0) continue;
+          const seen = new Set(
+            lArr.map((it) =>
+              typeof it === "object" && it !== null && "id" in it
+                ? String((it as { id: unknown }).id)
+                : JSON.stringify(it)
+            )
+          );
+          const fresh = rArr.filter((it) => {
+            const k =
+              typeof it === "object" && it !== null && "id" in it
+                ? String((it as { id: unknown }).id)
+                : JSON.stringify(it);
+            return !seen.has(k);
+          });
+          if (fresh.length > 0) {
+            (merged[key] as unknown[]) = [...lArr, ...fresh];
+            changed = true;
+          }
+        }
+        // settings: vince il più recente
+        const sTs = (s: DB["settings"]) => s?.updatedAt ?? "";
+        if (sTs(r.settings) > sTs(merged.settings)) {
+          merged.settings = { ...merged.settings, ...r.settings };
+          changed = true;
+        }
+        if (changed) {
+          cache = migrate(merged);
+          saveDB(cache);
+          listeners.forEach((l) => l());
+          return;
+        }
+      }
       if (remoteHasData && !localHasData) {
         cache = migrate({ ...emptyDB(), ...(remote as DB), settings: { ...emptyDB().settings, ...(remote as DB).settings } });
         saveDB(cache);
