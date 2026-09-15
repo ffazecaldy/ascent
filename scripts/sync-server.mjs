@@ -17,6 +17,9 @@ import os from "node:os";
 const PORT = Number(process.env.ASCEND_SYNC_PORT ?? 4878);
 const TOKEN = process.env.ASCEND_SYNC_TOKEN ?? "ascend-sync";
 const DATA_DIR = path.join(os.homedir(), "AppData", "Local", "Ascend");
+// Root dei materiali didattici serviti da /files (PDF, foto, note)
+const UNI_ROOT = process.env.ASCEND_UNI_ROOT
+  ?? path.join(os.homedir(), "OneDrive - Florian Elmazi", "Documenti", "UNI");
 const DB_FILE = path.join(DATA_DIR, "sync-db.json");
 const MAX_BODY = 100 * 1024 * 1024; // 100 MB: un DB con anni di log resta sotto
 
@@ -218,6 +221,41 @@ const server = http.createServer(async (req, res) => {
     // /api/db — scarica la copia del server
     if (req.method === "GET" && url.pathname === "/api/db") {
       json(res, 200, { ok: true, db: loadDb(), mergedAt });
+      return;
+    }
+
+    // /files?path=... — serve i materiali didattici (PDF/immagini) dalla UNI_ROOT.
+    if (req.method === "GET" && url.pathname === "/files") {
+      if (!authOk(req, url)) {
+        json(res, 401, { ok: false, error: "token non valido" });
+        return;
+      }
+      const rel = (url.searchParams.get("path") ?? "").split("\\").join("/");
+      if (!rel || rel.includes("..") || rel.startsWith("/")) {
+        json(res, 400, { ok: false, error: "path non valido" });
+        return;
+      }
+      const OK_EXT = new Set([".pdf", ".png", ".jpg", ".jpeg", ".txt", ".md"]);
+      const dot = rel.lastIndexOf(".");
+      const ext = dot >= 0 ? rel.slice(dot).toLowerCase() : "";
+      if (!OK_EXT.has(ext)) {
+        json(res, 415, { ok: false, error: "estensione non servita" });
+        return;
+      }
+      const abs = path.join(UNI_ROOT, rel);
+      if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
+        json(res, 404, { ok: false, error: "file non trovato" });
+        return;
+      }
+      const MIME = { ".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".txt": "text/plain; charset=utf-8", ".md": "text/plain; charset=utf-8" };
+      const buf = fs.readFileSync(abs);
+      res.writeHead(200, {
+        "Content-Type": MIME[ext],
+        "Content-Length": buf.length,
+        "Access-Control-Allow-Origin": CORS["Access-Control-Allow-Origin"],
+        "Cache-Control": "no-store",
+      });
+      res.end(buf);
       return;
     }
 
