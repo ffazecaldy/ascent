@@ -209,6 +209,10 @@ export function migrate(db: DB): DB {
       // v15 → v16: Ripasso flashcard — nuova collezione `reviewCards` vuota
       // (SM-2 semplificato, carte generate dalle flashcards del Vault).
       out = { ...out, version: 16, reviewCards: out.reviewCards ?? [] };
+    } else if (out.version < 17) {
+      // v16 → v17: Obiettivi primari — esito esame opzionale su StudySubject (examPassed).
+      // Campo opzionale: nessun backfill necessario (pattern come v9 per PCAppCategoryMap.color).
+      out = { ...out, version: 17 };
     } else {
       break;
     }

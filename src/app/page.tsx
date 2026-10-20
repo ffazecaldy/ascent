@@ -13,6 +13,7 @@ import { AscendDayCard } from "@/components/home/AscendDayCard";
 import { MissingTodayCard } from "@/components/home/MissingTodayCard";
 import { CustomGoalsCard } from "@/components/home/CustomGoalsCard";
 import { MilestonesCard } from "@/components/home/MilestonesCard";
+import { PrimaryGoalsCard } from "@/components/home/PrimaryGoalsCard";
 import { DeadlinesCard } from "@/components/home/DeadlinesCard";
 import { QuickSummary } from "@/components/home/QuickSummary";
 import { BestWorstCard } from "@/components/home/BestWorstCard";
@@ -94,9 +95,12 @@ export default function HomePage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="flex flex-col gap-4">
-          <Reveal delay={0}>
-            <MilestonesCard db={db} />
-          </Reveal>
+            <Reveal delay={0}>
+              <PrimaryGoalsCard db={db} />
+            </Reveal>
+            <Reveal delay={0}>
+              <MilestonesCard db={db} />
+            </Reveal>
           <Reveal delay={10}>
             <MissingTodayCard db={db} />
           </Reveal>

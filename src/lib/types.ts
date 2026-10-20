@@ -329,6 +329,7 @@ export interface StudySubject {
   icon?: string | null; // emoji o chiave icona
   weeklyTargetMin?: number | null; // obiettivo minuti settimanali
   examDate?: string | null; // "yyyy-MM-dd" — data esame opzionale
+  examPassed?: boolean | null; // esito esame: true = passato, false = da dare/da fare, undefined/null = non impostato
   archived?: boolean; // true = nascosta dai select (storico conservato)
   updatedAt?: string; // ISO ultima modifica
 }
@@ -515,7 +516,7 @@ export interface DB {
   badges: Badge[];
 }
 
-export const DB_VERSION = 16;
+export const DB_VERSION = 17;
 
 /**
  * Regola di transazione ricorrente mensile (affitto, abbonamenti...).

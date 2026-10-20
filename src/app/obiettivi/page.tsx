@@ -27,6 +27,8 @@ import {
   isoToDayKey,
 } from "@/lib/dates";
 import type { DB, DailyGoal, WeeklyGoal, GoalType } from "@/lib/types";
+import { primaryGoals } from "@/lib/primary-goals";
+import { formatPercent } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -890,6 +892,32 @@ export default function ObiettiviPage() {
             {(db.milestones ?? []).length === 0
               ? "Nessuna milestone: aggiungine una per vederla nel reminder della Home."
               : `${(db.milestones ?? []).filter((m) => !m.done).length} aperte · ${(db.milestones ?? []).filter((m) => m.done).length} completate.`}
+          </div>
+        </Card>
+      </Reveal>
+
+      {/* — Obiettivi primari (dettaglio live da lib/primary-goals) — */}
+      <Reveal delay={110}>
+        <Card className="mt-4">
+          <CardHeader>
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle>Obiettivi primari</CardTitle>
+                <CardSubtitle>
+                  Università, fisico e trading: percentuale di successo calcolata live dai tuoi dati.
+                </CardSubtitle>
+              </div>
+              <Link href="/obiettivi/primari" className="shrink-0">
+                <Button variant="outline" size="sm">
+                  Apri →
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <div className="px-4 pb-3 text-[12px] text-secondary-text">
+            {primaryGoals(db)
+              .map((g) => `${g.label} ${g.pct != null ? formatPercent(g.pct, 0) : "—"}`)
+              .join(" · ") || "Percentuali non ancora disponibili."}
           </div>
         </Card>
       </Reveal>

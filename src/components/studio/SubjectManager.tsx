@@ -19,7 +19,7 @@ import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog, Modal } from "@/components/ui/Modal";
-import { Field, Input, Label } from "@/components/ui/Field";
+import { Field, Input, Label, Select } from "@/components/ui/Field";
 import { Icon } from "@/components/ui/Icon";
 import { EmptyState, ProgressBar, Toggle } from "@/components/ui/Misc";
 import { SUBJECT_PRESETS, SUBJECT_PALETTE, subjectColor, subjectIcon } from "./constants";
@@ -304,6 +304,7 @@ function SubjectEditModal({
     row?.weeklyTargetMin != null ? String(row.weeklyTargetMin) : ""
   );
   const [fExam, setFExam] = useState(row?.examDate ?? "");
+  const [fPassed, setFPassed] = useState<boolean>(row?.examPassed === true);
   const [fColor, setFColor] = useState<string | null>(row?.color ?? null);
   const [fArchived, setFArchived] = useState(row?.archived ?? false);
 
@@ -319,6 +320,7 @@ function SubjectEditModal({
         color: fColor,
         weeklyTargetMin: target,
         examDate: exam,
+        examPassed: exam != null ? fPassed : null,
         archived: fArchived,
         updatedAt: nowISO(),
       }),
@@ -354,6 +356,20 @@ function SubjectEditModal({
           <Input type="date" value={fExam} onChange={(e) => setFExam(e.target.value)} />
         </Field>
       </div>
+
+      {fExam.trim() !== "" && (
+        <div className="mt-3">
+          <Field label="Esito esame">
+            <Select
+              value={fPassed ? "passato" : "dafare"}
+              onChange={(e) => setFPassed(e.target.value === "passato")}
+            >
+              <option value="dafare">Da fare</option>
+              <option value="passato">Passato</option>
+            </Select>
+          </Field>
+        </div>
+      )}
 
       <div className="mt-3">
         <Label>Colore</Label>
