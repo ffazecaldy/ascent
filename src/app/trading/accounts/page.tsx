@@ -247,10 +247,19 @@ function EvalProgressRow({ progress, currency, masked }: { progress: EvalProgres
           {reached ? <Icon name="sprout" size={11} className="ml-1" /> : null}
         </span>
       </div>
-      <ProgressBar value={progress.saldo} max={progress.target} tone={reached ? "success" : "accent"} className="mt-1.5 h-2" />
+      <ProgressBar
+        value={Math.max(0, progress.pnl)}
+        max={Math.max(1, progress.gainTarget ?? 1)}
+        tone={reached ? "success" : "accent"}
+        className="mt-1.5 h-2"
+      />
       <p className="mt-1 flex flex-wrap items-baseline gap-x-1 text-[11px] text-secondary-text">
-        saldo <Amount value={progress.saldo} currency={currency} masked={masked} /> / obiettivo{" "}
-        <Amount value={progress.target} currency={currency} masked={masked} />
+        utile <Amount value={progress.pnl} currency={currency} masked={masked} /> / +{" "}
+        <Amount value={progress.gainTarget ?? 0} currency={currency} masked={masked} />
+        <span className="text-muted-foreground">
+          · saldo <Amount value={progress.saldo} currency={currency} masked={masked} /> /{" "}
+          <Amount value={progress.target ?? 0} currency={currency} masked={masked} />
+        </span>
         {reached && <span className="font-semibold text-success">· raggiunto</span>}
       </p>
     </div>
@@ -385,6 +394,13 @@ function AccountFormModal({
       setError("L'obiettivo eval deve essere positivo (o vuoto).");
       return;
     }
+    // È il SALDO FINALE, non l'utile: deve superare il capitale (es. 53.000, non 3.000).
+    if (evalTarget != null && evalTarget <= capital) {
+      setError(
+        `L'obiettivo eval è il saldo FINALE: deve essere maggiore del capitale (${capital.toLocaleString("it-IT")}). Se vuoi inserire solo l'utile, sommalo al capitale.`
+      );
+      return;
+    }
     onSave({
       name,
       type: form.type,
@@ -480,23 +496,38 @@ function AccountFormModal({
         </Field>
 
         {/* Obiettivo eval: visibile SOLO quando lo stato è 'eval' */}
-        {form.status === "eval" && (
-          <Field label="Obiettivo eval (saldo da raggiungere)" className="sm:col-span-2">
-            <Input
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="any"
-              value={form.evalTarget}
-              placeholder="es. 52.000"
-              onChange={(e) => set({ evalTarget: e.target.value })}
-            />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Saldo (capitale + P&amp;L chiusi) da raggiungere per la promozione automatica a Finanziato. In valuta
-              nativa ({form.nativeCurrency}). Vuoto = nessun obiettivo.
-            </p>
-          </Field>
-        )}
+        {form.status === "eval" && (() => {
+          const cap = Number(form.capital);
+          const tgt = Number(form.evalTarget);
+          const gain =
+            Number.isFinite(cap) && Number.isFinite(tgt) && cap > 0 && tgt > cap ? tgt - cap : null;
+          const gainPct = gain != null ? (gain / cap) * 100 : null;
+          return (
+            <Field label="Obiettivo eval (saldo finale da raggiungere)" className="sm:col-span-2">
+              <Input
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="any"
+                value={form.evalTarget}
+                placeholder="es. 53.000 (capitale 50.000 + 6%)"
+                onChange={(e) => set({ evalTarget: e.target.value })}
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Saldo FINALE (capitale + P&amp;L chiusi) per la promozione a Finanziato. In valuta nativa
+                ({form.nativeCurrency}). Vuoto = nessun obiettivo.
+                {gain != null && (
+                  <> Con capitale {form.capital} l&apos;obiettivo è un utile di{" "}
+                    <span className="font-semibold text-accent">
+                      +{gain.toLocaleString("it-IT")} ({gainPct?.toFixed(1)}%)
+                    </span>{" "}
+                    — il progresso conta l&apos;utile, non il saldo.
+                  </>
+                )}
+              </p>
+            </Field>
+          );
+        })()}
 
         <GroupLabel>Limiti &amp; rischio</GroupLabel>
         <Field label="Limite loss giornaliero">

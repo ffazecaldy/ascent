@@ -44,6 +44,8 @@ export interface TradingAccountRow {
   account: TradingAccount;
   saldo: number; // capitale + pnl chiuso (valuta nativa)
   target: number | null; // evalTarget (solo account in eval)
+  pnl: number; // pnl chiuso (valuta nativa) — il progresso eval conta QUESTO
+  gainTarget: number | null; // utile richiesto (target − capitale)
   pct: number | null; // 100 se finanziato, round(progressPct) in eval, altrimenti null
   funded: boolean;
 }
@@ -208,7 +210,7 @@ export function tradingAccountsProgress(db: DB): TradingAccountRow[] {
         : a.status === "eval" && a.evalTarget != null && ep.progressPct != null
           ? Math.round(ep.progressPct)
           : null;
-      return { account: a, saldo: ep.saldo, target: ep.target, pct, funded };
+      return { account: a, saldo: ep.saldo, target: ep.target, pnl: ep.pnl, gainTarget: ep.gainTarget, pct, funded };
     });
 }
 

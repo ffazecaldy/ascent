@@ -77,42 +77,77 @@ export function PrimaryGoalsCard({ db }: { db: DB }) {
           description="I tuoi 3 obiettivi primari — Università, Fisico e Trading — con la percentuale di successo calcolata live dai tuoi dati."
         />
       ) : (
-        <ul className="flex flex-col gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {goals.map((g) => {
             const done = g.pct != null && g.pct >= 100;
             const hint = g.lines[0] ? (maskedMoney ? maskLine(g.lines[0]) : g.lines[0]) : undefined;
             return (
-              <li key={g.key} className="rounded-lg border border-border bg-elevated/40 p-2.5">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-accent/25 bg-accent/10">
-                    <Icon name={GOAL_ICONS[g.key]} size={13} className="text-accent" />
-                  </span>
-                  <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
-                    {g.label}
-                  </p>
+              <div
+                key={g.key}
+                className={cn(
+                  "relative overflow-hidden rounded-xl border bg-elevated/40 p-3",
+                  done ? "border-success/30" : "border-border"
+                )}
+              >
+                {/* hairline quando completato */}
+                {done && (
+                  <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-success/70 to-transparent" />
+                )}
+
+                <div className="flex items-center justify-between gap-2">
                   <span
                     className={cn(
-                      "tnum shrink-0 text-xs font-bold",
-                      g.pct == null ? "text-muted-foreground" : done ? "text-success" : "text-accent"
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border",
+                      done ? "border-success/30 bg-success/10" : "border-accent/25 bg-accent/10"
+                    )}
+                  >
+                    <Icon
+                      name={GOAL_ICONS[g.key]}
+                      size={15}
+                      className={done ? "text-success" : "text-accent"}
+                    />
+                  </span>
+                  <span
+                    className={cn(
+                      "tnum text-2xl font-bold leading-none",
+                      g.pct == null
+                        ? "text-muted-foreground"
+                        : done
+                          ? "text-success"
+                          : "text-foreground"
                     )}
                   >
                     {maskedKpi ? maskKpi() : g.pct == null ? "—" : formatPercent(g.pct, 0)}
                   </span>
                 </div>
+
+                <p className="mt-2 truncate text-[13px] font-semibold tracking-tight text-foreground">
+                  {g.label}
+                </p>
+
                 <ProgressBar
                   value={g.pct ?? 0}
                   max={100}
                   tone={done ? "success" : "accent"}
-                  className="mt-2 h-1.5"
+                  className="mt-1.5 h-1"
+                  shimmer={false}
                 />
-                <p className="mt-1.5 truncate text-[11px] text-secondary-text">{g.headline}</p>
+
+                <p
+                  className="mt-1.5 truncate text-[11px] text-secondary-text"
+                  title={maskedKpi ? undefined : g.headline}
+                >
+                  {maskedKpi ? "dettaglio nascosto" : g.headline}
+                </p>
                 {hint && (
-                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{hint}</p>
+                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground" title={hint}>
+                    {hint}
+                  </p>
                 )}
-              </li>
+              </div>
             );
           })}
-        </ul>
+        </div>
       )}
     </Card>
   );

@@ -29,6 +29,7 @@ import {
 import type { DB, DailyGoal, WeeklyGoal, GoalType } from "@/lib/types";
 import { primaryGoals } from "@/lib/primary-goals";
 import { formatPercent } from "@/lib/format";
+import { kpiMasked, maskKpi } from "@/lib/privacy";
 import { cn } from "@/lib/cn";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -916,7 +917,11 @@ export default function ObiettiviPage() {
           </CardHeader>
           <div className="px-4 pb-3 text-[12px] text-secondary-text">
             {primaryGoals(db)
-              .map((g) => `${g.label} ${g.pct != null ? formatPercent(g.pct, 0) : "—"}`)
+              .map((g) => {
+                const pct =
+                  g.pct == null ? "—" : kpiMasked(db.settings.privacyMode) ? maskKpi() : formatPercent(g.pct, 0);
+                return `${g.label} ${pct}`;
+              })
               .join(" · ") || "Percentuali non ancora disponibili."}
           </div>
         </Card>

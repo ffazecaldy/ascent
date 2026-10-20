@@ -1215,10 +1215,14 @@ export function drawdownSeries(trades: Trade[]): { date: string; value: number }
 }
 
 export interface EvalProgress {
-  target: number | null; // saldo obiettivo (valuta nativa)
+  target: number | null; // saldo obiettivo (valuta nativa, es. 53.000)
   capital: number;
   pnl: number; // pnl chiuso (valuta nativa)
   saldo: number; // capitale + pnl
+  /** Utile richiesto dalla valutazione (target − capitale, es. +3.000 sul 6% di 50k). */
+  gainTarget: number | null;
+  /** Progresso dell'UTILE verso gainTarget (0% al via, 100% a target raggiunto).
+   *  NON saldo/target: con capitale 50k e target 53k il saldo parte già al 94%. */
   progressPct: number | null;
   reached: boolean;
 }
@@ -1230,12 +1234,17 @@ export function evalProgress(db: DB, account: TradingAccount): EvalProgress {
   const saldo = account.capital + pnl;
   const target =
     account.status === "eval" && account.evalTarget != null ? account.evalTarget : null;
+  const gainTarget = target != null ? target - account.capital : null;
   return {
     target,
     capital: account.capital,
     pnl,
     saldo,
-    progressPct: target && target !== 0 ? Math.min(100, (saldo / target) * 100) : null,
+    gainTarget,
+    progressPct:
+      gainTarget != null && gainTarget > 0
+        ? Math.min(100, Math.max(0, (pnl / gainTarget) * 100))
+        : null,
     reached: target != null && saldo >= target,
   };
 }

@@ -3,24 +3,25 @@
 // ============================================================
 // ASCEND — Obiettivi · Dettaglio "Obiettivi primari"
 // Università, fisico e trading: percentuale di successo calcolata
-// live dai dati (read-only: nessun updateDB, tutto derivato da
-// lib/primary-goals). Privacy: importi € mascherati in modalità
-// standard/completa (stesso approccio delle card Home).
+// live dai dati. Gli ESAMI sono modificabili qui (esito, data,
+// nuovo esame → collezione studySubjects). Privacy: importi €
+// mascherati in modalità standard/completa (approccio card Home).
 // ============================================================
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useDB } from "@/lib/storage";
+import { useDB, updateDB, uid, nowISO } from "@/lib/storage";
 import {
   primaryGoals,
   examsList,
   sportAdherence,
   tradingAccountsProgress,
+  type ExamRow,
 } from "@/lib/primary-goals";
 import { convertToBase, tradingStats } from "@/lib/compute";
 import { formatMoney, formatPercent } from "@/lib/format";
 import { moneyMasked, kpiMasked, maskMoney, maskKpi } from "@/lib/privacy";
-import type { DB } from "@/lib/types";
+import type { DB, StudySubject } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -59,6 +60,123 @@ function parseDay(s: string): Date | null {
 function fmtDayIT(s: string, opts: Intl.DateTimeFormatOptions): string {
   const d = parseDay(s);
   return d ? d.toLocaleDateString("it-IT", opts) : s;
+}
+
+// ------------------------------------------------------------
+// Esami — riga EDITABILE: esito (passato / da dare / non impostato)
+// e data esame inline. Scrive su studySubjects via updateDB.
+// ------------------------------------------------------------
+
+function ExamItemRow({
+  row,
+  onPatch,
+}: {
+  row: ExamRow;
+  onPatch: (id: string, patch: Partial<StudySubject>) => void;
+}) {
+  const e = row;
+  const future = e.examDate != null && e.daysLeft != null && e.daysLeft > 0;
+  const pill = (active: boolean, sel: boolean) =>
+    cn(
+      "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+      sel
+        ? active
+          ? "border-success/40 bg-success/15 text-success"
+          : "border-warning/40 bg-warning/15 text-warning"
+        : "border-border-strong bg-elevated text-muted-foreground hover:border-accent/40 hover:text-accent"
+    );
+  return (
+    <li className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-lg border border-border bg-elevated/40 px-3 py-2">
+      <p className="min-w-0 truncate text-[13px] font-medium text-foreground" title={e.subject.name}>
+        {e.subject.name}
+      </p>
+
+      {/* esito: click sul pill attivo per tornare a "non impostato" */}
+      <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          aria-pressed={e.passed === true}
+          title={e.passed === true ? "Togli esito" : "Segna passato"}
+          onClick={() => onPatch(e.subject.id, { examPassed: e.passed === true ? null : true })}
+          className={pill(true, e.passed === true)}
+        >
+          <Icon name="check" size={10} strokeWidth={2.5} className="mr-1 inline" />
+          passato
+        </button>
+        <button
+          type="button"
+          aria-pressed={e.passed === false}
+          title={e.passed === false ? "Togli esito" : "Segna da dare"}
+          onClick={() => onPatch(e.subject.id, { examPassed: e.passed === false ? null : false })}
+          className={pill(false, e.passed === false)}
+        >
+          da dare
+        </button>
+      </div>
+
+      {/* data esame inline */}
+      <input
+        type="date"
+        value={e.examDate ?? ""}
+        onChange={(ev) => onPatch(e.subject.id, { examDate: ev.target.value || null, examPassed: ev.target.value ? e.passed : null })}
+        aria-label={`Data esame ${e.subject.name}`}
+        title="Data esame"
+        className="ml-auto h-7 w-[8.6rem] shrink-0 rounded-lg border border-border-strong bg-muted px-2 text-[11px] text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
+      />
+
+      {e.examDate && (
+        <span className="tnum shrink-0 text-[11px] text-muted-foreground">
+          {fmtDayIT(e.examDate, { day: "numeric", month: "short", year: "numeric" })}
+        </span>
+      )}
+      {future && e.daysLeft != null && (
+        <Badge tone={e.daysLeft <= 14 ? "warning" : "default"}>
+          {e.daysLeft === 0 ? "oggi" : `tra ${e.daysLeft} gg`}
+        </Badge>
+      )}
+    </li>
+  );
+}
+
+// ------------------------------------------------------------
+// Nuovo esame — inline: nome materia + data → StudySubject
+// ------------------------------------------------------------
+
+function AddExamForm({ onAdd }: { onAdd: (name: string, date: string) => void }) {
+  const [name, setName] = useState("");
+  const [date, setDate] = useState("");
+  const submit = () => {
+    if (!name.trim()) return;
+    onAdd(name.trim(), date);
+    setName("");
+    setDate("");
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border-strong bg-muted/30 px-3 py-2">
+      <Icon name="plus" size={13} className="shrink-0 text-accent" />
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") submit();
+        }}
+        placeholder="Nome materia / esame"
+        aria-label="Nome materia"
+        className="h-7 min-w-0 flex-1 rounded-lg border border-border-strong bg-muted px-2 text-[12px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
+      />
+      <input
+        type="date"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+        aria-label="Data esame"
+        title="Data esame"
+        className="h-7 w-[8.6rem] shrink-0 rounded-lg border border-border-strong bg-muted px-2 text-[11px] text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
+      />
+      <Button variant="outline" size="sm" onClick={submit} disabled={!name.trim()}>
+        Aggiungi esame
+      </Button>
+    </div>
+  );
 }
 
 // ------------------------------------------------------------
@@ -112,6 +230,30 @@ export default function ObiettiviPrimariPage() {
 
   const pctText = (pct: number | null, masked = maskedKpi) =>
     pct == null ? "—" : masked ? maskKpi() : formatPercent(pct, 0);
+
+  // — Esami: patch su studySubjects (esito/data) + creazione nuovo esame —
+  const patchSubject = (id: string, patch: Partial<StudySubject>) =>
+    updateDB((d) => ({
+      ...d,
+      studySubjects: d.studySubjects.map((s) =>
+        s.id === id ? { ...s, ...patch, updatedAt: nowISO() } : s
+      ),
+    }));
+  const addExam = (name: string, date: string) =>
+    updateDB((d) => ({
+      ...d,
+      studySubjects: [
+        ...d.studySubjects,
+        {
+          id: uid(),
+          name,
+          examDate: date || null,
+          examPassed: false, // appena aggiunto = da dare
+          createdAt: nowISO(),
+          updatedAt: nowISO(),
+        },
+      ],
+    }));
 
   return (
     <div className="space-y-6">
@@ -187,7 +329,7 @@ export default function ObiettiviPrimariPage() {
             <EmptyState
               icon={<Icon name="book-open" size={34} className="text-accent" />}
               title="Nessun esame in programma"
-              description="Aggiungi materie ed esami in Studio per vederli qui con esito e countdown."
+              description="Aggiungi qui sotto il tuo primo esame: nome materia e data. Oppure gestisci le materie in Studio."
               action={
                 <Link href="/studio">
                   <Button variant="outline" size="sm">Vai a Studio →</Button>
@@ -196,34 +338,18 @@ export default function ObiettiviPrimariPage() {
             />
           ) : (
             <ul className="space-y-2">
-              {exams.map((e, i) => {
-                const tone = e.passed === true ? "success" : e.passed === false ? "warning" : "default";
-                const label = e.passed === true ? "passato" : e.passed === false ? "da dare" : "non impostato";
-                const future = e.examDate != null && e.daysLeft != null && e.daysLeft > 0;
-                return (
-                  <li
-                    key={`${e.subject.id}-${i}`}
-                    className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-lg border border-border bg-elevated/40 px-3 py-2"
-                  >
-                    <p className="min-w-0 truncate text-[13px] font-medium text-foreground">
-                      {e.subject.name}
-                    </p>
-                    <Badge tone={tone}>{label}</Badge>
-                    {e.examDate && (
-                      <span className="ml-auto text-[11px] text-muted-foreground">
-                        {fmtDayIT(e.examDate, { day: "numeric", month: "short", year: "numeric" })}
-                      </span>
-                    )}
-                    {future && e.daysLeft != null && (
-                      <Badge tone={e.daysLeft <= 14 ? "warning" : "default"}>
-                        {e.daysLeft === 0 ? "oggi" : `tra ${e.daysLeft} gg`}
-                      </Badge>
-                    )}
-                  </li>
-                );
-              })}
+              {exams.map((e, i) => (
+                <ExamItemRow
+                  key={`${e.subject.id}-${i}`}
+                  row={e}
+                  onPatch={patchSubject}
+                />
+              ))}
             </ul>
           )}
+
+          {/* Nuovo esame: sempre disponibile in fondo alla lista */}
+          <AddExamForm onAdd={addExam} />
         </Card>
       </Reveal>
 
@@ -373,7 +499,10 @@ export default function ObiettiviPrimariPage() {
                     <div className="mt-2">
                       <div className="flex items-center justify-between gap-2 text-[11px]">
                         <span className="tnum text-muted-foreground">
-                          {money(r.saldo)} / {money(r.target)}
+                          utile {money(Math.max(0, r.pnl))} / +{money(r.gainTarget ?? 0)}
+                          <span className="ml-1.5 text-muted-foreground/70">
+                            (saldo {money(r.saldo)} / {money(r.target)})
+                          </span>
                         </span>
                         <span className={cn("tnum font-medium", r.funded ? "text-success" : "text-secondary-text")}>
                           {r.pct == null ? "—" : `${Math.round(r.pct)}%`}
@@ -381,8 +510,8 @@ export default function ObiettiviPrimariPage() {
                       </div>
                       <ProgressBar
                         className="mt-1.5 h-1.5"
-                        value={r.saldo}
-                        max={Math.max(1, r.target)}
+                        value={Math.max(0, r.pnl)}
+                        max={Math.max(1, r.gainTarget ?? 1)}
                         tone={r.funded ? "success" : "accent"}
                       />
                     </div>
