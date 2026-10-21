@@ -11,7 +11,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { primaryGoals } from "@/lib/primary-goals";
+import { primaryGoals, loggingHealth, tradingPhase } from "@/lib/primary-goals";
 import { formatPercent } from "@/lib/format";
 import { moneyMasked, kpiMasked, maskMoney, maskKpi } from "@/lib/privacy";
 import type { DB } from "@/lib/types";
@@ -51,6 +51,10 @@ export function PrimaryGoalsCard({ db }: { db: DB }) {
   // DB vergine: nessun goal ha ancora i dati per calcolare nulla.
   const virgin = goals.length > 0 && goals.every((g) => !g.ready);
 
+  // Piano 5 anni: allarme registrazioni (≥14 gg senza dati) + fase trading.
+  const health = useMemo(() => loggingHealth(db), [db]);
+  const phase = useMemo(() => tradingPhase(db), [db]);
+
   return (
     <Card hairline="accent" className="flex flex-col gap-3">
       <CardHeader>
@@ -70,6 +74,20 @@ export function PrimaryGoalsCard({ db }: { db: DB }) {
         </Link>
       </CardHeader>
 
+      {/* Allarme "piano morto": ≥14 giorni (o mai) senza registrazioni */}
+      {health.alarm && (
+        <div className="flex items-start gap-2.5 rounded-lg border border-danger/40 bg-danger/5 px-3 py-2.5">
+          <Icon name="alert" size={16} className="mt-0.5 shrink-0 text-danger" />
+          <p className="text-[12px] leading-relaxed text-foreground">
+            <span className="font-semibold text-danger">Il piano è fermo</span>
+            {health.daysSinceLast == null
+              ? " — nessuna registrazione nel DB. "
+              : ` — ultima registrazione ${health.daysSinceLast === 0 ? "oggi" : `${health.daysSinceLast} giorni fa`} (${health.lastLabel}). `}
+            Registra oggi un allenamento, una sessione di studio o il peso: le % salgono solo sui dati.
+          </p>
+        </div>
+      )}
+
       {virgin ? (
         <EmptyState
           icon={<Icon name="trophy" size={34} className="text-warning" />}
@@ -80,7 +98,10 @@ export function PrimaryGoalsCard({ db }: { db: DB }) {
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {goals.map((g) => {
             const done = g.pct != null && g.pct >= 100;
-            const hint = g.lines[0] ? (maskedMoney ? maskLine(g.lines[0]) : g.lines[0]) : undefined;
+            // Trading: in sessione d'esame l'hint diventa il promemoria di freeze
+            const rawHint =
+              g.key === "trading" && phase.key === "freeze" ? phase.note : g.lines[0];
+            const hint = rawHint ? (maskedMoney ? maskLine(rawHint) : rawHint) : undefined;
             return (
               <div
                 key={g.key}

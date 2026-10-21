@@ -444,6 +444,38 @@ export default function SetupsPage() {
     discTone === "success" ? "success" : discTone === "danger" ? "danger" : "accent";
 
   // ---- mutazioni
+  // Regole di rischio del piano 5 anni: setup creato con un click, mai
+  // duplicato (cerca per nome). È una scrittura reale voluta dall'utente,
+  // non un seed automatico.
+  const RISK_SETUP_NAME = "Regole di rischio — piano 5 anni";
+  const RISK_RULES = [
+    "Rischio per trade ≤ 1% del conto (0,5% i primi 6 mesi del reale)",
+    "Stop loss sempre, impostato PRIMA dell'ingresso — no stop = no trade",
+    "Daily stop −3%: chiudi il terminale, fine giornata",
+    "Max 2 trade al giorno in fase formativa — mai tradare per recuperare",
+    "Niente trade in sessione d'esame o dopo le 23:00",
+    "Ogni trade nel journal con setup + emozione: altrimenti non è mai successo",
+  ];
+  const riskSetupExists = db.setups.some((s) => s.name === RISK_SETUP_NAME);
+  const createRiskRulesSetup = () => {
+    if (riskSetupExists) return;
+    const setupId = uid();
+    updateDB((d) => ({
+      ...d,
+      setups: upsert(d.setups, { id: setupId, name: RISK_SETUP_NAME, createdAt: nowISO() }),
+      setupRules: [
+        ...d.setupRules,
+        ...RISK_RULES.map((text, i) => ({
+          id: uid(),
+          setupId,
+          text,
+          sortOrder: i + 1,
+          active: true,
+        })),
+      ],
+    }));
+  };
+
   const createSetup = () => {
     const name = newName.trim();
     if (!name) return;
@@ -537,7 +569,15 @@ export default function SetupsPage() {
           title="Playbook & Disciplina"
           subtitle="Definisci i tuoi setup e controlla quanto li rispetti."
           action={
-            <Button onClick={() => setCreateOpen(true)}>+ Nuovo setup</Button>
+            <div className="flex shrink-0 items-center gap-2">
+              {!riskSetupExists && (
+                <Button variant="outline" onClick={createRiskRulesSetup}>
+                  <Icon name="shield" size={14} className="mr-1" />
+                  Regole di rischio (piano)
+                </Button>
+              )}
+              <Button onClick={() => setCreateOpen(true)}>+ Nuovo setup</Button>
+            </div>
           }
         />
       </Reveal>

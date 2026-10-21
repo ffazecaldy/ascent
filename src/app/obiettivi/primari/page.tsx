@@ -16,6 +16,7 @@ import {
   examsList,
   sportAdherence,
   tradingAccountsProgress,
+  tradingPhase,
   type ExamRow,
 } from "@/lib/primary-goals";
 import { convertToBase, tradingStats } from "@/lib/compute";
@@ -220,6 +221,9 @@ export default function ObiettiviPrimariPage() {
     [db.payouts]
   );
   const winRate = useMemo(() => tradingStats(db.trades).winRate, [db.trades]);
+
+  // — Fase del piano (formazione vs sessione/freeze) —
+  const phase = useMemo(() => tradingPhase(db), [db]);
 
   const statusTone: Record<string, "info" | "success" | "danger"> = {
     eval: "info",
@@ -455,12 +459,22 @@ export default function ObiettiviPrimariPage() {
               </span>
               <div>
                 <CardTitle>Trading</CardTitle>
-                <CardSubtitle>Conti prop e personali: saldo, target di valutazione e payout.</CardSubtitle>
+                <CardSubtitle>
+                  {phase.key === "freeze"
+                    ? phase.note
+                    : "Conti prop e personali: utile vs obiettivo eval e payout."}
+                </CardSubtitle>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Badge tone={phase.key === "freeze" ? "warning" : "info"}>
+                  <Icon name="timer" size={9} strokeWidth={2.5} />
+                  {phase.label}
+                </Badge>
+                <span className="tnum text-xl font-semibold text-foreground">
+                  {pctText(goalByKey.get("trading")?.pct ?? null)}
+                </span>
               </div>
             </div>
-            <span className="tnum shrink-0 text-xl font-semibold text-foreground">
-              {pctText(goalByKey.get("trading")?.pct ?? null)}
-            </span>
           </CardHeader>
 
           <ProgressBar

@@ -270,3 +270,69 @@ export function tradingProgress(db: DB): PrimaryGoal {
 export function primaryGoals(db: DB): PrimaryGoal[] {
   return [universitaProgress(db), fisicoProgress(db), tradingProgress(db)];
 }
+
+// ============================================================
+// Piano 5 anni — fase trading e salute delle registrazioni
+// Derivati puri: nessuna persistenza.
+// ============================================================
+
+export type TradingPhase = {
+  key: "formazione" | "freeze";
+  label: string;
+  note: string;
+};
+
+/**
+ * Fase del piano in base al mese (sessioni d'esame: gennaio, giugno,
+ * luglio, settembre → freeze trading; il resto dell'anno = formazione).
+ */
+export function tradingPhase(db: DB): TradingPhase {
+  const m = Number(todayKey(db.settings.timezone).slice(5, 7));
+  const freeze = m === 1 || m === 6 || m === 7 || m === 9;
+  return freeze
+    ? {
+        key: "freeze",
+        label: "Sessione — freeze",
+        note: "Sessione d'esame: solo review del journal (30 min/sett). Gli esami non si negoziano.",
+      }
+    : {
+        key: "formazione",
+        label: "Fase formazione",
+        note: "Slot fisso 2-3 h/settimana: teoria, playbook, backtest.",
+      };
+}
+
+export interface LoggingHealth {
+  /** Giorni dall'ultima registrazione su qualsiasi raccolta chiave; null = mai registrato nulla. */
+  daysSinceLast: number | null;
+  /** Etichetta dell'ultima registrazione (es. "allenamento"). */
+  lastLabel: string | null;
+  /** true = ≥14 giorni senza registrazioni (o DB vergine): allarme "piano morto". */
+  alarm: boolean;
+}
+
+/**
+ * Salute delle registrazioni: il piano a 5 anni è vivo solo se i dati
+ * entrano nell'app. Guarda workouts, studio, trade, benessere, lettura,
+ * transazioni e check obiettivi — la più recente vince.
+ */
+export function loggingHealth(db: DB): LoggingHealth {
+  const candidates: { date: string; label: string }[] = [
+    ...db.workouts.map((w) => ({ date: w.date, label: "allenamento" })),
+    ...db.studySessions.map((s) => ({ date: s.date, label: "sessione di studio" })),
+    ...db.trades.map((t) => ({ date: t.closeDate.slice(0, 10), label: "trade" })),
+    ...db.wellnessLogs.map((w) => ({ date: w.date, label: "log benessere" })),
+    ...db.readingLog.map((r) => ({ date: r.date, label: "lettura" })),
+    ...db.transactions.map((t) => ({ date: t.date, label: "transazione" })),
+    ...db.customGoalChecks.map((c) => ({ date: c.date, label: "obiettivo spuntato" })),
+  ];
+  const last = candidates.sort((a, b) => b.date.localeCompare(a.date))[0] ?? null;
+  const today = todayKey(db.settings.timezone);
+  const daysSinceLast =
+    last != null ? Math.max(0, daysBetweenKeys(last.date.slice(0, 10), today)) : null;
+  return {
+    daysSinceLast,
+    lastLabel: last?.label ?? null,
+    alarm: daysSinceLast == null || daysSinceLast >= 14,
+  };
+}
