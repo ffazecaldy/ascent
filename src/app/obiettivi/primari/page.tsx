@@ -17,15 +17,17 @@ import {
   sportAdherence,
   tradingAccountsProgress,
   tradingPhase,
+  demoToRealCriteria,
   type ExamRow,
 } from "@/lib/primary-goals";
 import { convertToBase, tradingStats } from "@/lib/compute";
+import { todayKey } from "@/lib/dates";
 import { formatMoney, formatPercent } from "@/lib/format";
 import { moneyMasked, kpiMasked, maskMoney, maskKpi } from "@/lib/privacy";
 import type { DB, StudySubject } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { Card, CardHeader, CardTitle, CardSubtitle } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
+import { Badge, StatusDot } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar, EmptyState, SectionHeader } from "@/components/ui/Misc";
 import { Reveal } from "@/components/ui/Reveal";
@@ -181,6 +183,19 @@ function AddExamForm({ onAdd }: { onAdd: (name: string, date: string) => void })
 }
 
 // ------------------------------------------------------------
+// Milestone del piano 5 anni — create SOLO su click dell'utente
+// (mai seed): si salta quelle già presenti per titolo.
+// ------------------------------------------------------------
+
+const PLAN_MILESTONES = [
+  { title: "Bulk: 91-92 kg", date: "2027-08-31", note: "+4 kg da 87,5 — ~0,35 kg/mese, aderenza ≥85%", color: "#2ddf9e" },
+  { title: "Cut: 86-87 kg", date: "2028-08-31", note: "−0,5 kg/settimana × 12 settimane dopo il bulk", color: "#4c7eff" },
+  { title: "Laurea triennale Informatica UNIMIB", date: "2029-09-30", note: "180 CFU, zero debito, media ≥26", color: "#f0b429" },
+  { title: "Sistema trading validato (6/6 criteri)", date: "2031-03-31", note: "PF ≥1,3 ×3 mesi, 100+ trade, disciplina ≥90%", color: "#8b5cf6" },
+  { title: "Laurea magistrale IA", date: "2031-06-30", note: "Fine percorso 5 anni — qui inizia il reale", color: "#f472b6" },
+];
+
+// ------------------------------------------------------------
 // Pagina
 // ------------------------------------------------------------
 
@@ -224,6 +239,40 @@ export default function ObiettiviPrimariPage() {
 
   // — Fase del piano (formazione vs sessione/freeze) —
   const phase = useMemo(() => tradingPhase(db), [db]);
+
+  // — Criteri demo → reale (derivati dal journal) —
+  const criteria = useMemo(() => demoToRealCriteria(db), [db]);
+
+  // — Milestone del piano: quelle non ancora presenti —
+  const missingMilestones = useMemo(
+    () => PLAN_MILESTONES.filter((m) => !db.milestones.some((x) => x.title === m.title)),
+    [db.milestones]
+  );
+  const createPlanMilestones = () => {
+    if (missingMilestones.length === 0) return;
+    const now = nowISO();
+    updateDB((d) => ({
+      ...d,
+      milestones: [
+        ...d.milestones,
+        ...missingMilestones.map((m) => ({
+          id: uid(),
+          title: m.title,
+          note: m.note,
+          date: m.date,
+          color: m.color,
+          done: false,
+          doneAt: null,
+          createdAt: now,
+          updatedAt: now,
+        })),
+      ],
+    }));
+  };
+
+  // — Finestra revisione mensile: primi 7 giorni del mese —
+  const today = todayKey(db.settings.timezone);
+  const monthlyReviewWindow = Number(today.slice(8, 10)) <= 7;
 
   const statusTone: Record<string, "info" | "success" | "danger"> = {
     eval: "info",
@@ -273,7 +322,27 @@ export default function ObiettiviPrimariPage() {
         kicker="Progressione"
         title="Obiettivi primari"
         subtitle="Università, fisico e trading: percentuale di successo calcolata live dai tuoi dati."
+        action={
+          missingMilestones.length > 0 ? (
+            <Button variant="outline" onClick={createPlanMilestones}>
+              <Icon name="flag" size={14} className="mr-1" />
+              Milestone del piano ({missingMilestones.length})
+            </Button>
+          ) : undefined
+        }
       />
+
+      {/* — Revisione mensile: finestra primi 7 giorni del mese — */}
+      {monthlyReviewWindow && (
+        <div className="flex items-start gap-2.5 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2.5">
+          <Icon name="calendar" size={16} className="mt-0.5 shrink-0 text-accent" />
+          <p className="text-[12px] leading-relaxed text-foreground">
+            <span className="font-semibold text-accent">Revisione mensile (1 h)</span> — le 3 %
+            qui sotto, trend del peso in <span className="font-medium">/salute</span>, CFU in
+            track e fase trading. La Weekly Review della domenica la completa.
+          </p>
+        </div>
+      )}
 
       {/* — Riga riassuntiva: le tre percentuali — */}
       <div className="grid gap-3 sm:grid-cols-3">
@@ -534,6 +603,40 @@ export default function ObiettiviPrimariPage() {
               ))}
             </ul>
           )}
+
+          {/* — Criteri demo → reale (derivati dal journal) — */}
+          <div className="space-y-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+            <p className="flex items-center gap-1.5 text-[12px] font-semibold text-foreground">
+              <Icon name="shield" size={13} className="text-accent" />
+              Criteri demo → reale (6/6 prima dei soldi veri)
+            </p>
+            <ul className="space-y-1.5">
+              {criteria.map((c) => (
+                <li key={c.key} className="flex items-center gap-2 text-[12px]">
+                  {c.met === true ? (
+                    <Icon name="check" size={13} strokeWidth={3} className="shrink-0 text-success" />
+                  ) : c.met === false ? (
+                    <Icon name="x" size={13} strokeWidth={3} className="shrink-0 text-danger" />
+                  ) : (
+                    <StatusDot color="#52525b" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-secondary-text">{c.label}</span>
+                  <span
+                    className={cn(
+                      "tnum shrink-0 font-medium",
+                      c.met === true ? "text-success" : "text-secondary-text"
+                    )}
+                  >
+                    {c.value}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              6/6 entro fine università → si passa al reale scegliendo lo scenario di capitale in
+              quel momento. Prima: solo demo e backtest, zero soldi.
+            </p>
+          </div>
 
           {/* Riepilogo: payout totali in valuta base + win rate */}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-[12px] text-secondary-text">

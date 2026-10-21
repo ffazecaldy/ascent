@@ -7,10 +7,13 @@
 // ============================================================
 
 import type { DB, StudySubject, TradingAccount } from "./types";
-import { addDaysKey, parseDateKey, todayKey, weekStartKey } from "./dates";
+import { addDaysKey, isoToDayKey, parseDateKey, todayKey, weekStartKey } from "./dates";
 import {
   convertToBase,
+  disciplineStats,
+  drawdownSeries,
   evalProgress,
+  monthPnlTrades,
   sportConsecutiveWeeksDone,
   sportStreak,
   tradingStats,
@@ -335,4 +338,104 @@ export function loggingHealth(db: DB): LoggingHealth {
     lastLabel: last?.label ?? null,
     alarm: daysSinceLast == null || daysSinceLast >= 14,
   };
+}
+
+// ============================================================
+// Criteri demo → reale (piano 5 anni, sezione trading)
+// Tutto derivato dal journal: 6/6 prima di parlare di soldi veri.
+// ============================================================
+
+export interface CriterionRow {
+  key: string;
+  label: string;
+  /** Valore attuale, già formattato (it-IT). */
+  value: string;
+  /** true/false = criterio superato/no; null = non valutabile (dati insufficienti). */
+  met: boolean | null;
+}
+
+export function demoToRealCriteria(db: DB): CriterionRow[] {
+  const tz = db.settings.timezone;
+  const today = todayKey(tz);
+  const trades = db.trades;
+  const fmt = (n: number, d = 0) =>
+    n.toLocaleString("it-IT", { maximumFractionDigits: d, minimumFractionDigits: d });
+
+  // 1 — journal pieno: 100+ trade registrati
+  const tradesRow: CriterionRow = {
+    key: "trades",
+    label: "≥ 100 trade registrati nel journal",
+    value: `${trades.length}/100`,
+    met: trades.length >= 100,
+  };
+
+  // 2 — 3 mesi consecutivi profittevoli (P&L in valuta base), scandendo indietro
+  const { y, m } = parseDateKey(today);
+  let py = y;
+  let pm = m;
+  let consecutive = 0;
+  for (let i = 0; i < 12; i++) {
+    const mk = `${py}-${String(pm).padStart(2, "0")}`;
+    if (monthPnlTrades(db, mk).base > 0) consecutive++;
+    else break;
+    pm -= 1;
+    if (pm === 0) {
+      pm = 12;
+      py -= 1;
+    }
+  }
+  const monthsRow: CriterionRow = {
+    key: "months",
+    label: "3 mesi consecutivi profittevoli",
+    value: `${consecutive}/3`,
+    met: trades.length > 0 ? consecutive >= 3 : null,
+  };
+
+  // 3 — profit factor ≥ 1.3 sulle ultime 12 settimane
+  const cutoff = addDaysKey(today, -84);
+  const recent = trades.filter((t) => isoToDayKey(t.closeDate, tz) >= cutoff);
+  const st3 = tradingStats(recent);
+  const pfRow: CriterionRow = {
+    key: "pf",
+    label: "Profit factor ≥ 1,3 (ultime 12 sett.)",
+    value: st3.profitFactor != null ? st3.profitFactor.toFixed(2) : "—",
+    met: recent.length > 0 && st3.profitFactor != null ? st3.profitFactor >= 1.3 : null,
+  };
+
+  // 4 — max drawdown ≤ 5% del capitale (sensato solo con un account attivo)
+  const active = db.accounts.filter((a) => a.archived !== true);
+  let ddRow: CriterionRow = {
+    key: "dd",
+    label: "Max drawdown ≤ 5% del capitale",
+    value: active.length > 1 ? "multi-account" : "—",
+    met: null,
+  };
+  if (active.length === 1 && trades.length > 0) {
+    const series = drawdownSeries(trades.filter((t) => t.accountId === active[0].id));
+    const maxDD = series.length > 0 ? Math.abs(Math.min(...series.map((s) => s.value))) : 0;
+    const pct = active[0].capital > 0 ? (maxDD / active[0].capital) * 100 : null;
+    ddRow = {
+      key: "dd",
+      label: "Max drawdown ≤ 5% del capitale",
+      value: pct != null ? `${fmt(pct, 1)}%` : "—",
+      met: pct != null ? pct <= 5 : null,
+    };
+  }
+
+  // 5 e 6 — disciplina regole e nessun trade senza setup
+  const disc = disciplineStats(db, trades.map((t) => t.id));
+  const discRow: CriterionRow = {
+    key: "disc",
+    label: "Disciplina regole ≥ 90%",
+    value: disc.disciplinePct != null ? `${fmt(disc.disciplinePct)}%` : "—",
+    met: disc.disciplinePct != null ? disc.disciplinePct >= 90 : null,
+  };
+  const noSetupRow: CriterionRow = {
+    key: "nosetup",
+    label: "Zero trade senza setup",
+    value: `${disc.noSetupCount} senza setup`,
+    met: trades.length > 0 ? disc.noSetupCount === 0 : null,
+  };
+
+  return [tradesRow, monthsRow, pfRow, ddRow, discRow, noSetupRow];
 }
